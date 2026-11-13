@@ -27,6 +27,7 @@ describe('Chartered Asset Document Auto-Attachment', () => {
 
     const rawRequirements: AssuranceRequirement[] = SUBTYPE_STANDARD_DOCS.Vessel.map((doc, idx) => ({
       id: `REQ-VES-${idx}`,
+      docTypeId: doc.id,
       category: doc.category,
       title: doc.title,
       description: doc.description,
@@ -65,6 +66,7 @@ describe('Chartered Asset Document Auto-Attachment', () => {
 
     const rawRequirements: AssuranceRequirement[] = SUBTYPE_STANDARD_DOCS.Crew.map((doc, idx) => ({
       id: `REQ-CRW-${idx}`,
+      docTypeId: doc.id,
       category: doc.category,
       title: doc.title,
       description: doc.description,
@@ -115,6 +117,7 @@ describe('Chartered Asset Document Auto-Attachment', () => {
       inspectionCompleted: false,
       requirements: SUBTYPE_STANDARD_DOCS.Vessel.map((doc, idx) => ({
         id: generateUniqueRequirementId(uniqueId, idx),
+        docTypeId: doc.id,
         category: doc.category,
         title: doc.title,
         subtype: 'Vessel',
@@ -140,6 +143,7 @@ describe('Chartered Asset Document Auto-Attachment', () => {
 
     const rawRequirements: AssuranceRequirement[] = SUBTYPE_STANDARD_DOCS.Vessel.map((doc, idx) => ({
       id: `REQ-SUM-${idx}`,
+      docTypeId: doc.id,
       category: doc.category,
       title: doc.title,
       subtype: 'Vessel',

@@ -378,69 +378,81 @@ export function matchesActivityRequirement(
   return false;
 }
 
+interface CandidateDocumentResult extends MatchedDocumentResult {
+  expiryDate: string;
+}
+
 /**
  * Finds the best matching document for a single requirement from the provided asset context.
+ * Matches by exact document type key (docTypeId), scoped to the target object (vessel, crew, equipment),
+ * and selects the valid candidate with the latest expiry date.
  */
 export function findMatchingDocumentForRequirement(
   req: AssuranceRequirement,
   context: AssetMatchingContext
 ): MatchedDocumentResult | null {
-  const subtype = req.subtype || (context.targetSubtype as AssuranceSubtype) || 'Vessel';
-  const effectiveVessel = context.vessel || (context.selectedVesselId && context.vessels?.find((v) => v.id === context.selectedVesselId));
+  if (!req.docTypeId) return null;
+
+  const subtype: AssuranceSubtype =
+    req.subtype ||
+    (req.docTypeId.startsWith('vessel-')
+      ? 'Vessel'
+      : req.docTypeId.startsWith('crew-')
+        ? 'Crew'
+        : req.docTypeId.startsWith('eq-')
+          ? 'Equipment'
+          : (context.targetSubtype as AssuranceSubtype) || 'Vessel');
+
+  const effectiveVessel =
+    context.vessel ||
+    (context.selectedVesselId ? context.vessels?.find((v) => v.id === context.selectedVesselId) : undefined);
+  const now = Date.now();
+
+  const isValidVaultDoc = (d: MasterDocument): boolean => {
+    if (d.docTypeId !== req.docTypeId) return false;
+    if (d.verificationStatus !== 'Verified') return false;
+    if (d.complianceState === 'Expired') return false;
+    if (new Date(d.expiryDate).getTime() <= now) return false;
+    if (context.reuseSet) {
+      if (!isReusableLibraryDocument(d, context.reuseSet, context.vessels || [], [])) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const isValidCrewCert = (c: STCWDocumentItem): boolean => {
+    if (c.docTypeId !== req.docTypeId) return false;
+    if (c.verificationStatus !== 'Verified' && c.verificationStatus !== 'Expiring') return false;
+    if (new Date(c.expiryDate).getTime() <= now) return false;
+    return true;
+  };
+
+  const candidates: CandidateDocumentResult[] = [];
 
   // -------------------------------------------------------------
   // 1. VESSEL SUBTYPE MATCHING
   // -------------------------------------------------------------
-  if (subtype === 'Vessel' && effectiveVessel) {
-    // 1a. Search in MasterDocument Vault linked to this vessel
-    const linkedVaultDocs = context.documents.filter(
-      (d) =>
-        d.vesselId === effectiveVessel.id ||
-        (d.vesselAttributes?.vesselName &&
-          d.vesselAttributes.vesselName.toLowerCase() === effectiveVessel.name.toLowerCase()) ||
-        (effectiveVessel.imoNumber && d.vesselAttributes?.imoNumber === effectiveVessel.imoNumber)
-    );
+  if (subtype === 'Vessel') {
+    const targetVesselId = req.targetObjectId || effectiveVessel?.id;
+    if (targetVesselId) {
+      const vesselVaultDocs = context.documents.filter(
+        (d) =>
+          (d.vesselId === targetVesselId ||
+            (d.targetObjectType?.toLowerCase() === 'vessel' && d.targetObjectId === targetVesselId)) &&
+          isValidVaultDoc(d)
+      );
 
-    for (const doc of linkedVaultDocs) {
-      if (
-        matchesVesselRequirement(
-          req.title,
-          doc.title,
-          doc.vesselAttributes?.certType,
-          doc.certificateNo || doc.vesselAttributes?.certificateNumber
-        )
-      ) {
-        return {
+      for (const doc of vesselVaultDocs) {
+        candidates.push({
           documentId: doc.id,
           linkedDocumentId: doc.id,
           documentTitle: doc.title,
           documentVersion: doc.currentVersion || 'v1.0',
           ocrConfidence: doc.ocrConfidence || 98,
           matchedFrom: 'vault_document',
-        };
-      }
-    }
-
-    // 1b. Search in Vessel's embedded statutory certificates
-    if (effectiveVessel.statutoryCertificates && effectiveVessel.statutoryCertificates.length > 0) {
-      for (const cert of effectiveVessel.statutoryCertificates) {
-        if (matchesVesselRequirement(req.title, cert.name, undefined, cert.certificateNumber)) {
-          // Check if there's a corresponding MasterDocument in vault
-          const vaultDoc = context.documents.find(
-            (d) =>
-              d.certificateNo === cert.certificateNumber ||
-              d.title.toLowerCase() === cert.name.toLowerCase()
-          );
-
-          return {
-            documentId: vaultDoc ? vaultDoc.id : cert.id,
-            linkedDocumentId: vaultDoc ? vaultDoc.id : cert.id,
-            documentTitle: cert.name,
-            documentVersion: vaultDoc?.currentVersion || 'v1.0',
-            ocrConfidence: vaultDoc?.ocrConfidence || 96,
-            matchedFrom: 'vessel_statutory',
-          };
-        }
+          expiryDate: doc.expiryDate,
+        });
       }
     }
   }
@@ -449,8 +461,9 @@ export function findMatchingDocumentForRequirement(
   // 2. CREW SUBTYPE MATCHING
   // -------------------------------------------------------------
   if (subtype === 'Crew') {
-    const targetCrewIds =
-      context.selectedCrewIds && context.selectedCrewIds.length > 0
+    const targetCrewIds = req.targetObjectId
+      ? [req.targetObjectId]
+      : context.selectedCrewIds && context.selectedCrewIds.length > 0
         ? context.selectedCrewIds
         : context.selectedCrewId
           ? [context.selectedCrewId]
@@ -464,54 +477,59 @@ export function findMatchingDocumentForRequirement(
           ? [context.crew[0]]
           : [];
 
+    const targetCrewIdSet = new Set(targetCrews.map((c) => c.id));
+
+    // 2a. Search in MasterDocument Vault for crew documents targeting these crew members
+    const crewVaultDocs = context.documents.filter(
+      (d) =>
+        ((d.targetObjectType?.toLowerCase() === 'crew' &&
+          d.targetObjectId &&
+          targetCrewIdSet.has(d.targetObjectId)) ||
+          (d.entityType === 'Crew Certificate' &&
+            targetCrews.some(
+              (c) =>
+                d.crewAttributes?.crewName?.toLowerCase() === c.fullName.toLowerCase() ||
+                (c.passportNo && d.crewAttributes?.passportId === c.passportNo)
+            ))) &&
+        isValidVaultDoc(d)
+    );
+
+    for (const doc of crewVaultDocs) {
+      candidates.push({
+        documentId: doc.id,
+        linkedDocumentId: doc.id,
+        documentTitle: doc.title,
+        documentVersion: doc.currentVersion || 'v1.0',
+        ocrConfidence: doc.ocrConfidence || 98,
+        matchedFrom: 'vault_document',
+        expiryDate: doc.expiryDate,
+      });
+    }
+
+    // 2b. Search in Crew's STCW Layer 1 & 2 certificates (ADR 0023)
     for (const targetCrew of targetCrews) {
-      // 2a. Search in MasterDocument Vault for crew documents
-      const crewVaultDocs = context.documents.filter(
-        (d) =>
-          d.entityType === 'Crew Certificate' &&
-          (d.crewAttributes?.crewName?.toLowerCase() === targetCrew.fullName.toLowerCase() ||
-            d.crewAttributes?.passportId === targetCrew.passportNo ||
-            (effectiveVessel && d.vesselId === effectiveVessel.id))
-      );
-
-      for (const doc of crewVaultDocs) {
-        if (
-          matchesCrewRequirement(
-            req.title,
-            doc.title,
-            doc.crewAttributes?.certType,
-            doc.certificateNo
-          )
-        ) {
-          return {
-            documentId: doc.id,
-            linkedDocumentId: doc.id,
-            documentTitle: doc.title,
-            documentVersion: doc.currentVersion || 'v1.0',
-            ocrConfidence: doc.ocrConfidence || 98,
-            matchedFrom: 'vault_document',
-          };
-        }
-      }
-
-      // 2b. Search in Crew's STCW Layer 1 & 2 certificates
       const allCrewCerts: STCWDocumentItem[] = [
         ...(targetCrew.layer1CoreDocuments || []),
         ...(targetCrew.layer2Endorsements || []),
       ];
 
       for (const cert of allCrewCerts) {
-        if (matchesCrewRequirement(req.title, cert.title, cert.stcwRegulation, cert.certificateNo)) {
-          const vaultDoc = context.documents.find((d) => d.id === cert.id || d.certificateNo === cert.certificateNo);
+        if (isValidCrewCert(cert)) {
+          const vaultDoc = context.documents.find(
+            (d) =>
+              (d.id === cert.id || (cert.certificateNo && d.certificateNo === cert.certificateNo)) &&
+              isValidVaultDoc(d)
+          );
 
-          return {
+          candidates.push({
             documentId: vaultDoc ? vaultDoc.id : cert.id,
             linkedDocumentId: vaultDoc ? vaultDoc.id : cert.id,
             documentTitle: cert.title,
             documentVersion: vaultDoc?.currentVersion || 'v1.0',
             ocrConfidence: vaultDoc?.ocrConfidence || 97,
-            matchedFrom: 'crew_stcw',
-          };
+            matchedFrom: vaultDoc ? 'vault_document' : 'crew_stcw',
+            expiryDate: cert.expiryDate,
+          });
         }
       }
     }
@@ -521,35 +539,45 @@ export function findMatchingDocumentForRequirement(
   // 3. EQUIPMENT SUBTYPE MATCHING
   // -------------------------------------------------------------
   if (subtype === 'Equipment') {
-    const targetEquipment = context.selectedEquipmentId
-      ? context.equipment?.find((e) => e.id === context.selectedEquipmentId)
-      : (context.equipment && context.equipment[0]);
+    const targetEqId =
+      req.targetObjectId || context.selectedEquipmentId || context.equipment?.[0]?.id;
 
-    if (targetEquipment) {
-      // Search in MasterDocument Vault for matching equipment registers
+    if (targetEqId) {
       const eqDocs = context.documents.filter(
         (d) =>
-          (effectiveVessel && d.vesselId === effectiveVessel.id) ||
-          d.title.toLowerCase().includes(targetEquipment.name.toLowerCase()) ||
-          d.title.toLowerCase().includes(targetEquipment.equipmentIdentifier.toLowerCase())
+          d.targetObjectType?.toLowerCase() === 'equipment' &&
+          d.targetObjectId === targetEqId &&
+          isValidVaultDoc(d)
       );
 
       for (const doc of eqDocs) {
-        if (matchesEquipmentRequirement(req.title, doc.title, targetEquipment.name)) {
-          return {
-            documentId: doc.id,
-            linkedDocumentId: doc.id,
-            documentTitle: doc.title,
-            documentVersion: doc.currentVersion || 'v1.0',
-            ocrConfidence: doc.ocrConfidence || 95,
-            matchedFrom: 'equipment_cert',
-          };
-        }
+        candidates.push({
+          documentId: doc.id,
+          linkedDocumentId: doc.id,
+          documentTitle: doc.title,
+          documentVersion: doc.currentVersion || 'v1.0',
+          ocrConfidence: doc.ocrConfidence || 95,
+          matchedFrom: 'vault_document',
+          expiryDate: doc.expiryDate,
+        });
       }
     }
   }
 
-  return null;
+  if (candidates.length === 0) return null;
+
+  // Deduplicate candidates by documentId before sorting
+  const uniqueCandidates = Array.from(
+    new Map(candidates.map((c) => [c.documentId, c])).values()
+  );
+
+  // Latest expiry date wins
+  uniqueCandidates.sort(
+    (a, b) => new Date(b.expiryDate).getTime() - new Date(a.expiryDate).getTime()
+  );
+
+  const { expiryDate, ...result } = uniqueCandidates[0];
+  return result;
 }
 
 /**
