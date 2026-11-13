@@ -96,8 +96,9 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
         assuranceSets,
         activeDemoOrganization,
         sessionUser,
+        notifications,
       ),
-    [projects, activePersona, activeDemoOrganization, users, assuranceSets, sessionUser],
+    [projects, activePersona, activeDemoOrganization, users, assuranceSets, sessionUser, notifications],
   );
 
   const project = visibleProjects.find((p) => p.id === projectId);
@@ -150,7 +151,9 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     (activePersona === "Administrator" || activePersona === "C Admin") && isProjectOwnerOrganization;
   const isReadOnly = !canManage;
 
-  /* an organization asked to create a set for this project (a Responding party) can create it, even though it does not own the project */
+  /* an organization asked to create a set for this project (a Responding party), or a named
+     recipient whose organization is the request's Requesting party (an Administrator recipient),
+     can create it even though they do not own the project */
   const openRequestForViewer = useMemo(
     () =>
       project
@@ -160,8 +163,13 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
             n.projectId === project.id &&
             n.request &&
             !n.request.createdAssuranceSetId &&
-            (n.recipientUserId === sessionUser?.id ||
-              (viewingOrganization && orgFieldMatches(n.request.respondingParty || "", viewingOrganization))),
+            ((viewingOrganization && orgFieldMatches(n.request.respondingParty || "", viewingOrganization)) ||
+              (n.recipientUserId === sessionUser?.id &&
+                Boolean(
+                  viewingOrganization &&
+                    orgFieldMatches(n.request.requestingParty || "", viewingOrganization),
+                )) ||
+              n.recipientUserId === sessionUser?.id),
         )
         : undefined,
     [notifications, project, sessionUser, viewingOrganization],
