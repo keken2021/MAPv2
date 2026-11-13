@@ -104,6 +104,8 @@ export interface MasterDocument {
   verificationNotes?: string;
   /** organization that owns this evidence; used for FR-16 edit/remove and A16 reuse */
   ownerOrganization?: string;
+  /** catalog id in SUBTYPE_STANDARD_DOCS (e.g. vessel-class-cert) */
+  docTypeId?: string;
   /** referenced assurance object type when attached to an asset, person, equipment, or activity */
   targetObjectType?: AssuranceObjectType;
   /** referenced assurance object ID (e.g. VESSEL-001, CREW-101, EQ-001, ACT-...) */

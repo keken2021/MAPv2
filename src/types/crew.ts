@@ -16,6 +16,8 @@ export interface STCWDocumentItem {
   id: string;
   title: string;
   layer: STCWLayer;
+  /** catalog id in SUBTYPE_STANDARD_DOCS (e.g. crew-coc-stcw) */
+  docTypeId?: string;
   stcwRegulation: string; // e.g. STCW II/2, VI/1, V/1-1
   certificateNo: string;
   issuingAuthority: string;
