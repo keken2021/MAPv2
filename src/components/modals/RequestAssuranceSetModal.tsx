@@ -1,20 +1,19 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useMapStore } from '../../store/useMapStore';
 import { Project } from '../../types/project';
 import {
   getProjectOrganizationForPersona,
-  syncInvitedOrganizationsToParties,
   canEditProjectOrganizations,
 } from '../../utils/projectHelpers';
 import {
   getAssuranceSetRequestRecipients,
   getRequestRosterObjects,
   toSuggestedAsset,
+  RequestDirection,
 } from '../../utils/assuranceRequestHelpers';
 import { getSessionUserForPersona } from '../../utils/userRoleHelpers';
 import { Modal } from './Modal';
 import { RequestRecipientSelect } from './RequestRecipientSelect';
-import { RequestPartiesBanner } from './RequestPartiesBanner';
 import { RequestRosterObjectPicker } from './RequestRosterObjectPicker';
 import { EditParticipatingOrganizationsModal } from './EditParticipatingOrganizationsModal';
 
@@ -39,6 +38,7 @@ export const RequestAssuranceSetModal: React.FC<RequestAssuranceSetModalProps> =
     requestAssuranceSet,
   } = useMapStore();
 
+  const [direction, setDirection] = useState<RequestDirection>('ask');
   const [isEditPartiesModalOpen, setIsEditPartiesModalOpen] = useState(false);
 
   const senderOrg = getProjectOrganizationForPersona(
@@ -62,8 +62,8 @@ export const RequestAssuranceSetModal: React.FC<RequestAssuranceSetModalProps> =
   );
 
   const recipients = useMemo(
-    () => getAssuranceSetRequestRecipients(users, project, senderOrg, senderUser?.id),
-    [users, project, senderOrg, senderUser],
+    () => getAssuranceSetRequestRecipients(users, project, senderOrg, senderUser?.id, direction),
+    [users, project, senderOrg, senderUser, direction],
   );
 
   const [recipientUserId, setRecipientUserId] = useState('');
@@ -73,14 +73,26 @@ export const RequestAssuranceSetModal: React.FC<RequestAssuranceSetModalProps> =
 
   const recipient = recipients.find((r) => r.id === recipientUserId);
   const rosterObjects = useMemo(
-    () => getRequestRosterObjects(project, recipient?.organization),
-    [project, recipient],
+    () =>
+      direction === 'invite'
+        ? getRequestRosterObjects(project, senderOrg)
+        : getRequestRosterObjects(project, recipient?.organization),
+    [direction, project, senderOrg, recipient?.organization],
   );
 
   const chooseRecipient = (userId: string) => {
     setRecipientUserId(userId);
-    /* objects belong to the recipient's organization, so a new recipient starts with none */
+    /* In ask mode, objects belong to the recipient's organization, so a new recipient starts with none */
+    if (direction === 'ask') {
+      setSelectedObjectIds([]);
+    }
+  };
+
+  const toggleDirection = () => {
+    setDirection((prev) => (prev === 'ask' ? 'invite' : 'ask'));
+    setRecipientUserId('');
     setSelectedObjectIds([]);
+    setError('');
   };
 
   const toggleObject = (assetId: string) => {
@@ -90,6 +102,7 @@ export const RequestAssuranceSetModal: React.FC<RequestAssuranceSetModalProps> =
   };
 
   const resetAndClose = () => {
+    setDirection('ask');
     setRecipientUserId('');
     setSelectedObjectIds([]);
     setMessage('');
@@ -117,6 +130,7 @@ export const RequestAssuranceSetModal: React.FC<RequestAssuranceSetModalProps> =
       message: message.trim() || undefined,
       senderUserId: senderUser.id,
       senderName: senderUser.name,
+      direction,
     });
 
     if (!result.success) {
@@ -131,13 +145,13 @@ export const RequestAssuranceSetModal: React.FC<RequestAssuranceSetModalProps> =
     <>
       <Modal
         isOpen={isOpen}
-        onClose={onClose}
+        onClose={resetAndClose}
         title="Request Assurance Set"
         size="md"
         paused={isEditPartiesModalOpen}
         footer={
           <>
-            <button type="button" className="btn btn-sm btn-outline-secondary" onClick={onClose}>
+            <button type="button" className="btn btn-sm btn-outline-secondary" onClick={resetAndClose}>
               Cancel
             </button>
             <button
@@ -152,14 +166,25 @@ export const RequestAssuranceSetModal: React.FC<RequestAssuranceSetModalProps> =
         }
       >
         <p className="text-muted small mb-2">
-          Ask an organization invited to <strong>{project.name}</strong> to create an assurance set for <strong>{senderOrg}</strong>.
+          {direction === 'invite' ? (
+            <>
+              Invite an organization on <strong>{project.name}</strong> to request an assurance set from{' '}
+              <strong>{senderOrg}</strong>.
+            </>
+          ) : (
+            <>
+              Ask an organization invited to <strong>{project.name}</strong> to create an assurance set for{' '}
+              <strong>{senderOrg}</strong>.
+            </>
+          )}
         </p>
-        <RequestPartiesBanner senderOrganization={senderOrg} recipient={recipient} />
         {error && <div className="alert alert-danger py-2 small">{error}</div>}
         <RequestRecipientSelect
           recipients={recipients}
           value={recipientUserId}
           onChange={chooseRecipient}
+          direction={direction}
+          onToggleDirection={toggleDirection}
           canEditOrganizations={canEditOrganizations}
           onEditOrganizations={() => setIsEditPartiesModalOpen(true)}
         />
@@ -167,7 +192,7 @@ export const RequestAssuranceSetModal: React.FC<RequestAssuranceSetModalProps> =
           objects={rosterObjects}
           selectedIds={selectedObjectIds}
           onToggle={toggleObject}
-          enabled={Boolean(recipient)}
+          enabled={direction === 'invite' || Boolean(recipient)}
         />
         <div className="mb-0">
           <label className="form-label small fw-semibold">Message (optional)</label>

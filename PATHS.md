@@ -27,7 +27,7 @@ Root: `C:\mapFiles\MAPv2`
 - `src/components/tables/` : data tables used by the list screens
 - `src/components/drawers/` : drawers (open from the right edge); `Drawer.tsx` is the shared shell every drawer uses
 - `src/components/dashboard/` : role dashboard components (`SharedDashboardFrame.tsx` shared frame)
-- `src/components/modals/` : modals (centered); `Modal.tsx` is the shared shell, `ConfirmDialog.tsx` is the shared confirmation dialog, `EditParticipatingOrganizationsModal.tsx` manages participating vendor/third-party orgs on a project, `RequestRecipientSelect.tsx` recipient picker with role tags, `RequestPartiesBanner.tsx` directional request parties banner, `ContractChainFields.tsx` read-only client and clearable head contractor and vendor inputs for Organizations & Contract Chain modal
+- `src/components/modals/` : modals (centered); `Modal.tsx` is the shared shell, `ConfirmDialog.tsx` is the shared confirmation dialog, `EditParticipatingOrganizationsModal.tsx` manages participating vendor/third-party orgs on a project, `RequestRecipientSelect.tsx` recipient picker with direction link and participating organizations shortcut, `ContractChainFields.tsx` read-only client and clearable head contractor and vendor inputs for Organizations & Contract Chain modal
 - `src/components/wizards/` : multi-step wizards; `Wizard.tsx` is the shared numbered stepper shell
 - `src/utils/useOverlayBehavior.ts` : escape, focus and tab handling for a drawer or a dialog opened from one
 - `src/utils/useDeferredFilters.ts` : modal draft filter state hook (`useDeferredFilters`) isolating `FilterModal` edits and resets until Apply is clicked; tests `src/__tests__/deferredTableFilters.test.tsx`

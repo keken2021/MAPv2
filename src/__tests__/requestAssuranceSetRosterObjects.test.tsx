@@ -62,8 +62,13 @@ describe('Request Assurance Set modal: recipients and roster objects', () => {
   it('has no Scope field and lists only Submitters of the other parties', () => {
     renderModal();
     expect(screen.queryByText('Scope (optional)')).toBeNull();
-    const options = Array.from(recipientSelect().options).map((o) => o.textContent ?? '');
-    expect(options.some((text) => text.startsWith(`M. Chen — ${NORTHWIND_ORG}`))).toBe(true);
+    const select = recipientSelect();
+    const optgroups = Array.from(select.querySelectorAll('optgroup'));
+    expect(optgroups.some((og) => og.label === NORTHWIND_ORG)).toBe(true);
+
+    const options = Array.from(select.options).map((o) => o.textContent ?? '');
+    expect(options.some((text) => text === 'M. Chen')).toBe(true);
+    expect(options.some((text) => text.includes('—'))).toBe(false);
     expect(options.some((text) => text.includes(OIL_CO_ORG))).toBe(false);
     expect(options.some((text) => text.startsWith('T. Okada'))).toBe(false);
   });
@@ -71,7 +76,7 @@ describe('Request Assurance Set modal: recipients and roster objects', () => {
   it('keeps the object picker disabled until a recipient is chosen, then lists that party objects', () => {
     renderModal();
     expect(screen.getByText('Choose a recipient first.')).toBeInTheDocument();
-    const chen = Array.from(recipientSelect().options).find((o) => o.textContent?.startsWith('M. Chen'))!;
+    const chen = Array.from(recipientSelect().options).find((o) => o.textContent === 'M. Chen')!;
     fireEvent.change(recipientSelect(), { target: { value: chen.value } });
     expect(screen.getByLabelText('LNGC Northwind Aurora · Vessel')).toBeInTheDocument();
     expect(screen.queryByLabelText('OSV Meridian Endeavour · Vessel')).toBeNull();
@@ -80,8 +85,8 @@ describe('Request Assurance Set modal: recipients and roster objects', () => {
   it('clears picked objects when the recipient changes', () => {
     renderModal();
     const options = Array.from(recipientSelect().options).filter((o) => o.value);
-    const chen = options.find((o) => o.textContent?.startsWith('M. Chen'))!;
-    const other = options.find((o) => !o.textContent?.includes(NORTHWIND_ORG))!;
+    const chen = options.find((o) => o.textContent === 'M. Chen')!;
+    const other = options.find((o) => o.value !== chen.value)!;
     fireEvent.change(recipientSelect(), { target: { value: chen.value } });
     fireEvent.click(screen.getByLabelText('LNGC Northwind Aurora · Vessel'));
     fireEvent.change(recipientSelect(), { target: { value: other.value } });

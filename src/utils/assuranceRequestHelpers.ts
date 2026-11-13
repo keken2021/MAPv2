@@ -4,6 +4,8 @@ import type { UserProfile } from '../types/user';
 import { sameOrganization } from './rbacHelpers';
 import { syncInvitedOrganizationsToParties } from './projectHelpers';
 
+export type RequestDirection = 'ask' | 'invite';
+
 /** Organizations on the project's Organizations card, other than the sender's, in card order. */
 function getOtherPartyOrganizations(
   project: Pick<Project, 'contractParties' | 'invitedOrganizations'>,
@@ -30,17 +32,24 @@ function getOtherPartyOrganizations(
 }
 
 /**
- * Who can receive an assurance set request on a project: active Administrators AND Submitters of
- * each other party on the project (including invited organizations). The sender, the sender's
- * organization and anyone outside the project are left out. A user who holds both roles appears
- * once, as Administrator. Only organizations with an active Submitter or Administrator are listed.
+ * Who can receive an assurance set request on a project:
+ * - 'ask' returns active Submitters of the other parties (they build the set, sender reviews).
+ * - 'invite' returns active Administrators of the other parties (sender builds the set for them).
+ * The sender, the sender's organization and anyone outside the project are left out.
+ * A user who holds both roles appears in both lists.
  */
 export function getAssuranceSetRequestRecipients(
   users: UserProfile[],
   project: Pick<Project, 'contractParties' | 'invitedOrganizations'>,
   senderOrganization: string,
   senderUserId?: string,
+  direction: RequestDirection = 'ask',
 ): UserProfile[] {
+  const matchesRole = (user: UserProfile) =>
+    direction === 'invite'
+      ? user.roles.includes('Administrator') || user.roles.includes('C Admin')
+      : user.roles.includes('Submitter');
+
   return getOtherPartyOrganizations(project, senderOrganization).flatMap((organization) => {
     const matchingUsers = users.filter(
       (user) =>
@@ -48,7 +57,7 @@ export function getAssuranceSetRequestRecipients(
         user.id !== senderUserId &&
         !sameOrganization(user.organization, senderOrganization) &&
         sameOrganization(user.organization, organization) &&
-        (user.roles.includes('Administrator') || user.roles.includes('Submitter')),
+        matchesRole(user),
     );
     const seen = new Set<string>();
     const uniqueUsers: UserProfile[] = [];
@@ -63,16 +72,33 @@ export function getAssuranceSetRequestRecipients(
 }
 
 /**
- * The direction of an assurance set request based on the recipient's role:
- * - Recipient is an Administrator: recipient's organization is the Requesting party; sender's organization is the Responding party.
- * - Recipient is a Submitter: sender's organization is the Requesting party; recipient's organization is the Responding party.
- * A user who holds both roles is treated as Administrator.
+ * The direction of an assurance set request:
+ * - An explicit direction wins:
+ *   - 'ask': sender requests; recipient organization responds.
+ *   - 'invite': recipient organization requests; sender responds.
+ * - Fallback when no direction is passed:
+ *   - Recipient is an Administrator / C Admin: recipient's organization requests; sender responds.
+ *   - Otherwise: sender requests; recipient's organization responds.
  */
 export function getRequestDirection(
   senderOrganization: string,
   recipient: Pick<UserProfile, 'organization' | 'roles'>,
+  direction?: RequestDirection,
 ): { requestingParty: string; respondingParty: string } {
-  const isAdministrator = recipient.roles.includes('Administrator');
+  if (direction === 'ask') {
+    return {
+      requestingParty: senderOrganization.trim(),
+      respondingParty: recipient.organization.trim(),
+    };
+  }
+  if (direction === 'invite') {
+    return {
+      requestingParty: recipient.organization.trim(),
+      respondingParty: senderOrganization.trim(),
+    };
+  }
+  const isAdministrator =
+    recipient.roles.includes('Administrator') || recipient.roles.includes('C Admin');
   if (isAdministrator) {
     return {
       requestingParty: recipient.organization.trim(),

@@ -128,4 +128,38 @@ describe('requestAssuranceSet store action', () => {
     expect(notification.request?.requestingParty).toBe('Oil Company');
     expect(notification.request?.respondingParty).toBe('Northwind Marine Pty Ltd');
   });
+
+  it('respects explicit direction "ask" even if recipient is an Administrator', () => {
+    const { requestAssuranceSet } = useMapStore.getState();
+    const result = requestAssuranceSet({
+      projectId: testProject.id,
+      recipientUserId: adminRecipient.id,
+      senderUserId: senderUser.id,
+      senderName: senderUser.name,
+      direction: 'ask',
+      message: 'Please create an assurance set.',
+    });
+
+    expect(result.success).toBe(true);
+    const notification = useMapStore.getState().notifications[0];
+    expect(notification.requestingParty).toBe('Oil Company');
+    expect(notification.respondingParty).toBe('Northwind Marine Pty Ltd');
+  });
+
+  it('respects explicit direction "invite" even if recipient is a Submitter', () => {
+    const { requestAssuranceSet } = useMapStore.getState();
+    const result = requestAssuranceSet({
+      projectId: testProject.id,
+      recipientUserId: submitterRecipient.id,
+      senderUserId: senderUser.id,
+      senderName: senderUser.name,
+      direction: 'invite',
+      message: 'We invite you to request an assurance set from us.',
+    });
+
+    expect(result.success).toBe(true);
+    const notification = useMapStore.getState().notifications[0];
+    expect(notification.requestingParty).toBe('Northwind Marine Pty Ltd');
+    expect(notification.respondingParty).toBe('Oil Company');
+  });
 });
