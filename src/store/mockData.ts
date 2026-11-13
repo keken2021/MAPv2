@@ -4729,9 +4729,13 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
   },
   {
     id: "MAP-EQP-2026-LIFT-00301",
+    targetObjectType: "Equipment",
+    targetObjectId: "EQ-005",
+    targetObjectName: "Offshore Pedestal Crane #1 (150T Active Heave)",
+    docTypeId: "eq-lifting-register",
     title:
       "Lifting Appliances & Crane Annual Inspection Register (ILO 152) — EQP-CRN-005 / EQ-005",
-    entityType: "Vessel Certificate",
+    entityType: "Equipment Certificate",
     vesselId: "VESSEL-001",
     certificateNo: "ILO152-CRN-2026-88",
     issuingAuthority: "DNV Maritime / Lifting Survey Bureau",
@@ -4760,9 +4764,13 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
   },
   {
     id: "MAP-EQP-2026-FMEA-00302",
+    targetObjectType: "Equipment",
+    targetObjectId: "EQ-006",
+    targetObjectName: "Dynamic Positioning DP2 Console & FMEA Unit",
+    docTypeId: "eq-dp-fmea-trials",
     title:
       "Dynamic Positioning DP2 FMEA Proving Trial Report — EQP-DP2-006 / EQ-006",
-    entityType: "Vessel Certificate",
+    entityType: "Equipment Certificate",
     vesselId: "VESSEL-001",
     certificateNo: "DP-FMEA-2026-01",
     issuingAuthority: "Global Maritime DP Assurance",
@@ -4791,9 +4799,13 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
   },
   {
     id: "MAP-EQP-2026-ROVW-00303",
+    targetObjectType: "Equipment",
+    targetObjectId: "EQ-007",
+    targetObjectName: "Subsea Work-Class ROV & 150T Traction Winch",
+    docTypeId: "eq-rov-winch-test",
     title:
       "Subsea ROV & Deck Traction Winch 150T Pull Test — EQP-ROV-007 / EQ-007",
-    entityType: "Vessel Certificate",
+    entityType: "Equipment Certificate",
     vesselId: "VESSEL-001",
     certificateNo: "WINCH-150T-2026-99",
     issuingAuthority: "DNV Subsea Survey",
@@ -4822,15 +4834,19 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
   },
   {
     id: "MAP-EQP-2026-HELI-00304",
+    targetObjectType: "Equipment",
+    targetObjectId: "EQ-008",
+    targetObjectName: "Aviation Helideck Landing Platform & Foam Monitor",
+    docTypeId: "eq-helideck-cert",
     title:
       "Helideck Friction & Safety Inspection Certificate (CAP 437) — EQP-HLD-008 / EQ-008",
-    entityType: "Vessel Certificate",
+    entityType: "Equipment Certificate",
     vesselId: "VESSEL-001",
     certificateNo: "CAP437-HLD-2026-10",
     issuingAuthority: "Aviation Inspection Services & CASA",
-    expiryDate: "2027-11-30",
+    expiryDate: "2026-01-15",
     ocrConfidence: 99.0,
-    complianceState: "Valid",
+    complianceState: "Expired",
     currentVersion: "v1.0",
     versions: [
       {

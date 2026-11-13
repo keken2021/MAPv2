@@ -17,6 +17,10 @@ describe('Document type key in mock data', () => {
     SUBTYPE_STANDARD_DOCS.Vessel.map((doc) => doc.id)
   );
 
+  const equipmentCatalogDocTypeIds = new Set(
+    SUBTYPE_STANDARD_DOCS.Equipment.map((doc) => doc.id)
+  );
+
   it('checks every docTypeId in MOCK_DOCUMENTS exists in SUBTYPE_STANDARD_DOCS', () => {
     const docsWithKey = MOCK_DOCUMENTS.filter((doc) => Boolean(doc.docTypeId));
     expect(docsWithKey.length).toBeGreaterThan(0);
@@ -31,6 +35,13 @@ describe('Document type key in mock data', () => {
         expect(
           vesselCatalogDocTypeIds.has(doc.docTypeId),
           `Vessel document ${doc.id} has non-vessel docTypeId: ${doc.docTypeId}`
+        ).toBe(true);
+      }
+
+      if (doc.entityType === 'Equipment Certificate' && doc.docTypeId) {
+        expect(
+          equipmentCatalogDocTypeIds.has(doc.docTypeId),
+          `Equipment document ${doc.id} has non-equipment docTypeId: ${doc.docTypeId}`
         ).toBe(true);
       }
     });
