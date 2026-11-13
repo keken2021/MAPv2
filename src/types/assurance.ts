@@ -180,6 +180,10 @@ export interface AssuranceRequirement {
   notes?: string;
   isOtherDocument?: boolean;
   isSpecialized?: boolean;
+  /** catalog id in SUBTYPE_STANDARD_DOCS (e.g. vessel-class-cert) */
+  docTypeId?: string;
+  /** whether this requirement was auto-fulfilled by reusing a valid verified document on file */
+  reusedDocument?: boolean;
   assignedSubmitter?: string;
   assignedVerifier?: string;
   submitterId?: string;
