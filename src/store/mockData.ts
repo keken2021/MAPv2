@@ -3682,7 +3682,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
       iacsAuthorityValid: true,
       overallValid: true,
     },
-    verificationStatus: "Verified",
+    verificationStatus: "Pending",
   },
   {
     id: "MAP-CRW-2026-STCW-00405",
