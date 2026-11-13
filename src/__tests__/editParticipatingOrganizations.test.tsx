@@ -145,7 +145,7 @@ describe('ProjectDetailView participating organizations auto-sync and edit', () 
     });
   });
 
-  it('auto-adds invited organizations missing from contractParties on mount', () => {
+  it('derives invited organizations on read in the Organizations card without saving until edited', () => {
     const projectWithMissingParties: Project = {
       ...testProject,
       id: 'PRJ-AUTO-SYNC-TEST',
@@ -159,8 +159,22 @@ describe('ProjectDetailView participating organizations auto-sync and edit', () 
 
     render(<ProjectDetailView projectId="PRJ-AUTO-SYNC-TEST" />);
 
-    const synced = useMapStore.getState().projects.find((p) => p.id === 'PRJ-AUTO-SYNC-TEST')!;
-    expect(synced.contractParties?.some((p) => p.organization === 'Auto Invited Vendor')).toBe(true);
+    // 1. Not saved to store project on mount
+    const initialStoreProject = useMapStore.getState().projects.find((p) => p.id === 'PRJ-AUTO-SYNC-TEST')!;
+    expect(initialStoreProject.contractParties?.some((p) => p.organization === 'Auto Invited Vendor')).toBe(false);
+
+    // 2. Organizations card shows the invited organization with no edit
+    fireEvent.click(screen.getByRole('tab', { name: 'Details' }));
+    expect(screen.getByText('Auto Invited Vendor')).toBeInTheDocument();
+
+    // 3. Saved to project only when client saves in Edit organizations
+    const editBtn = screen.getByTestId('btn-edit-participating-orgs');
+    fireEvent.click(editBtn);
+    const saveButton = screen.getByTestId('btn-save-participating-orgs');
+    fireEvent.click(saveButton);
+
+    const savedStoreProject = useMapStore.getState().projects.find((p) => p.id === 'PRJ-AUTO-SYNC-TEST')!;
+    expect(savedStoreProject.contractParties?.some((p) => p.organization === 'Auto Invited Vendor')).toBe(true);
   });
 
   it('shows Edit button on Organizations & Contract Chain card for manager', () => {

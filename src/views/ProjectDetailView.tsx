@@ -180,14 +180,10 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     setActiveTab("overview");
   }, [projectId]);
 
-  // If any invited organization is not in contractParties, automatically add them
-  useEffect(() => {
-    if (!project) return;
-    const synced = syncInvitedOrganizationsToParties(project);
-    if (synced !== project) {
-      updateProject(synced);
-    }
-  }, [project, updateProject]);
+  const effectiveProject = useMemo(
+    () => (project ? syncInvitedOrganizationsToParties(project) : undefined),
+    [project],
+  );
 
   const assetsPagination = usePagination(filteredLinks, [assetFilter, objectSearchTerm]);
 
@@ -256,7 +252,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     return a === b || a.includes(b) || b.includes(a);
   };
   const allChainParties = (["client", "head_contractor", "vendor"] as ContractChainRole[])
-    .map((role) => ({ role, party: contractPartyByRole(project.contractParties, role) }))
+    .map((role) => ({ role, party: contractPartyByRole(effectiveProject?.contractParties, role) }))
     .filter(
       (entry): entry is { role: ContractChainRole; party: ContractParty } =>
         Boolean(entry.party?.organization?.trim()),
@@ -265,7 +261,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     ({ role, party }) => role !== "client" || !sameOrganization(party.organization, headerClient),
   );
   const visibleChainParties = showChain ? allChainParties : [];
-  const otherParties = (project.contractParties ?? []).filter((party) => !party.chainRole);
+  const otherParties = (effectiveProject?.contractParties ?? []).filter((party) => !party.chainRole);
   const showOrganizationsCard = visibleChainParties.length > 0 || otherParties.length > 0;
   const organizationCount = visibleChainParties.length + otherParties.length;
   const workLocationLabel =
@@ -375,7 +371,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
         ]}
       />
 
-      {activeTab === "overview" && <ProjectOverviewTab project={project} sets={projectAssuranceSets} allSets={assuranceSets} documents={documents} capaItems={capaItems} canOpenSet={canOpenSet} onOpenSet={(set) => setCurrentHashView("assurance-sets", set.id)} />}
+      {activeTab === "overview" && <ProjectOverviewTab project={effectiveProject || project} sets={projectAssuranceSets} allSets={assuranceSets} documents={documents} capaItems={capaItems} canOpenSet={canOpenSet} onOpenSet={(set) => setCurrentHashView("assurance-sets", set.id)} />}
 
       {activeTab === "details" && (
         <div className="d-flex flex-column gap-3" data-testid="project-details-tab">
@@ -777,7 +773,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
       <RequestAssuranceSetModal
         isOpen={isRequestModalOpen}
         onClose={() => setIsRequestModalOpen(false)}
-        project={project}
+        project={effectiveProject || project}
         onSuccess={(message) => {
           setToast(message);
           setTimeout(() => setToast(null), 3500);
