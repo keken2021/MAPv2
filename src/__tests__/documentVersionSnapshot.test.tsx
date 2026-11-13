@@ -127,7 +127,7 @@ describe('document version snapshot', () => {
     useMapStore.setState({
       activePersona: 'Submitter',
       activeDemoOrganization: 'Northwind Marine Pty Ltd',
-      activeSessionUserId: 'USR-104',
+      activeSessionUserId: 'USR-103',
     });
     render(<AssuranceDetailView setId="AS-2026-004" />);
     fireEvent.click(screen.getByRole('tab', { name: /^requirements$/i }));

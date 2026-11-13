@@ -289,7 +289,7 @@ export const PROJECT_SEED_ASSURANCE_SETS: AssuranceSet[] = [
     readinessScore: 100,
     mandatoryInspectionRequired: false,
     inspectionCompleted: false,
-    assignedSubmitter: 'E. Rostova (Northwind Marine Pty Ltd)',
+    assignedSubmitter: 'J. Vance (Northwind Marine Pty Ltd)',
     assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
     assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
     reviewMode: 'mixed',

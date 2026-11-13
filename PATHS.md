@@ -48,6 +48,7 @@ Root: `C:\mapFiles\MAPv2`
 - `src/__tests__/editParticipatingOrganizations.test.tsx` : unit and integration tests for participating organizations editing and auto-sync
 - `src/__tests__/requestAssuranceSetRecipients.test.ts` : tests for request recipients (all submitters or fallback administrators)
 - `src/__tests__/defaultOrganizationVerifierAndInspector.test.tsx` : tests for defaulting active verifiers and inspectors when organization is chosen (Sentinel Cyber Assurance and others)
+- `src/__tests__/singleAdministratorPerOrganization.test.ts` : tests for enforcing at most one active Administrator and C Admin per organization, helper tests, and UserModal validation
 - `src/utils/formatters.ts` : dates, status labels, and `getProviderLabel` (Vessel Provider, Crew Provider, Equipment Provider, or Provider)
 - `src/utils/dashboardTileNavigation.ts` : KPI tile navigation and list filtering for role dashboards
 - `src/utils/recentActivityFeed.ts` : Recent activity feed formatting and role relevance filtering for role dashboards

@@ -44,7 +44,7 @@ describe('Category Stakeholders, Segregation of Duties, and Role Boundaries', ()
         },
         Activity: {
           assignedSubmitter: 'T. Kowalski (Northwind Marine Pty Ltd)',
-          submitterId: 'USR-104',
+          submitterId: 'USR-103',
           assignedVerifier: 'Sarah Jenkins (Chevron Australia Pty Ltd)',
           verifierId: 'USR-201',
         },
@@ -342,7 +342,7 @@ describe('Category Stakeholders, Segregation of Duties, and Role Boundaries', ()
         subtypeStakeholders: {
           Vessel: { submitterId: 'USR-102', verifierId: 'USR-102' }, // Conflict on Vessel
           Crew: { submitterId: 'USR-103', verifierId: 'USR-202' },   // Valid
-          Activity: { submitterId: 'USR-104', verifierId: 'USR-203' }, // Valid
+          Activity: { submitterId: 'USR-103', verifierId: 'USR-203' }, // Valid
           Equipment: { submitterId: 'USR-102', verifierId: 'USR-204' }, // Valid
         },
         vesselOwnerOrg: 'Northwind Marine Pty Ltd',

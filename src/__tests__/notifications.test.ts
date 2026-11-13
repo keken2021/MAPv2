@@ -91,7 +91,7 @@ describe('inbox filters', () => {
     const request = MOCK_NOTIFICATIONS.find((n) => n.id === 'MAP-NTF-2026-ASRQ-00001') as AppNotification;
     expect(matchesNotificationSearch(request, 'dangerous route')).toBe(true);
     expect(matchesNotificationSearch(request, 'MARINE-007')).toBe(true);
-    expect(matchesNotificationSearch(request, 'rostova')).toBe(true);
+    expect(matchesNotificationSearch(request, 'okada')).toBe(true);
     expect(matchesNotificationSearch(request, '  ')).toBe(true);
     expect(matchesNotificationSearch(request, 'assurance set creation requested')).toBe(false);
   });

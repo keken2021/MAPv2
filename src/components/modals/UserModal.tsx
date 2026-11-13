@@ -4,7 +4,7 @@ import { useMapStore } from '../../store/useMapStore';
 import { UserType, UserProfile } from '../../types/user';
 import { RoleName } from '../../types/permissions';
 import { UserRoleChecklist } from '../common/UserRoleChecklist';
-import { buildRolesFromForm, splitRolesForForm } from '../../utils/userRoleHelpers';
+import { buildRolesFromForm, findOtherSingleRoleHolder, splitRolesForForm } from '../../utils/userRoleHelpers';
 import { checkEmailForMembership, personIdFor } from '../../utils/membershipHelpers';
 import { ExistingPersonMembershipNotice } from './ExistingPersonMembershipNotice';
 
@@ -118,6 +118,30 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, mode, use
     }
     const linkedPersonId = linkTo ? personIdFor(linkTo) : undefined;
     if (linkTo && !linkTo.personId) updateUser({ ...linkTo, personId: linkedPersonId });
+
+    const targetStatus: UserProfile['status'] = isAdd
+      ? (userType === 'Third-Party' ? 'Pending Invitation' : 'Active')
+      : status;
+
+    if (targetStatus === 'Active') {
+      for (const singleRole of ['Administrator', 'C Admin'] as const) {
+        if (roles.includes(singleRole)) {
+          const otherHolder = findOtherSingleRoleHolder(
+            users,
+            resolvedOrg,
+            singleRole,
+            isAdd ? undefined : user?.id,
+          );
+          if (otherHolder) {
+            const article = singleRole === 'Administrator' ? 'an' : 'a';
+            setErrorMessage(
+              `${resolvedOrg} already has ${article} ${singleRole}: ${otherHolder.name}. Choose another role.`,
+            );
+            return;
+          }
+        }
+      }
+    }
 
     if (isAdd) {
       const newUser: UserProfile = {

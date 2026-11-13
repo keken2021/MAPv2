@@ -83,6 +83,27 @@ export function userHasRole(
 }
 
 /**
+  what: returns the other active user in the same organization holding Administrator or C Admin.
+  how: checks active status, excludes optional userId, matches organization via sameOrganization, and verifies role entitlement.
+  with what file: src/utils/userRoleHelpers.ts used by UserModal.tsx.
+*/
+export function findOtherSingleRoleHolder(
+  users: UserProfile[],
+  organization: string | undefined,
+  role: 'Administrator' | 'C Admin',
+  excludeUserId?: string,
+): UserProfile | undefined {
+  if (!organization) return undefined;
+  return users.find(
+    (u) =>
+      u.status === 'Active' &&
+      (!excludeUserId || u.id !== excludeUserId) &&
+      sameOrganization(u.organization, organization) &&
+      userHasRole(u, role),
+  );
+}
+
+/**
   what: resolves the user the active persona is signed in as; inputs are the persona, user registry and optional demo context.
   how: validates explicit sessionUserId against active status, persona and requested organization (allowing Northwind demo Verifier S. Girard); falls back to org-persona picker when organization is scoped, or MOCK_PERSONA_SESSION_USER_IDS when unscoped. Fails closed when an explicit sessionUserId or scoped organization has no matching user.
   with what file: src/utils/userRoleHelpers.ts used by NotificationPanel.tsx, NotificationsView.tsx, RequestAssuranceSetModal.tsx, CreateAssuranceSetView.tsx and App.tsx.
