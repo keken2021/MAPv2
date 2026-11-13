@@ -19,6 +19,7 @@ import {
   getProjectAssuranceSets,
   getStandaloneAssuranceSetsForAttach,
   syncInvitedOrganizationsToParties,
+  canEditProjectOrganizations,
 } from "../utils/projectHelpers";
 import { isAssuranceSetAssignedToPersona, orgFieldMatches } from "../utils/rbacHelpers";
 import { getDemoSessionContext, getSessionUserForPersona } from "../utils/userRoleHelpers";
@@ -149,6 +150,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     orgFieldMatches(projectOwnerOrganization, viewingOrganization);
   const canManage =
     (activePersona === "Administrator" || activePersona === "C Admin") && isProjectOwnerOrganization;
+  const canEditOrgs = canEditProjectOrganizations(project, activePersona, viewingOrganization);
   const isReadOnly = !canManage;
 
   /* an organization asked to create a set for this project (a Responding party), or a named
@@ -464,7 +466,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                     {organizationCount}{" "}
                     {organizationCount === 1 ? "Organization" : "Organizations"}
                   </span>
-                  {canManage && (
+                  {canEditOrgs && (
                     <button
                       type="button"
                       className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1.5"
@@ -516,22 +518,10 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                   </div>
                 )}
 
-                {(otherParties.length > 0 || canManage) && (
+                {(otherParties.length > 0 || canEditOrgs) && (
                   <div className={visibleChainParties.length > 0 ? "border-top pt-3" : ""}>
-                    <div className="d-flex align-items-center justify-content-between mb-2">
-                      <div className="text-secondary small fw-semibold">
-                        Participating Organizations
-                      </div>
-                      {canManage && (
-                        <button
-                          type="button"
-                          className="btn btn-link btn-sm p-0 text-decoration-none small"
-                          onClick={() => setIsEditPartiesModalOpen(true)}
-                          data-testid="btn-edit-participating-orgs-section"
-                        >
-                          Edit
-                        </button>
-                      )}
+                    <div className="text-secondary small fw-semibold mb-2">
+                      Participating Organizations
                     </div>
                     {otherParties.length > 0 ? (
                       <div className="row g-3">

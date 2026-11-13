@@ -1,9 +1,21 @@
+/*
+  file summary: Organizations & Contract Chain modal for managing project contract parties.
+  responsibilities: Edits head contractor, vendor, and participating organizations on a project. Client is read-only.
+  role in system: Consumed by ProjectDetailView.tsx and RequestAssuranceSetModal.tsx (Map Design System §12).
+*/
+
 import React, { useMemo, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { Modal } from './Modal';
+import { ContractChainFields } from './ContractChainFields';
 import { useMapStore } from '../../store/useMapStore';
 import { ContractParty, OrganizationGroup, Project } from '../../types/project';
-import { sameOrganization, syncInvitedOrganizationsToParties } from '../../utils/projectHelpers';
+import {
+  contractPartyByRole,
+  replaceChainParty,
+  sameOrganization,
+  syncInvitedOrganizationsToParties,
+} from '../../utils/projectHelpers';
 import { MOCK_ORGANIZATION_PROFILES } from '../../store/organizationMockData';
 
 export interface EditParticipatingOrganizationsModalProps {
@@ -14,7 +26,7 @@ export interface EditParticipatingOrganizationsModalProps {
   zIndex?: number;
 }
 
-/** Modal allowing client/administrator to edit participating vendor and third-party organizations on a project. */
+/** Modal allowing client Administrator to edit the contract chain and participating organizations on a project. */
 export const EditParticipatingOrganizationsModal: React.FC<EditParticipatingOrganizationsModalProps> = ({
   isOpen,
   onClose,
@@ -24,15 +36,30 @@ export const EditParticipatingOrganizationsModal: React.FC<EditParticipatingOrga
 }) => {
   const { users, updateProject } = useMapStore();
 
-  // Known organization options to suggest in the input
+  const clientOrg = useMemo(() => {
+    return (
+      contractPartyByRole(project.contractParties, 'client')?.organization ||
+      project.ownerOrganization?.trim() ||
+      project.requestingOrganization?.trim() ||
+      project.charterer?.trim() ||
+      ''
+    );
+  }, [project]);
+
+  const [headContractor, setHeadContractor] = useState('');
+  const [vendor, setVendor] = useState('');
+
   const knownOrgOptions = useMemo(() => {
     const set = new Set<string>();
     (MOCK_ORGANIZATION_PROFILES ?? []).forEach((p) => p.name && set.add(p.name));
     (users ?? []).forEach((u) => u.organization && set.add(u.organization));
     (project.invitedOrganizations ?? []).forEach((o) => o && set.add(o));
     (project.contractParties ?? []).forEach((p) => p.organization && set.add(p.organization));
+    if (clientOrg) set.add(clientOrg);
+    if (headContractor.trim()) set.add(headContractor.trim());
+    if (vendor.trim()) set.add(vendor.trim());
     return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [users, project]);
+  }, [users, project, clientOrg, headContractor, vendor]);
 
   const initialOtherParties = useMemo(() => {
     const synced = syncInvitedOrganizationsToParties(project);
@@ -48,6 +75,8 @@ export const EditParticipatingOrganizationsModal: React.FC<EditParticipatingOrga
     if (isOpen) {
       const synced = syncInvitedOrganizationsToParties(project);
       setParties((synced.contractParties ?? []).filter((p) => !p.chainRole));
+      setHeadContractor(contractPartyByRole(synced.contractParties, 'head_contractor')?.organization || '');
+      setVendor(contractPartyByRole(synced.contractParties, 'vendor')?.organization || '');
       setNewOrgName('');
       setNewOrgGroup('Vendor');
       setError('');
@@ -57,60 +86,79 @@ export const EditParticipatingOrganizationsModal: React.FC<EditParticipatingOrga
   const handleAddParty = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const trimmed = newOrgName.trim();
-    if (!trimmed) {
-      setError('Enter an organization name.');
-      return;
-    }
-    const chainParties = (project.contractParties ?? []).filter((p) => Boolean(p.chainRole));
+    if (!trimmed) { setError('Enter an organization name.'); return; }
+    const chainOrgs = [clientOrg, headContractor.trim(), vendor.trim()].filter(Boolean);
     if (
       parties.some((p) => sameOrganization(p.organization, trimmed)) ||
-      chainParties.some((p) => sameOrganization(p.organization, trimmed))
+      chainOrgs.some((org) => sameOrganization(org, trimmed))
     ) {
       setError(`${trimmed} is already in the project's organizations.`);
       return;
     }
-
     setParties([...parties, { organization: trimmed, group: newOrgGroup }]);
     setNewOrgName('');
     setNewOrgGroup('Vendor');
     setError('');
   };
 
-  const handleRemoveParty = (indexToRemove: number) => {
-    setParties(parties.filter((_, idx) => idx !== indexToRemove));
+  const handleRemoveParty = (idx: number) => {
+    setParties(parties.filter((_, i) => i !== idx));
     setError('');
   };
 
-  const handleGroupChange = (index: number, newGroup: OrganizationGroup) => {
-    setParties(
-      parties.map((p, idx) => (idx === index ? { ...p, group: newGroup } : p)),
-    );
+  const handleGroupChange = (idx: number, newGroup: OrganizationGroup) => {
+    setParties(parties.map((p, i) => (i === idx ? { ...p, group: newGroup } : p)));
   };
 
   const handleSave = () => {
-    const chainParties = (project.contractParties ?? []).filter((p) => Boolean(p.chainRole));
-    const allCombined = [...chainParties, ...parties];
+    const trimmedHead = headContractor.trim();
+    const trimmedVendor = vendor.trim();
 
-    // Exclude any participating organization that was explicitly removed
+    if (trimmedHead && clientOrg && sameOrganization(trimmedHead, clientOrg)) {
+      setError('Head contractor cannot be the client organization.');
+      return;
+    }
+    if (trimmedVendor && clientOrg && sameOrganization(trimmedVendor, clientOrg)) {
+      setError('Vendor cannot be the client organization.');
+      return;
+    }
+    if (trimmedHead && trimmedVendor && sameOrganization(trimmedHead, trimmedVendor)) {
+      setError('Head contractor and vendor cannot be the same organization.');
+      return;
+    }
+
+    const baseParties = project.contractParties ?? [];
+    let updatedParties = replaceChainParty(baseParties, 'head_contractor', trimmedHead);
+    updatedParties = replaceChainParty(updatedParties, 'vendor', trimmedVendor);
+
+    const chainWithRoles = updatedParties.filter((p) => Boolean(p.chainRole));
+    const demotedParties = updatedParties.filter((p) => !p.chainRole);
+
     const removedOrgNames = initialOtherParties
       .filter((init) => !parties.some((p) => sameOrganization(p.organization, init.organization)))
       .map((p) => p.organization.toLowerCase());
 
-    const currentInvited = project.invitedOrganizations ?? [];
-    const partyOrgNames = parties.map((p) => p.organization);
-    const filteredInvited = currentInvited.filter(
-      (inv) => !removedOrgNames.some((rem) => rem === inv.trim().toLowerCase()),
+    const cleanParticipating = parties.filter(
+      (p) => !chainWithRoles.some((c) => sameOrganization(c.organization, p.organization)),
     );
+
+    for (const demoted of demotedParties) {
+      const isRemoved = removedOrgNames.includes(demoted.organization.toLowerCase());
+      const isAlreadyInChain = chainWithRoles.some((c) => sameOrganization(c.organization, demoted.organization));
+      const isAlreadyInParticipating = cleanParticipating.some((p) => sameOrganization(p.organization, demoted.organization));
+      if (!isRemoved && !isAlreadyInChain && !isAlreadyInParticipating) {
+        cleanParticipating.push(demoted);
+      }
+    }
+
+    const allCombined = [...chainWithRoles, ...cleanParticipating];
+    const currentInvited = project.invitedOrganizations ?? [];
+    const partyOrgNames = allCombined.map((p) => p.organization);
+    const filteredInvited = currentInvited.filter((inv) => !removedOrgNames.some((rem) => rem === inv.trim().toLowerCase()));
     const updatedInvited = Array.from(new Set([...filteredInvited, ...partyOrgNames]));
 
-    const updatedProject: Project = {
-      ...project,
-      contractParties: allCombined,
-      invitedOrganizations: updatedInvited,
-    };
-
-    updateProject(updatedProject);
-    onSuccess?.('Participating organizations updated.');
+    updateProject({ ...project, contractParties: allCombined, invitedOrganizations: updatedInvited });
+    onSuccess?.('Organizations updated.');
     onClose();
   };
 
@@ -118,34 +166,33 @@ export const EditParticipatingOrganizationsModal: React.FC<EditParticipatingOrga
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Participating Organizations"
+      title="Organizations & Contract Chain"
       size="lg"
       zIndex={zIndex ?? 1060}
       footer={
         <>
-          <button type="button" className="btn btn-sm btn-outline-secondary" onClick={onClose}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="btn btn-sm btn-primary"
-            onClick={handleSave}
-            data-testid="btn-save-participating-orgs"
-          >
+          <button type="button" className="btn btn-sm btn-outline-secondary" onClick={onClose}>Cancel</button>
+          <button type="button" className="btn btn-sm btn-primary" onClick={handleSave} data-testid="btn-save-participating-orgs">
             Save Changes
           </button>
         </>
       }
     >
       <p className="text-muted small mb-3">
-        Manage participating vendor and third-party organizations for <strong>{project.name}</strong>.
+        Manage the contract chain and participating organizations for <strong>{project.name}</strong>.
       </p>
 
       {error && (
-        <div className="alert alert-danger py-2 small mb-3" role="alert" data-testid="edit-orgs-error">
-          {error}
-        </div>
+        <div className="alert alert-danger py-2 small mb-3" role="alert" data-testid="edit-orgs-error">{error}</div>
       )}
+
+      <ContractChainFields
+        client={clientOrg}
+        headContractor={headContractor}
+        vendor={vendor}
+        onHeadContractorChange={(val) => { setHeadContractor(val); if (error) setError(''); }}
+        onVendorChange={(val) => { setVendor(val); if (error) setError(''); }}
+      />
 
       <div className="card border mb-3">
         <div className="card-header bg-light py-2 px-3">
@@ -165,23 +212,16 @@ export const EditParticipatingOrganizationsModal: React.FC<EditParticipatingOrga
                   list="known-org-list"
                   placeholder="e.g. Harbourline Terminals"
                   value={newOrgName}
-                  onChange={(e) => {
-                    setNewOrgName(e.target.value);
-                    if (error) setError('');
-                  }}
+                  onChange={(e) => { setNewOrgName(e.target.value); if (error) setError(''); }}
                   data-testid="input-new-org-name"
                 />
                 <datalist id="known-org-list">
-                  {knownOrgOptions.map((org) => (
-                    <option key={org} value={org} />
-                  ))}
+                  {knownOrgOptions.map((org) => (<option key={org} value={org} />))}
                 </datalist>
               </div>
 
               <div className="col-12 col-md-4">
-                <label className="form-label text-secondary small fw-medium mb-1" htmlFor="select-new-org-group">
-                  Group
-                </label>
+                <label className="form-label text-secondary small fw-medium mb-1" htmlFor="select-new-org-group">Group</label>
                 <select
                   id="select-new-org-group"
                   className="form-select form-select-sm"
@@ -216,9 +256,7 @@ export const EditParticipatingOrganizationsModal: React.FC<EditParticipatingOrga
             <tr>
               <th>Organization</th>
               <th>Group</th>
-              <th className="text-end" style={{ width: '80px' }}>
-                Actions
-              </th>
+              <th className="text-end" style={{ width: '80px' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -231,9 +269,7 @@ export const EditParticipatingOrganizationsModal: React.FC<EditParticipatingOrga
             ) : (
               parties.map((party, idx) => (
                 <tr key={`${party.organization}-${idx}`} data-testid={`participating-org-row-${idx}`}>
-                  <td>
-                    <span className="fw-semibold text-dark small">{party.organization}</span>
-                  </td>
+                  <td><span className="fw-semibold text-dark small">{party.organization}</span></td>
                   <td>
                     <select
                       className="form-select form-select-sm py-0"

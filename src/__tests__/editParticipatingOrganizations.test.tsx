@@ -72,7 +72,7 @@ describe('EditParticipatingOrganizationsModal', () => {
     const saveButton = screen.getByTestId('btn-save-participating-orgs');
     fireEvent.click(saveButton);
 
-    expect(onSuccess).toHaveBeenCalledWith('Participating organizations updated.');
+    expect(onSuccess).toHaveBeenCalledWith('Organizations updated.');
     expect(onClose).toHaveBeenCalled();
 
     const updated = useMapStore.getState().projects.find((p) => p.id === testProject.id)!;
@@ -103,6 +103,50 @@ describe('EditParticipatingOrganizationsModal', () => {
     const updated = useMapStore.getState().projects.find((p) => p.id === testProject.id)!;
     expect(updated.contractParties?.some((p) => p.organization === 'Existing Part Org')).toBe(false);
   });
+
+  it('edit the vendor, and the old vendor shows under participating', () => {
+    const onSuccess = vi.fn();
+    render(
+      <EditParticipatingOrganizationsModal
+        isOpen={true}
+        onClose={vi.fn()}
+        project={testProject}
+        onSuccess={onSuccess}
+      />,
+    );
+
+    const vendorInput = screen.getByTestId('input-vendor');
+    expect(vendorInput).toHaveValue('Primary Vendor');
+
+    fireEvent.change(vendorInput, { target: { value: 'New Vendor Co' } });
+
+    const saveButton = screen.getByTestId('btn-save-participating-orgs');
+    fireEvent.click(saveButton);
+
+    expect(onSuccess).toHaveBeenCalledWith('Organizations updated.');
+    const updated = useMapStore.getState().projects.find((p) => p.id === testProject.id)!;
+    expect(updated.contractParties?.find((p) => p.chainRole === 'vendor')?.organization).toBe('New Vendor Co');
+
+    const oldVendorParty = updated.contractParties?.find((p) => p.organization === 'Primary Vendor');
+    expect(oldVendorParty).toBeDefined();
+    expect(oldVendorParty?.chainRole).toBeUndefined();
+    expect(oldVendorParty?.group).toBe('Vendor');
+  });
+
+  it('the client is not editable', () => {
+    render(
+      <EditParticipatingOrganizationsModal
+        isOpen={true}
+        onClose={vi.fn()}
+        project={testProject}
+      />,
+    );
+
+    const clientDisplay = screen.getByTestId('contract-chain-client-display');
+    expect(clientDisplay).toHaveTextContent('Oil Company');
+    expect(screen.queryByLabelText(/^Client$/i)?.tagName).not.toBe('INPUT');
+  });
+
 });
 
 describe('RequestAssuranceSetModal edit organizations integration', () => {
@@ -133,6 +177,27 @@ describe('RequestAssuranceSetModal edit organizations integration', () => {
     fireEvent.click(editBtn);
     expect(screen.getByTestId('btn-save-participating-orgs')).toBeInTheDocument();
   });
+
+  it('a vendor Administrator sees no edit option in the Request Assurance Set modal', () => {
+    useMapStore.setState({
+      activePersona: 'Administrator',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-101',
+    });
+
+    const project = useMapStore.getState().projects.find((p) => p.id === OIL_CO_LNG_PROJECT_ID)!;
+    render(
+      <RequestAssuranceSetModal
+        isOpen={true}
+        onClose={vi.fn()}
+        project={project}
+        onSuccess={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByTestId('btn-edit-participating-orgs-from-modal')).toBeNull();
+  });
+
 });
 
 describe('ProjectDetailView participating organizations auto-sync and edit', () => {
@@ -188,5 +253,26 @@ describe('ProjectDetailView participating organizations auto-sync and edit', () 
 
     fireEvent.click(editBtn);
     expect(screen.getByTestId('btn-save-participating-orgs')).toBeInTheDocument();
+  });
+
+  it('a vendor Administrator sees no Edit button on Organizations & Contract Chain card', () => {
+    const vendorAdminProject: Project = {
+      ...testProject,
+      id: 'PRJ-VENDOR-VIEW-TEST',
+      stakeholderUserIds: ['USR-101'],
+    };
+
+    useMapStore.setState({
+      projects: [...useMapStore.getState().projects, vendorAdminProject],
+      activePersona: 'Administrator',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-101',
+    });
+
+    render(<ProjectDetailView projectId="PRJ-VENDOR-VIEW-TEST" />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Details' }));
+
+    expect(screen.getByText('Organizations & Contract Chain')).toBeInTheDocument();
+    expect(screen.queryByTestId('btn-edit-participating-orgs')).toBeNull();
   });
 });

@@ -4,6 +4,7 @@ import { Project } from '../../types/project';
 import {
   getProjectOrganizationForPersona,
   syncInvitedOrganizationsToParties,
+  canEditProjectOrganizations,
 } from '../../utils/projectHelpers';
 import {
   getAssuranceSetRequestRecipients,
@@ -40,12 +41,16 @@ export const RequestAssuranceSetModal: React.FC<RequestAssuranceSetModalProps> =
 
   const [isEditPartiesModalOpen, setIsEditPartiesModalOpen] = useState(false);
 
-  const canEditOrganizations = activePersona === 'C Admin' || activePersona === 'Administrator';
-
   const senderOrg = getProjectOrganizationForPersona(
     activePersona,
     users,
     activeDemoOrganization,
+  );
+
+  const canEditOrganizations = canEditProjectOrganizations(
+    project,
+    activePersona,
+    senderOrg,
   );
   const senderUser = useMemo(
     () =>

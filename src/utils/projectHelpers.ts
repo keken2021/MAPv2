@@ -260,6 +260,107 @@ export function contractPartyByRole(
 }
 
 /**
+ * Whether the active persona and viewing organization may edit the project's contract chain
+ * or participating organizations. Only an Administrator of the project's owner organization may edit.
+ * Fails closed when viewingOrganization or project owner organization is empty.
+ */
+export function canEditProjectOrganizations(
+  project?: {
+    ownerOrganization?: string;
+    requestingOrganization?: string;
+    charterer?: string;
+  } | null,
+  persona?: string | null,
+  viewingOrganization?: string | null,
+): boolean {
+  if (!project || !persona || !viewingOrganization) return false;
+  const viewer = viewingOrganization.trim();
+  if (!viewer) return false;
+  const isAdmin = persona === 'Administrator' || persona === 'C Admin';
+  if (!isAdmin) return false;
+  const ownerOrg =
+    project.ownerOrganization?.trim() ||
+    project.requestingOrganization?.trim() ||
+    project.charterer?.trim() ||
+    '';
+  if (!ownerOrg) return false;
+  return sameOrganization(ownerOrg, viewer) || orgFieldMatches(ownerOrg, viewer);
+}
+
+/**
+ * Sets or clears head_contractor or vendor in a contract parties list.
+ * - The old holder stays in the list without a chainRole.
+ * - If the organization is already in the list, moves it into the role rather than adding a duplicate.
+ * - Rejects client role (returns parties unmodified).
+ * - Reuses sameOrganization and contractPartyByRole.
+ */
+export function replaceChainParty(
+  parties: ContractParty[] | undefined,
+  role: ContractChainRole,
+  organization: string | undefined,
+): ContractParty[] {
+  const currentParties = parties ? [...parties] : [];
+  if (role === 'client') return currentParties;
+
+  const trimmed = organization?.trim() || '';
+  const currentHolder = contractPartyByRole(currentParties, role);
+
+  // Reject assigning client organization to a contractor role
+  const clientParty = contractPartyByRole(currentParties, 'client');
+  if (trimmed && clientParty && sameOrganization(clientParty.organization, trimmed)) {
+    return currentParties;
+  }
+
+  // If role is being cleared
+  if (!trimmed) {
+    if (!currentHolder) return currentParties;
+    return currentParties.map((party) => {
+      if (
+        party === currentHolder ||
+        (party.chainRole === role && sameOrganization(party.organization, currentHolder.organization))
+      ) {
+        const { chainRole: _, ...rest } = party;
+        return rest;
+      }
+      return party;
+    });
+  }
+
+  // If already held by this organization in this role
+  if (currentHolder && sameOrganization(currentHolder.organization, trimmed)) {
+    return currentParties;
+  }
+
+  // Demote old holder: old holder stays in the list without chainRole
+  const nextParties: ContractParty[] = [];
+  for (const party of currentParties) {
+    if (party.chainRole === role) {
+      const { chainRole: _, ...rest } = party;
+      nextParties.push(rest);
+    } else {
+      nextParties.push(party);
+    }
+  }
+
+  // If organization is already in the list, move into the role
+  const existingIndex = nextParties.findIndex((p) => sameOrganization(p.organization, trimmed));
+  if (existingIndex >= 0) {
+    nextParties[existingIndex] = {
+      ...nextParties[existingIndex],
+      chainRole: role,
+    };
+  } else {
+    nextParties.push({
+      organization: trimmed,
+      group: 'Vendor',
+      chainRole: role,
+    });
+  }
+
+  return nextParties;
+}
+
+/**
   what: ensures all invitedOrganizations are present in contractParties.
   how: checks project.invitedOrganizations, and appends any missing ones as Vendor contractParties.
   with what file: src/utils/projectHelpers.ts consumed by ProjectDetailView.tsx, RequestAssuranceSetModal.tsx, and EditParticipatingOrganizationsModal.tsx.
