@@ -59,6 +59,7 @@ import {
   isDuplicateCampaignTitle,
   generateUniqueAssuranceSetId,
 } from "../utils/validation";
+import { isInspectionDue } from "../utils/inspectionTask";
 import {
   canEditAssuranceSetStakeholders,
   getAssuranceSetCreator,
@@ -157,6 +158,7 @@ import {
   seedAssignmentNotices,
   assignmentNoticeContent,
 } from "../utils/notificationHelpers";
+import { getRequestDirection } from "../utils/assuranceRequestHelpers";
 import {
   buildDraftAssetLinkFromAssuranceSet,
   generateUniqueProjectId,
@@ -682,6 +684,56 @@ function logStageTransitionAudit(
     },
     justificationNotes: `Pipeline stage advanced automatically from ${prevStage} to ${nextStage} upon meeting readiness criteria.`,
   });
+
+  if (nextStage === "Inspection") {
+    notifyInspectionDueIfNeeded(get, set.id);
+  }
+
+  if (nextStage === "Approval") {
+    const current = get().assuranceSets.find((s) => s.id === set.id);
+    if (current && current.approverDecision === 'Returned for Correction') {
+      useMapStore.setState((state) => ({
+        assuranceSets: state.assuranceSets.map((s) =>
+          s.id === set.id ? { ...s, approverDecision: 'Pending' } : s,
+        ),
+      }));
+    }
+  }
+}
+
+/**
+  what: raises a "Start Inspection" notification for the assigned inspector upon entering Inspection stage.
+  how: checks if inspection is due and not yet notified; notifies assigned inspector and skips duplicates.
+*/
+function notifyInspectionDueIfNeeded(
+  get: () => MapStoreState,
+  setId: string,
+) {
+  const state = get();
+  const set = state.assuranceSets.find((s) => s.id === setId);
+  if (!set || !isInspectionDue(set)) return;
+  if (!set.assignedInspector?.trim()) return;
+
+  const existingNotification = state.notifications.find(
+    (n) =>
+      n.assuranceSetId === set.id &&
+      (n.assignedRole === "Inspector" || n.subject.toLowerCase().includes("inspect")) &&
+      n.subject.includes("Start Inspection"),
+  );
+  if (existingNotification) return;
+
+  notifyAssuranceSetUser(
+    get,
+    set,
+    set.assignedInspector,
+    {
+      type: "stakeholder_assigned",
+      assignedRole: "Inspector",
+      subject: `Start Inspection: ${set.title}`,
+      message: "Inspection is required. Open the Tasks tab to inspect.",
+    },
+    { systemSent: true },
+  );
 }
 
 /**
@@ -1665,11 +1717,11 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
           (assetScopeTypes.length === 1 ? assetScopeTypes[0] : undefined);
 
     const sender = get().users.find((u) => u.id === input.senderUserId);
-    const requestingParty =
+    const senderOrganization =
       sender?.organization ||
       getProjectOrganizationForPersona(get().activePersona, get().users, get().activeDemoOrganization) ||
       getProjectClientOrganization(project);
-    const respondingParty = assignee.organization;
+    const { requestingParty, respondingParty } = getRequestDirection(senderOrganization, assignee);
 
     const partyRoles = {
       requestingParty,
@@ -3582,8 +3634,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     get().updateAssuranceStakeholder(setId, "Inspector", inspectorName);
   },
   completeVesselInspection: (vesselName, outcome) => {
-    /* a failed inspection completes nothing; the sets stay at the inspection stage */
-    if (outcome === "Fail") return [];
     const state = get();
     const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(state);
     if (!sessionUser || activePersona !== "Inspector") return [];
@@ -3603,12 +3653,25 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       .map((s) => s.id);
     if (completedIds.length === 0) return [];
 
+    /* a failed inspection completes nothing; the sets stay at the inspection stage, but records failure timestamp */
+    if (outcome === "Fail") {
+      const failedAtIso = new Date().toISOString();
+      set((state) => ({
+        assuranceSets: state.assuranceSets.map((s) =>
+          completedIds.includes(s.id)
+            ? { ...s, inspectionFailedAt: failedAtIso }
+            : s,
+        ),
+      }));
+      return [];
+    }
+
     const prevSets = get().assuranceSets.filter((s) => completedIds.includes(s.id));
 
     set((state) => {
       const updatedSets = state.assuranceSets.map((s) =>
         completedIds.includes(s.id)
-          ? recalculateSetReadiness({ ...s, inspectionCompleted: true })
+          ? recalculateSetReadiness({ ...s, inspectionCompleted: true, inspectionFailedAt: undefined })
           : s,
       );
       const { updatedProjects, updatedAssuranceSets } =

@@ -160,12 +160,17 @@ describe('Oil Co LNG Field Development pilot', () => {
   });
 
   it('lets Oil Company ask Northwind to create SS-04 as the client', () => {
-    /* recipients are Submitters of the project's other contract parties, not C Admins */
+    /* recipients are Submitters and Administrators of the project's other contract parties, not C Admins or sender org */
     const recipients = getAssuranceSetRequestRecipients(MOCK_USERS, project!, OIL_CO_ORG, 'USR-228');
     expect(recipients.some((user) => user.name === 'M. Chen' && user.organization === NORTHWIND_ORG)).toBe(true);
+    expect(recipients.some((user) => user.name === 'K. Osei' && user.organization === NORTHWIND_ORG)).toBe(true);
     expect(recipients.some((user) => user.name === 'T. Okada')).toBe(false);
     expect(recipients.some((user) => user.organization === OIL_CO_ORG)).toBe(false);
-    expect(recipients.every((user) => user.roles.includes('Submitter'))).toBe(true);
+    expect(
+      recipients.every(
+        (user) => user.roles.includes('Submitter') || user.roles.includes('Administrator'),
+      ),
+    ).toBe(true);
     expect(resolveAssuranceRequestSetClient(NORTHWIND_ORG, {
       clientOrganization: OIL_CO_ORG,
       project: project!,

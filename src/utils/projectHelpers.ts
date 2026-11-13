@@ -264,7 +264,9 @@ export function contractPartyByRole(
   how: checks project.invitedOrganizations, and appends any missing ones as Vendor contractParties.
   with what file: src/utils/projectHelpers.ts consumed by ProjectDetailView.tsx, RequestAssuranceSetModal.tsx, and EditParticipatingOrganizationsModal.tsx.
 */
-export function syncInvitedOrganizationsToParties(project: Project): Project {
+export function syncInvitedOrganizationsToParties<
+  T extends Pick<Project, 'contractParties' | 'invitedOrganizations'>,
+>(project: T): T {
   const invited = project.invitedOrganizations ?? [];
   if (invited.length === 0) return project;
   const currentParties = project.contractParties ?? [];
