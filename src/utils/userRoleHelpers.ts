@@ -236,7 +236,8 @@ export function defaultProviderSubmitter(
   );
   return (
     members.find((user) => userHasRole(user, 'Submitter')) ??
-    members.find((user) => userHasRole(user, 'Administrator'))
+    members.find((user) => userHasRole(user, 'Administrator')) ??
+    members.find((user) => userHasRole(user, 'C Admin'))
   );
 }
 
@@ -267,7 +268,7 @@ export function defaultOrganizationVerifier(
   return (
     pool.find((user) => userHasRole(user, 'Verifier')) ??
     pool.find((user) => userHasRole(user, 'C Admin')) ??
-    pool.find((user) => userHasRole(user, 'Administrator'))
+    pool.find((user) => userHasRole(user, 'Administrator') && user.userType === 'Third-Party')
   );
 }
 
@@ -326,7 +327,7 @@ export function defaultOrganizationInspector(
   const pool = eligible.length > 0 ? eligible : members;
   return (
     pool.find((user) => userHasRole(user, 'Inspector')) ??
-    pool.find((user) => userHasRole(user, 'Administrator'))
+    pool.find((user) => userHasRole(user, 'Administrator') && user.userType === 'Third-Party')
   );
 }
 
@@ -664,7 +665,7 @@ export function getAssuranceAssignmentWarnings(assignments: {
   return warnings;
 }
 
-function stakeholderOrgMatches(orgA: string, orgB: string): boolean {
+export function stakeholderOrgMatches(orgA: string, orgB: string): boolean {
   const a = orgA.trim().toLowerCase();
   const b = orgB.trim().toLowerCase();
   if (!a || !b) return false;

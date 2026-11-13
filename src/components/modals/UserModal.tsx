@@ -19,7 +19,7 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, mode, use
   const { users, addUser, updateUser, activePersona } = useMapStore();
   const isCAdmin = activePersona === 'C Admin';
   const isAdd = mode === 'add';
-  const defaultOrgName = !isAdd && isCAdmin ? 'Southern Basin Energy' : 'Northwind Marine Pty Ltd';
+  const defaultOrgName = !isAdd && isCAdmin ? 'Southern Basin Energy Pty Ltd' : 'Northwind Marine Pty Ltd';
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');

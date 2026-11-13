@@ -91,7 +91,7 @@ const ORIGINAL_OPERATIONAL_OBJECTS: AssuranceObject[] = [
     id: 'OBJ-METH-TOW-01',
     type: 'activity',
     name: 'Mooring & Towage Method Statement (MOP)',
-    ownerOrganization: 'Tidewater Marine',
+    ownerOrganization: 'Northwind Marine Pty Ltd',
     identifier: 'MOP-TOW-004',
     description: 'Detailed operational method for tandem mooring and harbour towage assistance',
   }, 21),

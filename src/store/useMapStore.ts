@@ -1327,7 +1327,10 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   isAuthenticated: false,
   login: (role) => {
     const users = get().users;
-    const sessionUser = getSessionUserForPersona(role, users);
+    const sessionUser =
+      getSessionUserForPersona(role, users) ??
+      users.find((u) => u.status === "Active" && u.roles.includes(role)) ??
+      users.find((u) => u.roles.includes(role));
     const organization = sessionUser?.organization ?? DEFAULT_DEMO_ORGANIZATION;
     const targetView =
       role === "Verifier"
@@ -1389,7 +1392,10 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     const personas = getPersonasForOrganization(users, organization);
     if (!personas.includes(persona)) return;
 
-    const sessionUser = pickSessionUserForOrgPersona(users, organization, persona);
+    const sessionUser =
+      pickSessionUserForOrgPersona(users, organization, persona) ??
+      users.find((u) => u.status === "Active" && u.roles.includes(persona)) ??
+      users.find((u) => u.roles.includes(persona));
 
     /* default to dashboard if active view or entity is not accessible to newly selected persona */
     redirectIfViewBlocked(get(), persona, organization, sessionUser);

@@ -109,7 +109,7 @@ function orgMatchesSetForClientAdmin(set: AssuranceSet, organization: string): b
 describe('role access check across organizations', () => {
   it('verifies every visible sidebar link passes the route guard across all organizations and personas', () => {
     const orgOptions = getOrganizationSwitcherOptions(MOCK_USERS);
-    expect(orgOptions.length).toBe(19);
+    expect(orgOptions.length).toBe(23);
 
     orgOptions.forEach((option) => {
       const org = option.organization;
