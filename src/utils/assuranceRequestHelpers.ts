@@ -4,8 +4,6 @@ import type { UserProfile } from '../types/user';
 import { sameOrganization } from './rbacHelpers';
 import { syncInvitedOrganizationsToParties } from './projectHelpers';
 
-export type RequestDirection = 'ask' | 'invite';
-
 /** Organizations on the project's Organizations card, other than the sender's, in card order. */
 function getOtherPartyOrganizations(
   project: Pick<Project, 'contractParties' | 'invitedOrganizations'>,
@@ -32,79 +30,36 @@ function getOtherPartyOrganizations(
 }
 
 /**
- * Who can receive an assurance set request on a project:
- * - 'ask' returns active Submitters of the other parties (they build the set, sender reviews).
- * - 'invite' returns active Administrators of the other parties (sender builds the set for them).
- * The sender, the sender's organization and anyone outside the project are left out.
- * A user who holds both roles appears in both lists.
+ * Who can receive an assurance set request on a project: active Client Admins (`C Admin`) of the
+ * project's other organizations, in Organizations card order. The sender, the sender's organization
+ * and anyone outside the project are left out.
  */
 export function getAssuranceSetRequestRecipients(
   users: UserProfile[],
   project: Pick<Project, 'contractParties' | 'invitedOrganizations'>,
   senderOrganization: string,
   senderUserId?: string,
-  direction: RequestDirection = 'ask',
 ): UserProfile[] {
-  const matchesRole = (user: UserProfile) =>
-    direction === 'invite'
-      ? user.roles.includes('Administrator') || user.roles.includes('C Admin')
-      : user.roles.includes('Submitter');
-
-  return getOtherPartyOrganizations(project, senderOrganization).flatMap((organization) => {
-    const matchingUsers = users.filter(
-      (user) =>
+  const seen = new Set<string>();
+  return getOtherPartyOrganizations(project, senderOrganization).flatMap((organization) =>
+    users.filter((user) => {
+      const matches =
         user.status === 'Active' &&
         user.id !== senderUserId &&
-        !sameOrganization(user.organization, senderOrganization) &&
+        !seen.has(user.id) &&
         sameOrganization(user.organization, organization) &&
-        matchesRole(user),
-    );
-    const seen = new Set<string>();
-    const uniqueUsers: UserProfile[] = [];
-    for (const u of matchingUsers) {
-      if (!seen.has(u.id)) {
-        seen.add(u.id);
-        uniqueUsers.push(u);
-      }
-    }
-    return uniqueUsers;
-  });
+        user.roles.includes('C Admin');
+      if (matches) seen.add(user.id);
+      return matches;
+    }),
+  );
 }
 
-/**
- * The direction of an assurance set request:
- * - An explicit direction wins:
- *   - 'ask': sender requests; recipient organization responds.
- *   - 'invite': recipient organization requests; sender responds.
- * - Fallback when no direction is passed:
- *   - Recipient is an Administrator / C Admin: recipient's organization requests; sender responds.
- *   - Otherwise: sender requests; recipient's organization responds.
- */
+/** The parties of an assurance set request: the sender's organization requests, the recipient's organization builds the set. */
 export function getRequestDirection(
   senderOrganization: string,
-  recipient: Pick<UserProfile, 'organization' | 'roles'>,
-  direction?: RequestDirection,
+  recipient: Pick<UserProfile, 'organization'>,
 ): { requestingParty: string; respondingParty: string } {
-  if (direction === 'ask') {
-    return {
-      requestingParty: senderOrganization.trim(),
-      respondingParty: recipient.organization.trim(),
-    };
-  }
-  if (direction === 'invite') {
-    return {
-      requestingParty: recipient.organization.trim(),
-      respondingParty: senderOrganization.trim(),
-    };
-  }
-  const isAdministrator =
-    recipient.roles.includes('Administrator') || recipient.roles.includes('C Admin');
-  if (isAdministrator) {
-    return {
-      requestingParty: recipient.organization.trim(),
-      respondingParty: senderOrganization.trim(),
-    };
-  }
   return {
     requestingParty: senderOrganization.trim(),
     respondingParty: recipient.organization.trim(),

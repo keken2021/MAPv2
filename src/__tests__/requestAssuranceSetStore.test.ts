@@ -37,9 +37,9 @@ const senderUser: UserProfile = {
 
 const adminRecipient: UserProfile = {
   id: 'USR-STORE-ADMIN-RECIPIENT',
-  name: 'Northwind Admin',
+  name: 'Northwind Client Admin',
   email: 'admin@northwind.example',
-  roles: ['Administrator'],
+  roles: ['C Admin'],
   userType: 'Organization',
   organization: 'Northwind Marine Pty Ltd',
   departmentOrScope: 'Operations',
@@ -71,7 +71,7 @@ describe('requestAssuranceSet store action', () => {
     });
   });
 
-  it('records flipped parties when the recipient is an Administrator', () => {
+  it('makes the sender the requesting party when the recipient is a Client Admin', () => {
     const { requestAssuranceSet } = useMapStore.getState();
     const result = requestAssuranceSet({
       projectId: testProject.id,
@@ -86,18 +86,16 @@ describe('requestAssuranceSet store action', () => {
     const notifications = useMapStore.getState().notifications;
     expect(notifications).toHaveLength(1);
     const notification = notifications[0];
-
-    // Flipped parties: recipient is Requesting party, sender is Responding party
-    expect(notification.requestingParty).toBe('Northwind Marine Pty Ltd');
-    expect(notification.respondingParty).toBe('Oil Company');
+    expect(notification.requestingParty).toBe('Oil Company');
+    expect(notification.respondingParty).toBe('Northwind Marine Pty Ltd');
     expect(notification.partyRoles).toEqual({
-      requestingParty: 'Northwind Marine Pty Ltd',
-      respondingParty: 'Oil Company',
-      'Northwind Marine Pty Ltd': 'Requesting party',
-      'Oil Company': 'Responding party',
+      requestingParty: 'Oil Company',
+      respondingParty: 'Northwind Marine Pty Ltd',
+      'Oil Company': 'Requesting party',
+      'Northwind Marine Pty Ltd': 'Responding party',
     });
-    expect(notification.request?.requestingParty).toBe('Northwind Marine Pty Ltd');
-    expect(notification.request?.respondingParty).toBe('Oil Company');
+    expect(notification.request?.requestingParty).toBe('Oil Company');
+    expect(notification.request?.respondingParty).toBe('Northwind Marine Pty Ltd');
   });
 
   it("records today's standard parties when the recipient is a Submitter", () => {
@@ -127,39 +125,5 @@ describe('requestAssuranceSet store action', () => {
     });
     expect(notification.request?.requestingParty).toBe('Oil Company');
     expect(notification.request?.respondingParty).toBe('Northwind Marine Pty Ltd');
-  });
-
-  it('respects explicit direction "ask" even if recipient is an Administrator', () => {
-    const { requestAssuranceSet } = useMapStore.getState();
-    const result = requestAssuranceSet({
-      projectId: testProject.id,
-      recipientUserId: adminRecipient.id,
-      senderUserId: senderUser.id,
-      senderName: senderUser.name,
-      direction: 'ask',
-      message: 'Please create an assurance set.',
-    });
-
-    expect(result.success).toBe(true);
-    const notification = useMapStore.getState().notifications[0];
-    expect(notification.requestingParty).toBe('Oil Company');
-    expect(notification.respondingParty).toBe('Northwind Marine Pty Ltd');
-  });
-
-  it('respects explicit direction "invite" even if recipient is a Submitter', () => {
-    const { requestAssuranceSet } = useMapStore.getState();
-    const result = requestAssuranceSet({
-      projectId: testProject.id,
-      recipientUserId: submitterRecipient.id,
-      senderUserId: senderUser.id,
-      senderName: senderUser.name,
-      direction: 'invite',
-      message: 'We invite you to request an assurance set from us.',
-    });
-
-    expect(result.success).toBe(true);
-    const notification = useMapStore.getState().notifications[0];
-    expect(notification.requestingParty).toBe('Northwind Marine Pty Ltd');
-    expect(notification.respondingParty).toBe('Oil Company');
   });
 });

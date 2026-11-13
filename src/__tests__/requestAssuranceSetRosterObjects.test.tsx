@@ -59,7 +59,7 @@ describe('Request Assurance Set modal: recipients and roster objects', () => {
 
   const recipientSelect = () => screen.getByLabelText(/Recipient/) as HTMLSelectElement;
 
-  it('has no Scope field and lists only Submitters of the other parties', () => {
+  it('has no Scope field and lists only Client Admins of the other parties', () => {
     renderModal();
     expect(screen.queryByText('Scope (optional)')).toBeNull();
     const select = recipientSelect();
@@ -67,17 +67,18 @@ describe('Request Assurance Set modal: recipients and roster objects', () => {
     expect(optgroups.some((og) => og.label === NORTHWIND_ORG)).toBe(true);
 
     const options = Array.from(select.options).map((o) => o.textContent ?? '');
-    expect(options.some((text) => text === 'M. Chen')).toBe(true);
+    expect(options.some((text) => text === 'T. Okada')).toBe(true);
     expect(options.some((text) => text.includes('—'))).toBe(false);
     expect(options.some((text) => text.includes(OIL_CO_ORG))).toBe(false);
-    expect(options.some((text) => text.startsWith('T. Okada'))).toBe(false);
+    expect(options.some((text) => text === 'M. Chen')).toBe(false);
+    expect(options.some((text) => text === 'K. Osei')).toBe(false);
   });
 
   it('keeps the object picker disabled until a recipient is chosen, then lists that party objects', () => {
     renderModal();
     expect(screen.getByText('Choose a recipient first.')).toBeInTheDocument();
-    const chen = Array.from(recipientSelect().options).find((o) => o.textContent === 'M. Chen')!;
-    fireEvent.change(recipientSelect(), { target: { value: chen.value } });
+    const okada = Array.from(recipientSelect().options).find((o) => o.textContent === 'T. Okada')!;
+    fireEvent.change(recipientSelect(), { target: { value: okada.value } });
     expect(screen.getByLabelText('LNGC Northwind Aurora · Vessel')).toBeInTheDocument();
     expect(screen.queryByLabelText('OSV Meridian Endeavour · Vessel')).toBeNull();
   });
@@ -85,24 +86,24 @@ describe('Request Assurance Set modal: recipients and roster objects', () => {
   it('clears picked objects when the recipient changes', () => {
     renderModal();
     const options = Array.from(recipientSelect().options).filter((o) => o.value);
-    const chen = options.find((o) => o.textContent === 'M. Chen')!;
-    const other = options.find((o) => o.value !== chen.value)!;
-    fireEvent.change(recipientSelect(), { target: { value: chen.value } });
+    const okada = options.find((o) => o.textContent === 'T. Okada')!;
+    const other = options.find((o) => o.value !== okada.value)!;
+    fireEvent.change(recipientSelect(), { target: { value: okada.value } });
     fireEvent.click(screen.getByLabelText('LNGC Northwind Aurora · Vessel'));
     fireEvent.change(recipientSelect(), { target: { value: other.value } });
-    fireEvent.change(recipientSelect(), { target: { value: chen.value } });
+    fireEvent.change(recipientSelect(), { target: { value: okada.value } });
     expect((screen.getByLabelText('LNGC Northwind Aurora · Vessel') as HTMLInputElement).checked).toBe(false);
   });
 
   it('sends the picked roster objects with the request', () => {
     renderModal();
-    const chen = Array.from(recipientSelect().options).find((o) => o.textContent?.startsWith('M. Chen'))!;
-    fireEvent.change(recipientSelect(), { target: { value: chen.value } });
+    const okada = Array.from(recipientSelect().options).find((o) => o.textContent === 'T. Okada')!;
+    fireEvent.change(recipientSelect(), { target: { value: okada.value } });
     fireEvent.click(screen.getByLabelText('LNGC Northwind Aurora · Vessel'));
     fireEvent.click(screen.getByRole('button', { name: 'Send Request' }));
     const sent = useMapStore
       .getState()
-      .notifications.find((n) => n.type === 'assurance_set_request' && n.recipientUserId === chen.value);
+      .notifications.find((n) => n.type === 'assurance_set_request' && n.recipientUserId === okada.value);
     expect(sent?.request?.suggestedAssets).toEqual([
       { assetId: 'VESSEL-013', assetType: 'Vessel', assetName: 'LNGC Northwind Aurora' },
     ]);
@@ -113,12 +114,12 @@ describe('Request Assurance Set modal: recipients and roster objects', () => {
     render(
       <RequestAssuranceSetModal isOpen={true} onClose={vi.fn()} project={{ ...project, assetLinks: [] }} onSuccess={vi.fn()} />,
     );
-    const chen = Array.from(recipientSelect().options).find((o) => o.textContent?.startsWith('M. Chen'))!;
-    fireEvent.change(recipientSelect(), { target: { value: chen.value } });
+    const okada = Array.from(recipientSelect().options).find((o) => o.textContent === 'T. Okada')!;
+    fireEvent.change(recipientSelect(), { target: { value: okada.value } });
     expect(screen.getByText('No objects from this party on the project roster.')).toBeInTheDocument();
   });
 
-  it('shows the empty recipient message when no other party has a Submitter', () => {
+  it('shows the empty recipient message when no other organization has a Client Admin', () => {
     const project = useMapStore.getState().projects.find((p) => p.id === OIL_CO_LNG_PROJECT_ID)!;
     render(
       <RequestAssuranceSetModal
@@ -132,6 +133,6 @@ describe('Request Assurance Set modal: recipients and roster objects', () => {
         onSuccess={vi.fn()}
       />,
     );
-    expect(screen.getByText("No submitters in this project's other parties.")).toBeInTheDocument();
+    expect(screen.getByText("No client admins in this project's other organizations.")).toBeInTheDocument();
   });
 });

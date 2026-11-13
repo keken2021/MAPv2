@@ -10,7 +10,7 @@ import {
 } from '../store/oilCoLngPilotMockData';
 import type { Project, ProjectAssetLink } from '../types/project';
 
-describe('RequestAssuranceSetModal recipient simplification and direction', () => {
+describe('RequestAssuranceSetModal Client Admin recipients', () => {
   const initialStore = useMapStore.getState();
 
   beforeEach(() => {
@@ -41,66 +41,34 @@ describe('RequestAssuranceSetModal recipient simplification and direction', () =
     );
   };
 
-  it('by default only Submitters are listed, by name only with no role tags', () => {
+  it('lists only Client Admins of the other organizations, by name only', () => {
     renderModal();
     const select = screen.getByLabelText(/Recipient/) as HTMLSelectElement;
 
-    // Check optgroup grouping by organization
     const optgroups = Array.from(select.querySelectorAll('optgroup'));
     expect(optgroups.some((og) => og.label === NORTHWIND_ORG)).toBe(true);
 
     const options = Array.from(select.options);
     const optionTexts = options.map((o) => o.textContent?.trim() ?? '');
+    expect(options[0].textContent).toBe('Select a client admin');
 
-    // Placeholder
-    expect(options[0].textContent).toBe('Select a submitter');
+    const okadaOption = options.find((o) => o.textContent?.trim() === 'T. Okada');
+    expect(okadaOption).toBeDefined();
+    expect(okadaOption?.textContent).not.toContain('Admin');
+    expect(okadaOption?.textContent).not.toContain('—');
 
-    // Submitter M. Chen is present with NAME ONLY
-    expect(optionTexts).toContain('M. Chen');
-    const chenOption = options.find((o) => o.textContent?.trim() === 'M. Chen');
-    expect(chenOption).toBeDefined();
-    // Strictly no role tags or dash suffixes in option text
-    expect(chenOption?.textContent).not.toContain('Submitter');
-    expect(chenOption?.textContent).not.toContain('Responding party');
-    expect(chenOption?.textContent).not.toContain('—');
-
-    // Administrator K. Osei is NOT in the ask list
+    // Submitter M. Chen and Administrator K. Osei are not listed
+    expect(optionTexts).not.toContain('M. Chen');
     expect(optionTexts).not.toContain('K. Osei');
   });
 
-  it('clicking the link lists Administrators, changes placeholder, and clears the pick', () => {
+  it('has no ask/invite toggle', () => {
     renderModal();
-    const select = screen.getByLabelText(/Recipient/) as HTMLSelectElement;
-
-    // Pick a submitter
-    const chenOption = Array.from(select.options).find((o) => o.textContent?.trim() === 'M. Chen')!;
-    fireEvent.change(select, { target: { value: chenOption.value } });
-    expect(select.value).toBe(chenOption.value);
-
-    // Direction link
-    const toggleBtn = screen.getByTestId('btn-toggle-request-direction');
-    expect(toggleBtn).toHaveTextContent('Invite them to request a set from you instead');
-
-    // Switch direction to invite
-    fireEvent.click(toggleBtn);
-
-    // Selection is cleared
-    expect(select.value).toBe('');
-    expect(toggleBtn).toHaveTextContent('Ask them for a set instead');
-    expect(select.options[0].textContent).toBe('Select an administrator');
-
-    // Now lists Administrators (e.g. K. Osei, T. Okada) by name only
-    const inviteOptionTexts = Array.from(select.options).map((o) => o.textContent?.trim() ?? '');
-    expect(inviteOptionTexts).toContain('K. Osei');
-    expect(inviteOptionTexts).not.toContain('M. Chen');
-
-    const oseiOption = Array.from(select.options).find((o) => o.textContent?.trim() === 'K. Osei');
-    expect(oseiOption?.textContent).not.toContain('Administrator');
-    expect(oseiOption?.textContent).not.toContain('Requesting party');
-    expect(oseiOption?.textContent).not.toContain('—');
+    expect(screen.queryByTestId('btn-toggle-request-direction')).toBeNull();
+    expect(screen.queryByText(/Invite them to request a set/)).toBeNull();
   });
 
-  it('invite mode suggests the owner organization roster objects available before a recipient is picked', () => {
+  it('enables roster objects only after a recipient is picked, from the recipient organization', () => {
     const ownerLink: ProjectAssetLink = {
       id: 'PAL-OILCO-TEST-1',
       projectId: OIL_CO_LNG_PROJECT_ID,
@@ -112,35 +80,23 @@ describe('RequestAssuranceSetModal recipient simplification and direction', () =
       addedAt: '2026-10-01',
       addedByPersona: 'C Admin',
     };
-    const project = getTestProject([ownerLink]);
-    renderModal(project);
-
-    // In default ask mode before recipient pick: picker is disabled
+    renderModal(getTestProject([ownerLink]));
     expect(screen.getByText('Choose a recipient first.')).toBeInTheDocument();
 
-    // Switch to invite mode
-    const toggleBtn = screen.getByTestId('btn-toggle-request-direction');
-    fireEvent.click(toggleBtn);
+    const select = screen.getByLabelText(/Recipient/) as HTMLSelectElement;
+    const okadaOption = Array.from(select.options).find((o) => o.textContent?.trim() === 'T. Okada')!;
+    fireEvent.change(select, { target: { value: okadaOption.value } });
 
-    // In invite mode: owner objects are available immediately before any recipient is chosen
     expect(screen.queryByText('Choose a recipient first.')).toBeNull();
-    expect(screen.getByLabelText('OilCo Master Barge · Vessel')).toBeInTheDocument();
+    expect(screen.getByLabelText('LNGC Northwind Aurora · Vessel')).toBeInTheDocument();
+    expect(screen.queryByLabelText('OilCo Master Barge · Vessel')).toBeNull();
   });
 
   it('contains no Requesting party or Responding party banner or text', () => {
     renderModal();
-
-    expect(screen.queryByTestId('requesting-party-banner')).toBeNull();
-    expect(screen.queryByText(/Requesting party/i)).toBeNull();
-    expect(screen.queryByText(/Responding party/i)).toBeNull();
-
-    // Even after switching direction and picking an administrator
-    const toggleBtn = screen.getByTestId('btn-toggle-request-direction');
-    fireEvent.click(toggleBtn);
-
     const select = screen.getByLabelText(/Recipient/) as HTMLSelectElement;
-    const oseiOption = Array.from(select.options).find((o) => o.textContent?.trim() === 'K. Osei')!;
-    fireEvent.change(select, { target: { value: oseiOption.value } });
+    const okadaOption = Array.from(select.options).find((o) => o.textContent?.trim() === 'T. Okada')!;
+    fireEvent.change(select, { target: { value: okadaOption.value } });
 
     expect(screen.queryByTestId('requesting-party-banner')).toBeNull();
     expect(screen.queryByText(/Requesting party/i)).toBeNull();

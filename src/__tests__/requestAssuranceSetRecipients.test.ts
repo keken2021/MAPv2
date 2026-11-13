@@ -35,17 +35,16 @@ const parties: ContractParty[] = [
 
 const users = [
   user('U1', 'Sender', 'Client Co', ['C Admin']),
-  user('U2', 'Client Submitter', 'Client Co', ['Submitter']),
+  user('U2', 'Client Second Admin', 'Client Co', ['C Admin']),
   user('U3', 'Head Submitter', 'Head Co', ['Submitter']),
-  user('U4', 'Head Admin', 'Head Co', ['C Admin']),
-  user('U5', 'Vendor Submitter', 'Vendor Co', ['Administrator', 'Submitter']),
-  user('U6', 'Vendor Inactive', 'Vendor Co', ['Submitter'], 'Inactive'),
-  user('U7', 'Outsider Submitter', 'Outside Co', ['Submitter']),
-  user('U8', 'Head Co Ltd Submitter', 'Head Co Ltd', ['Submitter']),
-  user('U9', 'Head Second Submitter', 'Head Co', ['Submitter']),
-  user('U10', 'Review Co Admin', 'Review Co', ['Administrator']),
-  user('U11', 'Head Admin Actual', 'Head Co', ['Administrator']),
-  user('U12', 'Invited Admin', 'Invited Co', ['Administrator']),
+  user('U4', 'Head Client Admin', 'Head Co', ['C Admin']),
+  user('U5', 'Vendor Client Admin', 'Vendor Co', ['C Admin', 'Submitter']),
+  user('U6', 'Vendor Inactive Admin', 'Vendor Co', ['C Admin'], 'Inactive'),
+  user('U7', 'Outsider Admin', 'Outside Co', ['C Admin']),
+  user('U8', 'Head Co Ltd Admin', 'Head Co Ltd', ['C Admin']),
+  user('U10', 'Review Co Administrator', 'Review Co', ['Administrator']),
+  user('U11', 'Head Administrator', 'Head Co', ['Administrator']),
+  user('U12', 'Invited Client Admin', 'Invited Co', ['C Admin']),
   user('U13', 'Invited Submitter', 'Invited Co', ['Submitter']),
 ];
 
@@ -54,218 +53,48 @@ describe('getAssuranceSetRequestRecipients', () => {
     contractParties: parties,
     invitedOrganizations: ['Client Co', 'Invited Co', 'Empty Invited Co'],
   };
+  const recipientIds = () =>
+    getAssuranceSetRequestRecipients(users, projectWithInvited, 'Client Co', 'U1').map((u) => u.id);
 
-  it('by default (ask) lists active Submitters only of other parties', () => {
-    const recipients = getAssuranceSetRequestRecipients(
-      users,
-      projectWithInvited,
-      'Client Co',
-      'U1',
-    );
-    const ids = recipients.map((u) => u.id);
-
-    // Head Co submitters: U3, U9 (not admins U4, U11)
-    expect(ids).toContain('U3');
-    expect(ids).toContain('U9');
-    expect(ids).not.toContain('U4');
-    expect(ids).not.toContain('U11');
-
-    // Vendor Co submitter: U5
-    expect(ids).toContain('U5');
-
-    // Invited Co submitter: U13 (not admin U12)
-    expect(ids).toContain('U13');
-    expect(ids).not.toContain('U12');
-
-    // Review Co has only administrator U10, so not in ask
-    expect(ids).not.toContain('U10');
+  it('lists only active Client Admins of the other organizations, in card order', () => {
+    expect(recipientIds()).toEqual(['U4', 'U5', 'U12']);
   });
 
-  it('in invite mode lists active Administrators only of other parties', () => {
-    const recipients = getAssuranceSetRequestRecipients(
-      users,
-      projectWithInvited,
-      'Client Co',
-      'U1',
-      'invite',
-    );
-    const ids = recipients.map((u) => u.id);
-
-    // Head Co administrators: U4, U11 (not submitters U3, U9)
-    expect(ids).toContain('U4');
-    expect(ids).toContain('U11');
-    expect(ids).not.toContain('U3');
-    expect(ids).not.toContain('U9');
-
-    // Review Co administrator: U10
-    expect(ids).toContain('U10');
-
-    // Invited Co administrator: U12 (not submitter U13)
-    expect(ids).toContain('U12');
-    expect(ids).not.toContain('U13');
+  it('leaves out Submitters and Administrators', () => {
+    const ids = recipientIds();
+    for (const id of ['U3', 'U10', 'U11', 'U13']) expect(ids).not.toContain(id);
   });
 
-  it('a dual-role user appears in both ask and invite lists', () => {
-    const askRecipients = getAssuranceSetRequestRecipients(
-      users,
-      projectWithInvited,
-      'Client Co',
-      'U1',
-      'ask',
-    );
-    const inviteRecipients = getAssuranceSetRequestRecipients(
-      users,
-      projectWithInvited,
-      'Client Co',
-      'U1',
-      'invite',
-    );
-
-    const vendorAsk = askRecipients.filter((r) => r.id === 'U5');
-    const vendorInvite = inviteRecipients.filter((r) => r.id === 'U5');
-    expect(vendorAsk).toHaveLength(1);
-    expect(vendorInvite).toHaveLength(1);
+  it('never lists the sender, the sender organization, outside organizations or inactive users', () => {
+    const ids = recipientIds();
+    expect(ids).not.toContain('U1'); // sender
+    expect(ids).not.toContain('U2'); // sender organization
+    expect(ids).not.toContain('U7'); // outside organization
+    expect(ids).not.toContain('U8'); // overlapping outside organization
+    expect(ids).not.toContain('U6'); // inactive user
   });
 
-  it('never lists the sender, the sender organization, or outside organizations', () => {
-    for (const dir of ['ask', 'invite'] as const) {
-      const recipients = getAssuranceSetRequestRecipients(
-        users,
-        projectWithInvited,
-        'Client Co',
-        'U1',
-        dir,
-      );
-      const ids = recipients.map((u) => u.id);
-      expect(ids).not.toContain('U1'); // sender
-      expect(ids).not.toContain('U2'); // sender organization
-      expect(ids).not.toContain('U7'); // outside organization
-      expect(ids).not.toContain('U8'); // overlapping outside organization
-      expect(ids).not.toContain('U6'); // inactive user
-    }
-  });
-
-  it('lists an invited organization that is not a contract party', () => {
-    const askRecipients = getAssuranceSetRequestRecipients(
-      users,
-      projectWithInvited,
-      'Client Co',
-      'U1',
-      'ask',
-    );
-    expect(askRecipients.some((r) => r.id === 'U13')).toBe(true);
-
-    const inviteRecipients = getAssuranceSetRequestRecipients(
-      users,
-      projectWithInvited,
-      'Client Co',
-      'U1',
-      'invite',
-    );
-    expect(inviteRecipients.some((r) => r.id === 'U12')).toBe(true);
-  });
-
-  it('does not list an organization with no active Submitter in ask or Administrator in invite', () => {
-    // Review Co has no submitters
-    const askRecipients = getAssuranceSetRequestRecipients(
-      users,
-      projectWithInvited,
-      'Client Co',
-      'U1',
-      'ask',
-    );
-    expect(askRecipients.some((r) => r.organization === 'Review Co')).toBe(false);
-    expect(askRecipients.some((r) => r.organization === 'No Staff Co')).toBe(false);
-    expect(askRecipients.some((r) => r.organization === 'Empty Invited Co')).toBe(false);
-
-    // Empty Co has no users
-    const inviteRecipients = getAssuranceSetRequestRecipients(
-      users,
-      projectWithInvited,
-      'Client Co',
-      'U1',
-      'invite',
-    );
-    expect(inviteRecipients.some((r) => r.organization === 'No Staff Co')).toBe(false);
-    expect(inviteRecipients.some((r) => r.organization === 'Empty Invited Co')).toBe(false);
-  });
-
-  it('returns an empty list when no other party has an active member for the direction', () => {
-    const emptyPartyList: ContractParty[] = [
+  it('returns an empty list when no other organization has an active Client Admin', () => {
+    const noAdminParties: ContractParty[] = [
       { organization: 'Client Co', group: 'Client', chainRole: 'client' },
-      { organization: 'Empty Co', group: 'Vendor' },
+      { organization: 'Review Co', group: 'Third party' },
     ];
     expect(
-      getAssuranceSetRequestRecipients(users, { contractParties: emptyPartyList }, 'Client Co', 'U1', 'ask'),
-    ).toEqual([]);
-    expect(
-      getAssuranceSetRequestRecipients(users, { contractParties: emptyPartyList }, 'Client Co', 'U1', 'invite'),
+      getAssuranceSetRequestRecipients(users, { contractParties: noAdminParties }, 'Client Co', 'U1'),
     ).toEqual([]);
     expect(getAssuranceSetRequestRecipients(users, {}, 'Client Co', 'U1')).toEqual([]);
   });
 });
 
 describe('getRequestDirection', () => {
-  const adminUser = user('U10', 'Review Co Admin', 'Review Co', ['Administrator']);
-  const submitterUser = user('U3', 'Head Submitter', 'Head Co', ['Submitter']);
-  const dualUser = user('U5', 'Vendor User', 'Vendor Co', ['Administrator', 'Submitter']);
-
-  it('explicit direction ask makes sender requestingParty and recipient respondingParty regardless of roles', () => {
-    // Overrides role guess even when recipient is Administrator
-    const dirAdmin = getRequestDirection('Client Co', adminUser, 'ask');
-    expect(dirAdmin).toEqual({
-      requestingParty: 'Client Co',
-      respondingParty: 'Review Co',
-    });
-
-    const dirSubmitter = getRequestDirection('Client Co', submitterUser, 'ask');
-    expect(dirSubmitter).toEqual({
+  it('makes the sender the requesting party and the recipient the responding party', () => {
+    expect(getRequestDirection('Client Co', user('U4', 'Head Client Admin', 'Head Co', ['C Admin']))).toEqual({
       requestingParty: 'Client Co',
       respondingParty: 'Head Co',
     });
-
-    const dirDual = getRequestDirection('Client Co', dualUser, 'ask');
-    expect(dirDual).toEqual({
-      requestingParty: 'Client Co',
-      respondingParty: 'Vendor Co',
-    });
-  });
-
-  it('explicit direction invite makes recipient requestingParty and sender respondingParty regardless of roles', () => {
-    // Overrides role guess even when recipient is Submitter
-    const dirSubmitter = getRequestDirection('Client Co', submitterUser, 'invite');
-    expect(dirSubmitter).toEqual({
-      requestingParty: 'Head Co',
-      respondingParty: 'Client Co',
-    });
-
-    const dirAdmin = getRequestDirection('Client Co', adminUser, 'invite');
-    expect(dirAdmin).toEqual({
-      requestingParty: 'Review Co',
-      respondingParty: 'Client Co',
-    });
-
-    const dirDual = getRequestDirection('Client Co', dualUser, 'invite');
-    expect(dirDual).toEqual({
-      requestingParty: 'Vendor Co',
-      respondingParty: 'Client Co',
-    });
-  });
-
-  it('fallback when no direction is passed guesses from role (Administrator flips, Submitter does not)', () => {
-    expect(getRequestDirection('Client Co', adminUser)).toEqual({
-      requestingParty: 'Review Co',
-      respondingParty: 'Client Co',
-    });
-
-    expect(getRequestDirection('Client Co', submitterUser)).toEqual({
+    expect(getRequestDirection(' Client Co ', user('U11', 'Head Administrator', 'Head Co ', ['Administrator']))).toEqual({
       requestingParty: 'Client Co',
       respondingParty: 'Head Co',
-    });
-
-    expect(getRequestDirection('Client Co', dualUser)).toEqual({
-      requestingParty: 'Vendor Co',
-      respondingParty: 'Client Co',
     });
   });
 });

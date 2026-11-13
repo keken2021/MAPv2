@@ -158,7 +158,7 @@ import {
   seedAssignmentNotices,
   assignmentNoticeContent,
 } from "../utils/notificationHelpers";
-import { getRequestDirection, RequestDirection } from "../utils/assuranceRequestHelpers";
+import { getRequestDirection } from "../utils/assuranceRequestHelpers";
 import {
   buildDraftAssetLinkFromAssuranceSet,
   generateUniqueProjectId,
@@ -269,7 +269,6 @@ export interface MapStoreState {
     message?: string;
     senderUserId: string;
     senderName: string;
-    direction?: RequestDirection;
   }) => { success: boolean; message?: string };
   markNotificationActioned: (
     notificationId: string,
@@ -1722,11 +1721,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       sender?.organization ||
       getProjectOrganizationForPersona(get().activePersona, get().users, get().activeDemoOrganization) ||
       getProjectClientOrganization(project);
-    const { requestingParty, respondingParty } = getRequestDirection(
-      senderOrganization,
-      assignee,
-      input.direction,
-    );
+    const { requestingParty, respondingParty } = getRequestDirection(senderOrganization, assignee);
 
     const partyRoles = {
       requestingParty,
