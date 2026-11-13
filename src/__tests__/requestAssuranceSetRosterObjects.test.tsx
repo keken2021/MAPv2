@@ -119,7 +119,11 @@ describe('Request Assurance Set modal: recipients and roster objects', () => {
       <RequestAssuranceSetModal
         isOpen={true}
         onClose={vi.fn()}
-        project={{ ...project, contractParties: [{ organization: OIL_CO_ORG, group: 'Client', chainRole: 'client' }] }}
+        project={{
+          ...project,
+          contractParties: [{ organization: OIL_CO_ORG, group: 'Client', chainRole: 'client' }],
+          invitedOrganizations: [OIL_CO_ORG],
+        }}
         onSuccess={vi.fn()}
       />,
     );

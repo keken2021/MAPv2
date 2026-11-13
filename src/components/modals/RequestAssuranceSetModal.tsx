@@ -13,6 +13,7 @@ import {
 import { getSessionUserForPersona } from '../../utils/userRoleHelpers';
 import { Modal } from './Modal';
 import { RequestRecipientSelect } from './RequestRecipientSelect';
+import { RequestPartiesBanner } from './RequestPartiesBanner';
 import { RequestRosterObjectPicker } from './RequestRosterObjectPicker';
 import { EditParticipatingOrganizationsModal } from './EditParticipatingOrganizationsModal';
 
@@ -148,10 +149,7 @@ export const RequestAssuranceSetModal: React.FC<RequestAssuranceSetModalProps> =
         <p className="text-muted small mb-2">
           Ask an organization invited to <strong>{project.name}</strong> to create an assurance set for <strong>{senderOrg}</strong>.
         </p>
-        <div className="mb-3 p-2 bg-light rounded border small" data-testid="requesting-party-banner">
-          <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Requesting party</div>
-          <div className="fw-semibold text-dark">{senderOrg}</div>
-        </div>
+        <RequestPartiesBanner senderOrganization={senderOrg} recipient={recipient} />
         {error && <div className="alert alert-danger py-2 small">{error}</div>}
         <RequestRecipientSelect
           recipients={recipients}

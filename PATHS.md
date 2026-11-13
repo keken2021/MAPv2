@@ -27,7 +27,7 @@ Root: `C:\mapFiles\MAPv2`
 - `src/components/tables/` : data tables used by the list screens
 - `src/components/drawers/` : drawers (open from the right edge); `Drawer.tsx` is the shared shell every drawer uses
 - `src/components/dashboard/` : role dashboard components (`SharedDashboardFrame.tsx` shared frame)
-- `src/components/modals/` : modals (centered); `Modal.tsx` is the shared shell, `ConfirmDialog.tsx` is the shared confirmation dialog, `EditParticipatingOrganizationsModal.tsx` manages participating vendor/third-party orgs on a project, `RequestRecipientSelect.tsx` recipient picker with role tags
+- `src/components/modals/` : modals (centered); `Modal.tsx` is the shared shell, `ConfirmDialog.tsx` is the shared confirmation dialog, `EditParticipatingOrganizationsModal.tsx` manages participating vendor/third-party orgs on a project, `RequestRecipientSelect.tsx` recipient picker with role tags, `RequestPartiesBanner.tsx` directional request parties banner
 - `src/components/wizards/` : multi-step wizards; `Wizard.tsx` is the shared numbered stepper shell
 - `src/utils/useOverlayBehavior.ts` : escape, focus and tab handling for a drawer or a dialog opened from one
 - `src/utils/useDeferredFilters.ts` : modal draft filter state hook (`useDeferredFilters`) isolating `FilterModal` edits and resets until Apply is clicked; tests `src/__tests__/deferredTableFilters.test.tsx`
@@ -67,6 +67,9 @@ Root: `C:\mapFiles\MAPv2`
 - `src/views/CreateAssuranceSetView.tsx` : create wizard
 - `src/utils/assuranceTemplates.ts` : wizard steps, scopes and standard documents; `getAssuranceSetAsset` and `toSingleAssetSet` keep a set to one asset (ADR 0004)
 - `src/views/AssuranceDetailView.tsx` : detail screen
+- `src/components/assurance/AssuranceDetailTasksTab.tsx` : assurance set detail Tasks tab pane component extracted per Map Design System §12
+- `src/utils/stageTasks.ts` : stage-derived task rows (inspection and approval) shared rules (`getInspectionTaskStatus`, `getApprovalTaskStatus`, `isStageTaskActionableForViewer`, `isInspectionDue`); tests `src/__tests__/inspectionTask.test.ts`
+- `src/utils/inspectionTask.ts` : re-exports `stageTasks.ts` for backward compatibility
 - `src/components/drawers/DocumentReviewDrawer.tsx` : document review drawer opened from the detail screen
 - `src/components/drawers/ApproverDecisionDrawer.tsx` : approver decision drawer opened in-place from the detail screen Tasks tab
 - `src/types/assurance.ts` : assurance set types
@@ -85,6 +88,7 @@ Root: `C:\mapFiles\MAPv2`
 - `src/utils/assuranceSetStatus.ts` : Set status rule (Go, Conditional, No-go), `ASSURANCE_SET_STATUS_RULES` thresholds, next expiry, party roles, worst-first order (ADR 0033); tests `src/__tests__/assuranceSetStatus.test.ts`
 - `src/components/tables/ProjectAssuranceStatusTable.tsx` : status-first assurance set table on project detail; tests `src/__tests__/projectAssuranceStatusTable.test.tsx`
 - `src/components/tables/ProjectTasksTable.tsx` : read-only tasks roll-up table on project detail; tests `src/__tests__/projectTasksTable.test.tsx` (Task 5329)
+- `src/components/tables/ProjectTaskRow.tsx` : single task row component for `ProjectTasksTable` (Map Design System §12)
 - `src/components/projects/ProjectOverviewTab.tsx` : Overview tab on project detail showing Overall Project Readiness (gauge and Object, Assurance Set, Provider counts), Approved % tile (Task 5526), delivery efficiency metrics, Active Bottlenecks, and Participating Providers summary table (Task 5498); tests `src/__tests__/projectDetailHeader.test.tsx` and `src/__tests__/projectApprovedPercentage.test.tsx`
 - `.autopilot/.task-notes/5483-prototype-demo-relevant-alignment-items/` : Task notes (`plan.md`, `plan.docx`, `changes.md`, `next-steps.md`) for Sprint 3 demo-relevant alignment Tasks 5484, 5487, 5488, 5489, 5494, 5495, 5497, and 5498
 - `src/views/AssuranceObjectsView.tsx` : assurance objects catalog view with 6 target tabs (All, Vessels, Crew Directory, Equipment, Procedures, Methods); tests `src/__tests__/assuranceObjectTabs.test.tsx`
@@ -155,6 +159,7 @@ Root: `C:\mapFiles\MAPv2`
 - Unit tests for Submitter dashboard config: `src/__tests__/submitterDashboardConfig.test.tsx` (Submitter KPI tiles, 4-tier action urgency sort, tags, button labels and view routing)
 - Unit tests for Verifier dashboard config: `src/__tests__/verifierDashboardConfig.test.tsx` (Verifier KPI tiles, escalation check, 4-tier urgency action sorting, oldest wait days calculation, Verify buttons)
 - Unit tests for Inspector dashboard config: `src/__tests__/inspectorDashboardConfig.test.tsx` (Inspector KPI tiles, 4-tier action urgency sort, flagged CAPA re-inspections second, button interactions)
+- Unit tests for Inspection task: `src/__tests__/inspectionTask.test.ts` (stage, required/completed flags, assigned inspector viewer permissions)
 - Unit tests for Approver dashboard config: `src/__tests__/approverDashboardConfig.test.tsx` (Approver KPI tiles, longest wait first sorting, mini readiness bar on rows, Decide vs Review button matching state)
 - Unit tests for role dashboards routing: `src/__tests__/roleDashboardsRouting.test.tsx` (routes Administrator, Submitter, Verifier, Inspector, Approver to SharedDashboardFrame, verifies all old dashboard views retired from DashboardView)
 - Unit tests for UI declutter dashboard KPI tiles: `src/__tests__/dashboardTiles.test.tsx` (tile navigation to filtered lists and table filtering for Administrator, Submitter, and C Admin)
@@ -223,6 +228,8 @@ Root: `C:\mapFiles\MAPv2`
 - `docs/architecture/MAP_Assurance_Project_Asset_Architecture.md` : how assurance sets, projects and assets relate
 - `docs/architecture/multi-org-multi-user-architecture.md` : multi-organization and multi-user model
 - `docs/architecture/drawer-modal-audit.md` : audit of drawers and modals, the drawer standard, and the record of the drawer shell change
+- `docs/architecture/prototype-scope-users-routes-workflow.md`, `.docx` : prototype reference (2026-11-13, `v4` at `458a57b`): Part A for stakeholders (scope, limitations, 6 roles, end-to-end workflow, Scenarios 1 to 3), Part B for MAP-1 (route table with record checks, role-by-route matrix, sidebar per persona, stage machine, side paths, roll-up, demo orgs, what MAP-1 must make real, known issues K1 to K9 and decisions D1 to D3). Rebuild the `.docx` with `py docs/architecture/prototype-scope-users-routes-workflow.build.py` (python-docx; Mermaid stays in the `.md`)
+- `docs/work-items/prototype-known-issues-tasks.csv` : 9 Tasks (K1 to K9, 3.25 h) under User Story 5483 in `MAP\Sprint 3`, assigned to Creishen Ayuman, State New; not yet on the board
 - `docs/meetings/MAP_Continuation_Meeting_Highlights_2026-10-05.md`, `.pdf` : latest meeting decisions
 - `docs/meetings/Tasks.txt`, `Questions.txt`, `Notes.txt` : working notes
 - `docs/work-items/` : Task lists written for Azure Boards, one `.md`, one import `.csv` and one Word `.docx` per Feature (the `.docx` is the Task list in the documentation-docx house style, built from the `.md`; edit the `.md`, then rebuild). Was `docs/work items docs/`
