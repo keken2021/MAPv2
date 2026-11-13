@@ -7,6 +7,7 @@ import {
   getRoleDisplayLabel,
   getSegregationWarnings,
   getServiceProviderSubmitterCandidates,
+  getSessionUsersForOrgPersona,
   hasBlockingAssuranceAssignmentConflict,
   splitRolesForForm,
   usersWithRole,
@@ -144,5 +145,23 @@ describe('userRoleHelpers', () => {
     expect(
       northwind.slice(firstAdministrator).some((user) => user.roles.includes('Submitter')),
     ).toBe(false);
+  });
+
+  it('getSessionUsersForOrgPersona returns active users in organization holding persona', () => {
+    const northwindSubmitters = getSessionUsersForOrgPersona(
+      MOCK_USERS,
+      'Northwind Marine Pty Ltd',
+      'Submitter',
+    );
+    expect(northwindSubmitters.map((u) => u.name)).toEqual(['M. Chen', 'J. Vance']);
+    expect(northwindSubmitters.some((u) => u.name === 'Simon Peter')).toBe(false);
+
+    const northwindInspectors = getSessionUsersForOrgPersona(
+      MOCK_USERS,
+      'Northwind Marine Pty Ltd',
+      'Inspector',
+    );
+    expect(northwindInspectors.map((u) => u.name)).toEqual(['S. Girard']);
+    expect(northwindInspectors).toHaveLength(1);
   });
 });

@@ -32,9 +32,10 @@ Root: `C:\mapFiles\MAPv2`
 - `src/utils/useOverlayBehavior.ts` : escape, focus and tab handling for a drawer or a dialog opened from one
 - `src/utils/useDeferredFilters.ts` : modal draft filter state hook (`useDeferredFilters`) isolating `FilterModal` edits and resets until Apply is clicked; tests `src/__tests__/deferredTableFilters.test.tsx`
 - `src/components/common/` : shared controls (filters, pagination, readiness gauge, pipeline stepper, CountTabs, StatusBadge, ListToolbar, SearchInput, Modal, ConfirmDialog, Wizard, DetailHeader, SearchableSelect, EmptyState, DueCell, ApproverDecisionBar)
-- `src/components/layout/` : sidebar, header, notification panel, organization switcher
+- `src/components/layout/` : sidebar, header, notification panel, organization switcher; `SidebarViewingAsMenu.tsx` displays active organization person switcher for the active role
+- `src/utils/userRoleHelpers.ts` : user role entitlement helpers, `getSessionUsersForOrgPersona` for active users holding role in organization
 - `src/utils/headerNavigation.tsx` : reusable header back navigation helper, hook (`useHeaderBackNavigation`), and back button component (`HeaderBackButton`) preserving contextual return to originating entities (e.g. Assurance Set from CAPA open findings)
-- `src/store/useMapStore.ts` : the single app store
+- `src/store/useMapStore.ts` : the single app store; `setActiveSessionUser` switches active user within role
 - `src/store/*MockData.ts` : mock data, one file per domain
 - `src/types/` : TypeScript types per domain (`dashboard.ts` role dashboard configuration types)
 - `src/utils/rbacHelpers.ts` : which role sees which set, asset and action
@@ -49,6 +50,7 @@ Root: `C:\mapFiles\MAPv2`
 - `src/__tests__/requestAssuranceSetRecipients.test.ts` : tests for request recipients (all submitters or fallback administrators)
 - `src/__tests__/defaultOrganizationVerifierAndInspector.test.tsx` : tests for defaulting active verifiers and inspectors when organization is chosen (Sentinel Cyber Assurance and others)
 - `src/__tests__/singleAdministratorPerOrganization.test.ts` : tests for enforcing at most one active Administrator and C Admin per organization, helper tests, and UserModal validation
+- `src/__tests__/viewingAsUserSwitcher.test.tsx` : unit and component tests for Viewing as user switcher, helper filtering, store session user switching, and sidebar menu
 - `src/utils/formatters.ts` : dates, status labels, and `getProviderLabel` (Vessel Provider, Crew Provider, Equipment Provider, or Provider)
 - `src/utils/dashboardTileNavigation.ts` : KPI tile navigation and list filtering for role dashboards
 - `src/utils/recentActivityFeed.ts` : Recent activity feed formatting and role relevance filtering for role dashboards

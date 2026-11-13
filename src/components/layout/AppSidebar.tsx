@@ -5,7 +5,7 @@
 */
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronUp, LogOut } from "lucide-react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { useMapStore } from "../../store/useMapStore";
 import { UserRolePersona } from "../../types/audit";
 import { ENABLE_ROLES_AND_PERMISSIONS } from "../../config/featureFlags";
@@ -17,9 +17,7 @@ import {
 import { documentsForSessionVerifier } from "../../views/VerifierWorkspaceView";
 import {
   getOrganizationSwitcherOptions,
-  getPersonasForOrganization,
   getUserInitials,
-  pickSessionUserForOrgPersona,
 } from "../../utils/demoSessionHelpers";
 import {
   getDemoSessionContext,
@@ -27,6 +25,7 @@ import {
   getSessionUserForPersona,
 } from "../../utils/userRoleHelpers";
 import { OrganizationSwitcher } from "./OrganizationSwitcher";
+import { SidebarViewingAsMenu } from "./SidebarViewingAsMenu";
 import { canOpenObjectsList } from "../../views/AssuranceObjectsView";
 
 interface NavItem {
@@ -54,14 +53,12 @@ const SETTINGS_KEYS = ["users", "organization-profile", "roles-permissions"];
 export const AppSidebar: React.FC = () => {
   const {
     activePersona,
-    setActivePersona,
     activeDemoOrganization,
     activeSessionUserId,
     setActiveDemoOrganization,
     currentHashView,
     currentEntityId,
     setCurrentHashView,
-    logout,
     rolePermissionDefaults,
     userPermissionOverrides,
     users,
@@ -97,11 +94,6 @@ export const AppSidebar: React.FC = () => {
   const organizationOptions = useMemo(
     () => getOrganizationSwitcherOptions(users),
     [users],
-  );
-
-  const personasForOrganization = useMemo(
-    () => getPersonasForOrganization(users, activeDemoOrganization),
-    [users, activeDemoOrganization],
   );
 
   const sessionUser = useMemo(
@@ -551,83 +543,7 @@ export const AppSidebar: React.FC = () => {
 
         {/* user persona switch & sign out popover menu */}
         {isUserMenuOpen && (
-          <div
-            className="position-absolute bottom-100 start-0 mb-2 ms-2 p-2 rounded shadow-lg border"
-            style={{
-              width: "calc(100% - 16px)",
-              backgroundColor: "#0b1b2b",
-              borderColor: "#1e3a5f",
-              zIndex: 1100,
-            }}
-          >
-            <div
-              className="px-2 py-1 mb-1 text-uppercase fw-bold"
-              style={{
-                fontSize: "0.625rem",
-                letterSpacing: "0.08em",
-                color: "#64748b",
-              }}
-            >
-              Viewing as
-            </div>
-            {personasForOrganization.map((role) => {
-              const personaUser = pickSessionUserForOrgPersona(
-                users,
-                activeDemoOrganization,
-                role,
-              );
-              return (
-              <button
-                key={role}
-                type="button"
-                className={`btn btn-sm text-start w-100 d-flex align-items-center justify-content-between py-1 px-2 mb-1 rounded border-0 ${
-                  activePersona === role
-                    ? "text-white fw-semibold"
-                    : "text-light"
-                }`}
-                style={{
-                  fontSize: "0.75rem",
-                  backgroundColor: activePersona === role ? "#0284c7" : "transparent",
-                }}
-                onClick={() => {
-                  setActivePersona(role);
-                  setOpenMenu(null);
-                }}
-              >
-                <div>
-                  <div className="fw-semibold">{personaUser?.name ?? getRoleDisplayLabel(role)}</div>
-                  <div
-                    style={{
-                      fontSize: "0.65rem",
-                      color: activePersona === role ? "#e0f2fe" : "#94a3b8",
-                    }}
-                  >
-                    {getRoleDisplayLabel(role)}
-                  </div>
-                </div>
-                {activePersona === role && (
-                  <span style={{ fontSize: "0.65rem", color: "#ffffff" }}>Active</span>
-                )}
-              </button>
-            );
-            })}
-            <div
-              className="border-top my-1"
-              style={{ borderColor: "rgba(255, 255, 255, 0.08)" }}
-            />
-            <button
-              type="button"
-              className="btn btn-sm text-start text-danger w-100 d-flex align-items-center gap-2 py-1.5 px-2 border-0 bg-transparent"
-              style={{ fontSize: "0.78rem" }}
-              onClick={() => {
-                setOpenMenu(null);
-                logout();
-              }}
-            >
-              <LogOut size={14} />
-              <span>Sign Out</span>
-            </button>
-          </div>
+          <SidebarViewingAsMenu onClose={() => setOpenMenu(null)} />
         )}
       </div>
     </aside>

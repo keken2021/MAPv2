@@ -97,6 +97,7 @@ import {
   canAssignStakeholderRole,
   getDemoSessionContext,
   getSessionUserForPersona,
+  getSessionUsersForOrgPersona,
   getStakeholderRoleOrganization,
   PENDING_ASSIGNMENT,
   setSubmitters,
@@ -205,6 +206,7 @@ export interface MapStoreState {
   activeDemoOrganization: string;
   /** mock user id for the active org + persona session */
   activeSessionUserId?: string;
+  setActiveSessionUser: (userId: string) => void;
   setActiveDemoOrganization: (organization: string) => void;
 
   // Hash Navigation State
@@ -1266,6 +1268,61 @@ function raiseTargetDateNotices(
   });
 }
 
+/**
+  what: redirects to dashboard if the current view or entity is not accessible to the given persona/session user/organization.
+  how: checks isViewAccessibleToPersona and entity assignment for assurance-sets and project views; triggers setCurrentHashView('dashboard') if blocked.
+  with what file: src/store/useMapStore.ts used by setActiveDemoOrganization, setActivePersona, and setActiveSessionUser.
+*/
+function redirectIfViewBlocked(
+  state: MapStoreState,
+  persona: UserRolePersona,
+  organization: string,
+  sessionUser?: UserProfile,
+) {
+  const currentView = state.currentHashView;
+  const currentId = state.currentEntityId;
+  const viewAllowed = isViewAccessibleToPersona(
+    currentView,
+    currentId,
+    persona,
+    undefined,
+    undefined,
+    sessionUser ?? null,
+  );
+  const entityBlocked =
+    (currentView === "assurance-sets" &&
+      currentId &&
+      (() => {
+        const targetSet = state.assuranceSets.find((s) => s.id === currentId);
+        return Boolean(
+          targetSet &&
+            !isAssuranceSetAssignedToPersona(targetSet, persona, organization, sessionUser, state.users),
+        );
+      })()) ||
+    (currentView === "project" &&
+      currentId &&
+      currentId !== "new" &&
+      (() => {
+        const targetProject = state.projects.find((p) => p.id === currentId);
+        return Boolean(
+          targetProject &&
+            !isProjectAccessibleToUser(
+              targetProject,
+              persona,
+              state.users,
+              state.assuranceSets,
+              organization,
+              sessionUser,
+              state.notifications,
+            ),
+        );
+      })());
+
+  if (!viewAllowed || entityBlocked) {
+    state.setCurrentHashView("dashboard");
+  }
+}
+
 export const useMapStore = create<MapStoreState>((set, get) => ({
   isAuthenticated: false,
   login: (role) => {
@@ -1318,48 +1375,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     const currentPersonId = users.find((u) => u.id === get().activeSessionUserId)?.personId;
     const sessionUser = pickSessionUserForOrgPersona(users, organization, nextPersona, currentPersonId);
 
-    const state = get();
-    const currentView = state.currentHashView;
-    const currentId = state.currentEntityId;
-    const viewAllowed = isViewAccessibleToPersona(
-      currentView,
-      currentId,
-      nextPersona,
-      undefined,
-      undefined,
-      sessionUser ?? null,
-    );
-    const entityBlocked =
-      (currentView === "assurance-sets" &&
-        currentId &&
-        (() => {
-          const targetSet = state.assuranceSets.find((s) => s.id === currentId);
-          return Boolean(
-            targetSet &&
-              !isAssuranceSetAssignedToPersona(targetSet, nextPersona, organization, sessionUser, users),
-          );
-        })()) ||
-      (currentView === "project" &&
-        currentId &&
-        currentId !== "new" &&
-        (() => {
-          const targetProject = state.projects.find((p) => p.id === currentId);
-          return Boolean(
-            targetProject &&
-              !isProjectAccessibleToUser(
-                targetProject,
-                nextPersona,
-                users,
-                state.assuranceSets,
-                organization,
-                sessionUser,
-                state.notifications,
-              ),
-          );
-        })());
-    if (!viewAllowed || entityBlocked) {
-      get().setCurrentHashView("dashboard");
-    }
+    redirectIfViewBlocked(get(), nextPersona, organization, sessionUser);
 
     set({
       activeDemoOrganization: organization,
@@ -1376,51 +1392,22 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     const sessionUser = pickSessionUserForOrgPersona(users, organization, persona);
 
     /* default to dashboard if active view or entity is not accessible to newly selected persona */
-    const state = get();
-    const currentView = state.currentHashView;
-    const currentId = state.currentEntityId;
-    const viewAllowed = isViewAccessibleToPersona(
-      currentView,
-      currentId,
-      persona,
-      undefined,
-      undefined,
-      sessionUser ?? null,
-    );
-    const entityBlocked =
-      (currentView === "assurance-sets" &&
-        currentId &&
-        (() => {
-          const targetSet = state.assuranceSets.find((s) => s.id === currentId);
-          return Boolean(
-            targetSet &&
-              !isAssuranceSetAssignedToPersona(targetSet, persona, organization, sessionUser, users),
-          );
-        })()) ||
-      (currentView === "project" &&
-        currentId &&
-        currentId !== "new" &&
-        (() => {
-          const targetProject = state.projects.find((p) => p.id === currentId);
-          return Boolean(
-            targetProject &&
-              !isProjectAccessibleToUser(
-                targetProject,
-                persona,
-                users,
-                state.assuranceSets,
-                organization,
-                sessionUser,
-                state.notifications,
-              ),
-          );
-        })());
-
-    if (!viewAllowed || entityBlocked) {
-      get().setCurrentHashView("dashboard");
-    }
+    redirectIfViewBlocked(get(), persona, organization, sessionUser);
 
     set({ activePersona: persona, activeSessionUserId: sessionUser?.id });
+  },
+  setActiveSessionUser: (userId) => {
+    const state = get();
+    const organization = state.activeDemoOrganization;
+    const persona = state.activePersona;
+    const users = state.users;
+    const eligibleUsers = getSessionUsersForOrgPersona(users, organization, persona);
+    const sessionUser = eligibleUsers.find((u) => u.id === userId);
+    if (!sessionUser) return;
+
+    redirectIfViewBlocked(state, persona, organization, sessionUser);
+
+    set({ activeSessionUserId: sessionUser.id });
   },
 
   currentHashView: "login",

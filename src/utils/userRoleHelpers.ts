@@ -151,6 +151,27 @@ export function getSessionUserForPersona(
   );
 }
 
+/**
+  what: returns active users in an organization who hold the specified persona role.
+  how: checks user status is Active, roles include persona, and user organization matches via stakeholderOrgMatches.
+  with what file: src/utils/userRoleHelpers.ts consumed by useMapStore and SidebarViewingAsMenu.
+*/
+export function getSessionUsersForOrgPersona(
+  users: UserProfile[],
+  organization: string,
+  persona: UserRolePersona,
+): UserProfile[] {
+  const targetOrg = organization?.trim();
+  if (!targetOrg) return [];
+  return users.filter(
+    (user) =>
+      user.status === 'Active' &&
+      user.roles.includes(persona) &&
+      Boolean(user.organization) &&
+      stakeholderOrgMatches(targetOrg, user.organization),
+  );
+}
+
 export function usersWithRole(users: UserProfile[], role: RoleName): UserProfile[] {
   return users.filter((u) => userHasRole(u, role));
 }
