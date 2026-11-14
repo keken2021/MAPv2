@@ -11,23 +11,30 @@
  */
 
 export const CANONICAL_ORGANIZATIONS = [
+  'ABS',
+  'AMSA',
   'Austral Classification Society',
+  'Australian Register of Ships',
   'Beach Energy Ltd',
   'Bureau Veritas Inspectorate',
   'Chevron Australia Pty Ltd',
   'Coastal Fuel Testing',
+  'DNV',
   'Fremantle Port Authority',
+  'Gard P&I Club',
   'Global Maritime Audits',
   'Gulf Security Services Pty Ltd',
   'Harbourline Terminals',
   'Inpex Operations Australia',
   'Kestrel Control Systems',
+  "Lloyd's Register",
   'Marine Assurance Authority',
   'Meridian Marine Services Pty Ltd',
   'Meridian Shipyards',
   'NOPSEMA',
   'Northwind Marine Pty Ltd',
   'Oil Company',
+  'RINA',
   'Santos Ltd',
   'Sentinel Cyber Assurance',
   'Shell Australia Pty Ltd',
@@ -86,6 +93,9 @@ const ORG_ALIASES: Record<string, CanonicalOrganization> = {
   'woodside energy ltd': 'Woodside Energy Ltd',
   'northwind marine': 'Northwind Marine Pty Ltd',
   'northwind marine pty ltd': 'Northwind Marine Pty Ltd',
+  'bureau veritas': 'Bureau Veritas Inspectorate',
+  'dnv technical assurance': 'DNV',
+  'dnv (iacs member)': 'DNV',
 };
 
 /**

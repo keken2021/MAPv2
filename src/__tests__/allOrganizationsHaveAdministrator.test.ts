@@ -6,12 +6,13 @@ import {
 } from '../utils/organizationRegistry';
 import { MOCK_USERS } from '../store/mockData';
 import { OIL_CO_PILOT_USERS } from '../store/oilCoLngPilotMockData';
+import { buildOrgRoster } from '../store/orgRosterMockData';
 import { UserProfile } from '../types/user';
 
 describe('Every kept organization has an active Administrator (Step 3)', () => {
   // Deduplicate users by id
   const userMap = new Map<string, UserProfile>();
-  for (const u of [...MOCK_USERS, ...OIL_CO_PILOT_USERS]) {
+  for (const u of [...MOCK_USERS, ...OIL_CO_PILOT_USERS, ...buildOrgRoster(MOCK_USERS)]) {
     userMap.set(u.id, u);
   }
   const allUsers = Array.from(userMap.values());

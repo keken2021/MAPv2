@@ -6,6 +6,9 @@ import {
   isCanonicalOrganization,
   canonicalizeOrganization,
 } from '../utils/organizationRegistry';
+import { useMapStore } from '../store/useMapStore';
+import { orgFieldMatches } from '../utils/rbacHelpers';
+import { defaultOrganizationVerifier } from '../utils/userRoleHelpers';
 import { MOCK_PROJECTS } from '../store/projectMockData';
 import {
   OIL_CO_PILOT_PROJECT,
@@ -20,8 +23,8 @@ import { MOCK_ORGANIZATION_PROFILES } from '../store/organizationMockData';
 import { SEEDED_ACTIVITY_OBJECTS } from '../store/assuranceObjectMockData';
 
 describe('Organization Registry and Mock Data Consistency', () => {
-  it('defines the 23 kept canonical organizations', () => {
-    expect(CANONICAL_ORGANIZATIONS).toHaveLength(23);
+  it('defines the 30 kept canonical organizations', () => {
+    expect(CANONICAL_ORGANIZATIONS).toHaveLength(30);
     expect(isCanonicalOrganization('Northwind Marine Pty Ltd')).toBe(true);
     expect(isCanonicalOrganization('Southern Basin Energy Pty Ltd')).toBe(true);
     expect(isCanonicalOrganization('Oil Company')).toBe(true);
@@ -31,6 +34,13 @@ describe('Organization Registry and Mock Data Consistency', () => {
     expect(isCanonicalOrganization('NOPSEMA')).toBe(true);
     expect(isCanonicalOrganization('Chevron Australia Pty Ltd')).toBe(true);
     expect(isCanonicalOrganization('Bureau Veritas Inspectorate')).toBe(true);
+    expect(isCanonicalOrganization('ABS')).toBe(true);
+    expect(isCanonicalOrganization('AMSA')).toBe(true);
+    expect(isCanonicalOrganization('DNV')).toBe(true);
+    expect(isCanonicalOrganization("Lloyd's Register")).toBe(true);
+    expect(isCanonicalOrganization('RINA')).toBe(true);
+    expect(isCanonicalOrganization('Gard P&I Club')).toBe(true);
+    expect(isCanonicalOrganization('Australian Register of Ships')).toBe(true);
   });
 
   it('correctly classifies client organizations for C Admin vs Administrator role', () => {
@@ -63,6 +73,9 @@ describe('Organization Registry and Mock Data Consistency', () => {
     expect(canonicalizeOrganization('Chevron Australia Vetting')).toBe('Chevron Australia Pty Ltd');
     expect(canonicalizeOrganization('Shell Australia')).toBe('Shell Australia Pty Ltd');
     expect(canonicalizeOrganization('Woodside Energy')).toBe('Woodside Energy Ltd');
+    expect(canonicalizeOrganization('Bureau Veritas')).toBe('Bureau Veritas Inspectorate');
+    expect(canonicalizeOrganization('DNV Technical Assurance')).toBe('DNV');
+    expect(canonicalizeOrganization('DNV (IACS member)')).toBe('DNV');
   });
 
   it('ensures every organization string in mock projects is in CANONICAL_ORGANIZATIONS', () => {
@@ -147,6 +160,69 @@ describe('Organization Registry and Mock Data Consistency', () => {
   it('ensures every organization profile is in CANONICAL_ORGANIZATIONS', () => {
     for (const prof of MOCK_ORGANIZATION_PROFILES) {
       expect(isCanonicalOrganization(prof.name), `Profile ${prof.id} name: ${prof.name}`).toBe(true);
+    }
+  });
+
+  it('ensures each of the 7 certificate issuers has exactly one active Administrator and one active Verifier', () => {
+    const storeUsers = useMapStore.getState().users;
+    const issuers = [
+      'ABS',
+      'AMSA',
+      'DNV',
+      "Lloyd's Register",
+      'RINA',
+      'Gard P&I Club',
+      'Australian Register of Ships',
+    ];
+
+    for (const issuer of issuers) {
+      const admins = storeUsers.filter(
+        (u) =>
+          u.status === 'Active' &&
+          Boolean(u.organization) &&
+          orgFieldMatches(issuer, u.organization) &&
+          u.roles.includes('Administrator'),
+      );
+      expect(admins, `Expected exactly 1 Administrator for issuer "${issuer}"`).toHaveLength(1);
+
+      const verifiers = storeUsers.filter(
+        (u) =>
+          u.status === 'Active' &&
+          Boolean(u.organization) &&
+          orgFieldMatches(issuer, u.organization) &&
+          u.roles.includes('Verifier'),
+      );
+      expect(verifiers, `Expected exactly 1 Verifier for issuer "${issuer}"`).toHaveLength(1);
+
+      const otherRoles = storeUsers.filter(
+        (u) =>
+          u.status === 'Active' &&
+          Boolean(u.organization) &&
+          orgFieldMatches(issuer, u.organization) &&
+          (u.roles.includes('Inspector') || u.roles.includes('Approver') || u.roles.includes('Submitter')),
+      );
+      expect(otherRoles, `Expected no other roles for issuer "${issuer}"`).toHaveLength(0);
+    }
+  });
+
+  it('allows each certificate issuer to be chosen as the verifier organization and defaults their active verifier', () => {
+    const storeUsers = useMapStore.getState().users;
+    const issuers = [
+      'ABS',
+      'AMSA',
+      'DNV',
+      "Lloyd's Register",
+      'RINA',
+      'Gard P&I Club',
+      'Australian Register of Ships',
+    ];
+
+    for (const issuer of issuers) {
+      const verifier = defaultOrganizationVerifier(storeUsers, issuer);
+      expect(verifier, `Expected default verifier for issuer "${issuer}"`).toBeDefined();
+      expect(verifier?.roles).toContain('Verifier');
+      expect(verifier?.organization).toBe(issuer);
+      expect(verifier?.status).toBe('Active');
     }
   });
 });

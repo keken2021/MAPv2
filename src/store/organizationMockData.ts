@@ -83,6 +83,41 @@ export const MOCK_ORGANIZATION_PROFILES: OrganizationProfile[] = [
   profile('ORG-SENTINEL', 'Sentinel Cyber Assurance', {
     website: 'https://www.sentinelcyber.example',
   }),
+  profile('ORG-ABS', 'ABS', {
+    email: 'survey.au@eagle.org',
+    phone: '+61 8 9214 2100',
+    website: 'https://www.eagle.org',
+  }),
+  profile('ORG-AMSA', 'AMSA', {
+    email: 'assurance@amsa.gov.au',
+    phone: '+61 2 6279 5000',
+    website: 'https://www.amsa.gov.au',
+  }),
+  profile('ORG-ARS', 'Australian Register of Ships', {
+    email: 'shipping.registration@amsa.gov.au',
+    phone: '+61 2 6279 5000',
+    website: 'https://www.amsa.gov.au',
+  }),
+  profile('ORG-DNV', 'DNV', {
+    email: 'maritime.perth@dnv.com',
+    phone: '+61 8 9380 0800',
+    website: 'https://www.dnv.com',
+  }),
+  profile('ORG-GARD', 'Gard P&I Club', {
+    email: 'claims@gard.no',
+    phone: '+47 37 01 91 00',
+    website: 'https://www.gard.no',
+  }),
+  profile('ORG-LR', "Lloyd's Register", {
+    email: 'maritime.au@lr.org',
+    phone: '+61 8 9488 1500',
+    website: 'https://www.lr.org',
+  }),
+  profile('ORG-RINA', 'RINA', {
+    email: 'perth.office@rina.org',
+    phone: '+61 8 9324 6800',
+    website: 'https://www.rina.org',
+  }),
 ];
 
 /**

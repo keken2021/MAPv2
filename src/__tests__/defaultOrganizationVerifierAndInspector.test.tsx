@@ -340,6 +340,22 @@ describe('Assurance wizard - Sentinel Cyber Assurance and other organizations de
     expect(created.requirements.every((r) => r.assignedVerifier === PENDING_ASSIGNMENT)).toBe(true);
   });
 
+  it('defaults ABS verifier to H. Vance when chosen as verifier organization in wizard Step 1', () => {
+    const vesselId = defaultWizardVesselId();
+    const { container } = renderWizardWithDefaultVessel(vesselId);
+
+    const addOrgInput = container.querySelector('#grid-add-organization') as HTMLInputElement;
+    fireEvent.focus(addOrgInput);
+    fireEvent.change(addOrgInput, { target: { value: 'ABS' } });
+    const option = container.querySelector('#grid-add-organization-listbox [data-item-id="ABS"]');
+    if (option) fireEvent.click(option);
+
+    const absVerifier = screen.getByRole('checkbox', { name: 'Verifier: ABS' });
+    fireEvent.click(absVerifier);
+
+    expect(container.textContent).toContain('Verifier: H. Vance');
+  });
+
   it('AssuranceDetailView resolves pending stakeholder label to existing user for Sentinel Cyber Assurance', () => {
     const template = useMapStore.getState().assuranceSets[0];
     useMapStore.setState((state) => ({

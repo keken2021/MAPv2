@@ -149,13 +149,13 @@ describe('Organization Role Roster (Task 5483)', () => {
     const inspectors = usersWithRole(storeUsers, 'Inspector');
     const inspectorOrgs = inspectors.map((u) => u.organization);
     expect(inspectorOrgs.some((org) => orgFieldMatches('Woodside Energy Ltd', org))).toBe(true);
-    expect(inspectorOrgs.some((org) => orgFieldMatches('DNV', org))).toBe(true);
+    expect(inspectorOrgs.some((org) => orgFieldMatches('Global Maritime Audits', org))).toBe(true);
 
     // Approver picker uses usersWithRole(users, 'Approver')
     const approvers = usersWithRole(storeUsers, 'Approver');
     const approverOrgs = approvers.map((u) => u.organization);
     expect(approverOrgs.some((org) => orgFieldMatches('Woodside Energy Ltd', org))).toBe(true);
-    expect(approverOrgs.some((org) => orgFieldMatches('DNV', org))).toBe(true);
+    expect(approverOrgs.some((org) => orgFieldMatches('Global Maritime Audits', org))).toBe(true);
   });
 
   it('checks that each roster organization is on the kept list and none of the 7 removed names has a user', () => {
@@ -172,7 +172,7 @@ describe('Organization Role Roster (Task 5483)', () => {
 
     for (const org of ORGANIZATIONS) {
       expect(
-        isCanonicalOrganization(org.name) || org.name === 'DNV' || org.name === 'AMSA',
+        isCanonicalOrganization(org.name),
         `Expected roster organization "${org.name}" to be canonical`,
       ).toBe(true);
     }

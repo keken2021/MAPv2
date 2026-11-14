@@ -7,7 +7,7 @@
 import { UserProfile, UserRolePersona } from '../types/user';
 import { orgFieldMatches } from '../utils/rbacHelpers';
 
-export type OrganizationKind = 'owner' | 'client' | 'third party' | 'provider';
+export type OrganizationKind = 'owner' | 'client' | 'third party' | 'provider' | 'issuer';
 
 export interface OrganizationInfo {
   readonly name: string;
@@ -17,7 +17,7 @@ export interface OrganizationInfo {
 }
 
 /**
- * 14 organizations from the design table (Owner, Client, Third party).
+ * 19 organizations from the design table (Owner, Client, Third party, Issuer).
  * Exact names match existing mockData, projectMockData, and equipmentMockData.
  */
 export const ORGANIZATIONS: readonly OrganizationInfo[] = [
@@ -38,8 +38,15 @@ export const ORGANIZATIONS: readonly OrganizationInfo[] = [
   { name: 'Bureau Veritas Inspectorate', kind: 'third party', shortCode: 'BVI', emailDomain: 'bureauveritas.com' },
   { name: 'Marine Assurance Authority', kind: 'third party', shortCode: 'MAA', emailDomain: 'marineassurance.gov.au' },
   { name: 'Global Maritime Audits', kind: 'third party', shortCode: 'GMA', emailDomain: 'globalmaritime.com' },
-  { name: 'DNV', kind: 'third party', shortCode: 'DNV', emailDomain: 'dnv.com' },
-  { name: 'AMSA', kind: 'third party', shortCode: 'AMS', emailDomain: 'amsa.gov.au' },
+
+  /* Issuers */
+  { name: 'ABS', kind: 'issuer', shortCode: 'ABS', emailDomain: 'eagle.org' },
+  { name: 'AMSA', kind: 'issuer', shortCode: 'AMS', emailDomain: 'amsa.gov.au' },
+  { name: 'Australian Register of Ships', kind: 'issuer', shortCode: 'ARS', emailDomain: 'amsa.gov.au' },
+  { name: 'DNV', kind: 'issuer', shortCode: 'DNV', emailDomain: 'dnv.com' },
+  { name: 'Gard P&I Club', kind: 'issuer', shortCode: 'GRD', emailDomain: 'gard.no' },
+  { name: "Lloyd's Register", kind: 'issuer', shortCode: 'LRG', emailDomain: 'lr.org' },
+  { name: 'RINA', kind: 'issuer', shortCode: 'RIN', emailDomain: 'rina.org' },
 ] as const;
 
 /**
@@ -58,6 +65,7 @@ export const ROLES_BY_KIND: Record<OrganizationKind, readonly UserRolePersona[]>
   client: ['Verifier', 'Inspector', 'Approver'],
   'third party': ['Verifier', 'Inspector', 'Approver'],
   provider: ['Submitter'],
+  issuer: ['Verifier'],
 };
 
 /**
@@ -134,14 +142,30 @@ const PERSONNEL_NAMES: Record<string, Record<string, { name: string; username: s
   DNV: {
     ADM: { name: 'K. Holst', username: 'k.holst' },
     VER: { name: 'A. Berg', username: 'a.berg' },
-    INS: { name: 'T. Nielsen', username: 't.nielsen' },
-    APP: { name: 'O. Lindqvist', username: 'o.lindqvist' },
   },
   AMS: {
     ADM: { name: 'D. Carmichael', username: 'd.carmichael' },
     VER: { name: 'J. Wentworth', username: 'j.wentworth' },
-    INS: { name: 'K. Murdoch', username: 'k.murdoch' },
-    APP: { name: 'H. Abercrombie', username: 'h.abercrombie' },
+  },
+  ABS: {
+    ADM: { name: 'M. Sterling', username: 'm.sterling' },
+    VER: { name: 'H. Vance', username: 'h.vance' },
+  },
+  LRG: {
+    ADM: { name: 'R. Pembroke', username: 'r.pembroke' },
+    VER: { name: 'A. Sinclair', username: 'a.sinclair' },
+  },
+  RIN: {
+    ADM: { name: 'M. Moretti', username: 'm.moretti' },
+    VER: { name: 'G. Rossi', username: 'g.rossi' },
+  },
+  GRD: {
+    ADM: { name: 'S. Halvorsen', username: 's.halvorsen' },
+    VER: { name: 'E. Lund', username: 'e.lund' },
+  },
+  ARS: {
+    ADM: { name: 'J. Thornton', username: 'j.thornton' },
+    VER: { name: 'K. Bradford', username: 'k.bradford' },
   },
 };
 
