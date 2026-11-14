@@ -21,6 +21,39 @@ import { MOCK_EQUIPMENT } from '../store/equipmentMockData';
 import { MOCK_CREW } from '../store/crewMockData';
 import { MOCK_ORGANIZATION_PROFILES } from '../store/organizationMockData';
 import { SEEDED_ACTIVITY_OBJECTS } from '../store/assuranceObjectMockData';
+import { ORGANIZATIONS } from '../store/orgRosterMockData';
+import { MOCK_MARKETPLACE_ITEMS } from '../store/marketplaceMockData';
+import { MOCK_CAPA_ITEMS } from '../store/capaMockData';
+import { DEFAULT_INSPECTION_CAPA_ITEMS } from '../store/inspectionMockData';
+import { MOCK_USERS } from '../store/mockData';
+
+const ALLOWED_EXCEPTIONS = new Set([
+  'Apex Marine Logistics (Vendor Helper — Pending)',
+  'Flag State',
+  'Flag State / class',
+  'Flag State / RO',
+  'Flag State / RSO',
+  'Flag State / class on its behalf',
+  'Registry',
+  'Registry / seller',
+  'Calibration provider',
+  'Engineering consultant',
+  'Inspection program',
+  'Approved inspection body',
+  'Manufacturer / inspection body',
+  'Port Authority / designated authority',
+  'Port / Northwind subcontractor',
+  'Gard P&I / insurer',
+  'Harbourline Terminals / insurer',
+  'Harbourline Terminals / Port Authority',
+  'Meridian Shipyards / class',
+  'Both parties, uploaded by the seller',
+]);
+
+function assertKeptOrAllowed(org: string, context: string): void {
+  const isKept = isCanonicalOrganization(org) || ALLOWED_EXCEPTIONS.has(org);
+  expect(isKept, `${context}: "${org}" must be a kept canonical organization or allowed exception`).toBe(true);
+}
 
 describe('Organization Registry and Mock Data Consistency', () => {
   it('defines the 30 kept canonical organizations', () => {
@@ -224,6 +257,43 @@ describe('Organization Registry and Mock Data Consistency', () => {
       expect(verifier?.organization).toBe(issuer);
       expect(verifier?.status).toBe('Active');
     }
+  });
+
+  describe('Organization canonical consistency guard', () => {
+    it('verifies every roster organization is a kept canonical organization', () => {
+      ORGANIZATIONS.forEach((org) => {
+        assertKeptOrAllowed(org.name, `Roster org ${org.name}`);
+      });
+    });
+
+    it('verifies every Marketplace providerOrg is a kept canonical organization', () => {
+      MOCK_MARKETPLACE_ITEMS.forEach((item) => {
+        assertKeptOrAllowed(item.providerOrg, `Marketplace listing ${item.id}`);
+      });
+    });
+
+    it('verifies every CAPA owner is a kept canonical organization', () => {
+      MOCK_CAPA_ITEMS.forEach((capa) => {
+        assertKeptOrAllowed(capa.owner, `CAPA item ${capa.id}`);
+      });
+      DEFAULT_INSPECTION_CAPA_ITEMS.forEach((item) => {
+        assertKeptOrAllowed(item.owner, `Inspection CAPA item ${item.id}`);
+      });
+    });
+
+    it('verifies every seeded user organization is a kept canonical organization', () => {
+      MOCK_USERS.forEach((u) => {
+        if (!u.organization) return;
+        assertKeptOrAllowed(u.organization, `User ${u.id}`);
+      });
+    });
+
+    it('fails when a made-up organization name is introduced', () => {
+      const fakeOrg = 'Atlantis Marine Exploration Ltd';
+      expect(isCanonicalOrganization(fakeOrg)).toBe(false);
+      expect(ALLOWED_EXCEPTIONS.has(fakeOrg)).toBe(false);
+      expect(() => assertKeptOrAllowed(fakeOrg, 'Negative fixture')).toThrow();
+    });
   });
 });
 
