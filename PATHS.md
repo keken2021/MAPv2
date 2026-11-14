@@ -25,7 +25,8 @@ Root: `C:\mapFiles\MAPv2`
 ## Source map
 - `src/views/` : one file per screen
 - `src/components/tables/` : data tables used by the list screens
-- `src/components/drawers/` : drawers (open from the right edge); `Drawer.tsx` is the shared shell every drawer uses
+- `src/components/drawers/` : drawers (open from the right edge); `Drawer.tsx` is the shared shell every drawer uses, `LinkedObjectDatasheetDrawer.tsx` is the read-only live datasheet drawer for linked objects with sign-off change notes (Task 5483)
+- `src/utils/objectDatasheetFields.ts` : pure field definitions, extractors, and snapshot helpers for linked object datasheets (Task 5483)
 - `src/components/dashboard/` : role dashboard components (`SharedDashboardFrame.tsx` shared frame)
 - `src/components/modals/` : modals (centered); `Modal.tsx` is the shared shell, `ConfirmDialog.tsx` is the shared confirmation dialog, `EditParticipatingOrganizationsModal.tsx` manages participating vendor/third-party orgs on a project, `RequestRecipientSelect.tsx` recipient picker with direction link and participating organizations shortcut, `ContractChainFields.tsx` read-only client and clearable head contractor and vendor inputs for Organizations & Contract Chain modal
 - `src/components/wizards/` : multi-step wizards; `Wizard.tsx` is the shared numbered stepper shell
@@ -47,6 +48,8 @@ Root: `C:\mapFiles\MAPv2`
 - `src/config/readinessScale.ts` : unified readiness scale cut-offs, tones, and CSS class helpers
 - `src/config/thresholds.ts` : centralized reminder, expiry, OCR, and at-risk thresholds (Task 5524 / A17)
 - `src/__tests__/projectOwnerSubSetVisibility.test.ts` : unit tests for master-project owner sub-set visibility and document restriction rule (Task 5529 / A37)
+- `src/__tests__/linkedObjectDatasheetDrawer.test.tsx` : tests for LinkedObjectDatasheetDrawer and eye button RBAC in AssuranceDetailView (Task 5483)
+- `src/__tests__/datasheetSignoffSnapshots.test.ts` : tests for datasheet sign-off snapshot capture and audit naming at verification, inspection, and approval (Task 5483)
 - `src/__tests__/editParticipatingOrganizations.test.tsx` : unit and integration tests for participating organizations editing and auto-sync
 - `src/__tests__/requestAssuranceSetRecipients.test.ts` : tests for request recipients (all submitters or fallback administrators)
 - `src/__tests__/defaultOrganizationVerifierAndInspector.test.tsx` : tests for defaulting active verifiers and inspectors when organization is chosen (Sentinel Cyber Assurance and others)

@@ -5,6 +5,7 @@
 */
 
 import type { CrewGroup, AssuranceSetGroupRef, SetMemberExclusion } from './crew';
+import type { UserRolePersona } from './audit';
 
 export type { CrewGroup, AssuranceSetGroupRef, SetMemberExclusion };
 
@@ -465,6 +466,19 @@ export interface AssuranceSet {
   cancellationReason?: string;
   tags?: ThreePillarsCategory[];
   pppTags?: ThreePillarsCategory[];
+  /** live datasheet snapshots captured at sign-off (verify, inspection, approve) */
+  datasheetSnapshots?: DatasheetSnapshot[];
+}
+
+/**
+ * Datasheet snapshot recorded at sign-off (verify, inspection complete, approve).
+ */
+export interface DatasheetSnapshot {
+  objectId: string;
+  role: UserRolePersona;
+  userId: string;
+  at: string;
+  fields: Record<string, string | number | undefined | null>;
 }
 
 /**

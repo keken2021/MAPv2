@@ -17,6 +17,7 @@ import { ObjectVerificationBadge } from '../components/common/ObjectVerification
 import { DocumentReviewDrawer } from '../components/drawers/DocumentReviewDrawer';
 import { ApproverDecisionDrawer } from '../components/drawers/ApproverDecisionDrawer';
 import { CapaReinspectionDrawer } from '../components/drawers/CapaReinspectionDrawer';
+import { LinkedObjectDatasheetDrawer } from '../components/drawers/LinkedObjectDatasheetDrawer';
 import { formatMaritimeDate, formatMaritimeDateTime, formatReviewChannel, getProviderLabel, getStatusDisplayLabel, toSentenceCase } from '../utils/formatters';
 import { setOrganizations, setOrganizationParties } from '../utils/projectHelpers';
 import {
@@ -31,7 +32,7 @@ import {
   isDatePermissionActive,
 } from '../utils/validation';
 import { MasterDocument } from '../types/document';
-import { AssuranceObject, AssuranceRequirement, AssuranceSetGroupRef, AssuranceSubtype, DatePermissionGrant, TargetDateChangeRecord, TaskSection, ThreePillarsCategory } from '../types/assurance';
+import { AssuranceObject, AssuranceObjectType, AssuranceRequirement, AssuranceSetGroupRef, AssuranceSubtype, DatePermissionGrant, TargetDateChangeRecord, TaskSection, ThreePillarsCategory } from '../types/assurance';
 import {
   filterProjectsForPersona,
   getProjectDateBounds,
@@ -728,6 +729,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
     () => initialPreselect.capaId ?? null,
   );
   const [selectedTaskReqIdForApproverDrawer, setSelectedTaskReqIdForApproverDrawer] = useState<string | null>(null);
+  const [selectedDatasheetObject, setSelectedDatasheetObject] = useState<{ id: string; type: AssuranceObjectType } | null>(null);
   const lastPreselectedHashRef = useRef<string | null>(
     initialPreselect.tab && typeof window !== 'undefined' ? window.location.hash : null,
   );
@@ -1437,6 +1439,11 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   );
 
   const isAssignedReviewer = roleActions.canVerify || roleActions.canInspect || roleActions.canApprove;
+  const isAssignedToViewer = useMemo(() => {
+    if (!assuranceSet || !sessionUser) return false;
+    return isAssuranceSetAssignedToPersona(assuranceSet, activePersona, activeDemoOrganization, sessionUser, users);
+  }, [assuranceSet, sessionUser, activePersona, activeDemoOrganization, users]);
+  const canViewLinkedObject = isAdminViewer || isAssignedToViewer;
 
   const visibleEvents = useMemo(
     () => filterAuditTrailForPersona(auditEvents, activePersona, assuranceSets, vessels, currentUserId, sessionUser),
@@ -3352,16 +3359,18 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                               </span>
                             </td>
                             <td className="text-end">
-                              <button
-                                type="button"
-                                className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
-                                style={{ width: '32px', height: '32px' }}
-                                onClick={() => setCurrentHashView('crew-group', group.groupId)}
-                                title={`View ${group.groupName}`}
-                                aria-label={`View ${group.groupName}`}
-                              >
-                                <Eye size={16} />
-                              </button>
+                              {isAdminViewer && (
+                                <button
+                                  type="button"
+                                  className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                                  style={{ width: '32px', height: '32px' }}
+                                  onClick={() => setCurrentHashView('crew-group', group.groupId)}
+                                  title={`View ${group.groupName}`}
+                                  aria-label={`View ${group.groupName}`}
+                                >
+                                  <Eye size={16} />
+                                </button>
+                              )}
                             </td>
                           </tr>
 
@@ -3455,16 +3464,25 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                   </td>
                                   <td className="text-end">
                                     <div className="d-inline-flex align-items-center justify-content-end gap-1.5">
-                                      <button
-                                        type="button"
-                                        className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
-                                        style={{ width: '32px', height: '32px' }}
-                                        onClick={() => setCurrentHashView('crew', memberId)}
-                                        title={`View ${memberName}`}
-                                        aria-label={`View ${memberName}`}
-                                      >
-                                        <Eye size={16} />
-                                      </button>
+                                      {canViewLinkedObject && (
+                                        <button
+                                          type="button"
+                                          className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                                          style={{ width: '32px', height: '32px' }}
+                                          onClick={() => {
+                                            if (isAdminViewer) {
+                                              setCurrentHashView('crew', memberId);
+                                            } else {
+                                              setSelectedDatasheetObject({ id: memberId, type: 'person' });
+                                            }
+                                          }}
+                                          title={`View ${memberName}`}
+                                          aria-label={`View ${memberName}`}
+                                          data-testid={`view-member-btn-${memberId}`}
+                                        >
+                                          <Eye size={16} />
+                                        </button>
+                                      )}
                                       {canManageMemberExclusions && (
                                         isExcluded ? (
                                           <button
@@ -3554,18 +3572,23 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                             )}
                           </td>
                           <td className="text-end">
-                            {hasDetailView && (
+                            {hasDetailView && canViewLinkedObject && (
                               <button
                                 type="button"
                                 className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
                                 style={{ width: '32px', height: '32px' }}
                                 onClick={() => {
-                                  if (obj.type === 'vessel') setCurrentHashView('vessels', obj.id);
-                                  else if (obj.type === 'person') setCurrentHashView('crew', obj.id);
-                                  else if (obj.type === 'equipment') setCurrentHashView('equipment', obj.id);
+                                  if (isAdminViewer) {
+                                    if (obj.type === 'vessel') setCurrentHashView('vessels', obj.id);
+                                    else if (obj.type === 'person') setCurrentHashView('crew', obj.id);
+                                    else if (obj.type === 'equipment') setCurrentHashView('equipment', obj.id);
+                                  } else {
+                                    setSelectedDatasheetObject({ id: obj.id, type: obj.type });
+                                  }
                                 }}
                                 title={`View ${obj.name}`}
                                 aria-label={`View ${obj.name}`}
+                                data-testid={`view-object-btn-${obj.id}`}
                               >
                                 <Eye size={16} />
                               </button>
@@ -5275,6 +5298,14 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
         reasonTestId="exclude-reason-input"
         onConfirm={handleConfirmExclude}
         onCancel={closeExcludeModal}
+      />
+
+      <LinkedObjectDatasheetDrawer
+        isOpen={Boolean(selectedDatasheetObject)}
+        onClose={() => setSelectedDatasheetObject(null)}
+        objectId={selectedDatasheetObject?.id}
+        objectType={selectedDatasheetObject?.type}
+        assuranceSet={assuranceSet}
       />
     </div>
   );

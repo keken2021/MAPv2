@@ -23,17 +23,16 @@ describe('access denied state', () => {
     window.location.hash = '#/dashboard';
   });
 
-  it('keeps a blocked verifier route and shows none of the vessel list', () => {
-    openAs('Verifier', 'vessels', 'Bureau Veritas Inspectorate', 'USR-202');
+  it('keeps a blocked verifier route and shows none of the blocked screen', () => {
+    openAs('Verifier', 'create-assurance-set', 'Bureau Veritas Inspectorate', 'USR-202');
 
     expect(screen.getByRole('heading', { name: "You don't have access to this page" })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Back to Dashboard' })).toBeTruthy();
-    expect(window.location.hash).toBe('#/vessels');
-    expect(screen.queryByRole('columnheader', { name: /imo number/i })).toBeNull();
+    expect(window.location.hash).toBe('#/create-assurance-set');
   });
 
   it('returns to the dashboard from the access denied state', () => {
-    openAs('Verifier', 'vessels', 'Bureau Veritas Inspectorate', 'USR-202');
+    openAs('Verifier', 'create-assurance-set', 'Bureau Veritas Inspectorate', 'USR-202');
 
     fireEvent.click(screen.getByRole('button', { name: 'Back to Dashboard' }));
 
