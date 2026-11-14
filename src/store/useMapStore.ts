@@ -49,6 +49,7 @@ import {
   MOCK_AUDIT_TRAIL,
   MOCK_USERS,
 } from "./mockData";
+import { buildOrgRoster } from "./orgRosterMockData";
 import { SEEDED_AUDIT_EVENTS } from "./auditMockData";
 import { MOCK_EQUIPMENT } from "./equipmentMockData";
 import { MOCK_CREW, MOCK_CREW_GROUPS } from "./crewMockData";
@@ -5015,7 +5016,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   },
 
   /* user management store state and actions */
-  users: MOCK_USERS,
+  users: [...MOCK_USERS, ...buildOrgRoster(MOCK_USERS)],
   addUser: (newUser) => {
     const activePersona = get().activePersona;
     const preparedUser: UserProfile = {
