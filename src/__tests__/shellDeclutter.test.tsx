@@ -345,12 +345,14 @@ describe('Shell header and sidebar declutter suite', () => {
     expect(approverLabels).toContain('Audit Trail');
     expect(approverLabels).not.toContain('Approvals');
 
-    // Submitter: Dashboard, Notifications, Projects, Assurance Objects (Vessels, Equipment), Assurance Sets, Document Library, Audit Trail
+    // Submitter: Dashboard, Notifications, Projects, Assurance Sets, Document Library, Audit Trail (no object pages or Marketplace)
     const submitterLabels = getSidebarLabels('Submitter');
     expect(submitterLabels).toContain('Dashboard');
     expect(submitterLabels).toContain('Notifications');
     expect(submitterLabels).toContain('Projects');
-    expect(submitterLabels).toContain('Vessels');
+    expect(submitterLabels).not.toContain('Vessels');
+    expect(submitterLabels).not.toContain('Assurance Objects');
+    expect(submitterLabels).not.toContain('Marketplace');
     expect(submitterLabels).toContain('Assurance Sets');
     expect(submitterLabels).toContain('Document Library');
     expect(submitterLabels).toContain('Audit Trail');

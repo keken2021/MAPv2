@@ -31,13 +31,9 @@ import {
 export const OBJECTS_LIST_PERSONAS: UserRolePersona[] = [
   'Administrator',
   'C Admin',
-  'Submitter',
-  'Verifier',
-  'Inspector',
-  'Approver',
 ];
 
-/** the objects list is open to the six working roles. Other routes keep their own access rules. */
+/** the objects list is open to Administrator and Administrator as client only. Non-admin roles (Submitter, Verifier, Inspector, Approver) do not browse object pages. */
 export function canOpenObjectsList(persona: UserRolePersona): boolean {
   return OBJECTS_LIST_PERSONAS.includes(persona);
 }

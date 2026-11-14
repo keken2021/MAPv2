@@ -267,13 +267,13 @@ function flagsForRole(role: UserRolePersona, key: string): CrudFlags {
     case 'vessels':
     case 'equipment':
       if (role === 'Administrator') return createReadUpdate();
-      /* inspector does not open the fleet pages */
-      if (role === 'C Admin' || role === 'Submitter') return readOnly();
+      /* non-admin roles (Submitter, Verifier, Inspector, Approver) do not browse object pages */
+      if (role === 'C Admin') return readOnly();
       return emptyCrud();
 
     case 'vessel_status':
       if (role === 'Administrator') return readUpdate();
-      if (role === 'C Admin' || role === 'Submitter') return readOnly();
+      if (role === 'C Admin') return readOnly();
       return emptyCrud();
 
     case 'assurance_sets':

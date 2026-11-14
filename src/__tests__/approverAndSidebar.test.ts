@@ -8,6 +8,7 @@ import { describe, expect, it, beforeEach } from 'vitest';
 import { useMapStore } from '../store/useMapStore';
 import { MOCK_ASSURANCE_SETS } from '../store/mockData';
 import { AssuranceSet } from '../types/assurance';
+import { isViewAccessibleToPersona } from '../utils/rbacHelpers';
 
 describe('approver action buttons and sidebar navigation suite', () => {
   beforeEach(() => {
@@ -162,6 +163,32 @@ describe('approver action buttons and sidebar navigation suite', () => {
       expect(useMapStore.getState().activePersona).toBe(role);
       expect(useMapStore.getState().activeDemoOrganization).toBe(org);
     });
+  });
+
+  /**
+    what: verifies that non-admin roles (Submitter, Verifier, Inspector, Approver) are denied object pages and Marketplace.
+    how: checks isViewAccessibleToPersona for vessels, equipment, crew, objects, activities, and marketplace across all 4 non-admin roles, and verifies Administrator and Administrator as client keep access.
+    with what file: src/__tests__/approverAndSidebar.test.ts.
+  */
+  it('denies object pages and Marketplace for non-admin roles while Administrator and Administrator as client keep access', () => {
+    const nonAdminRoles = ['Submitter', 'Verifier', 'Inspector', 'Approver'] as const;
+    const objectViews = ['vessels', 'equipment', 'crew', 'objects', 'activities', 'marketplace'];
+
+    nonAdminRoles.forEach((role) => {
+      objectViews.forEach((view) => {
+        expect(isViewAccessibleToPersona(view, null, role)).toBe(false);
+      });
+    });
+
+    // Administrator and Administrator as client keep access
+    expect(isViewAccessibleToPersona('vessels', null, 'Administrator')).toBe(true);
+    expect(isViewAccessibleToPersona('marketplace', null, 'Administrator')).toBe(true);
+    expect(isViewAccessibleToPersona('objects', null, 'Administrator')).toBe(true);
+    expect(isViewAccessibleToPersona('activities', null, 'Administrator')).toBe(true);
+    expect(isViewAccessibleToPersona('vessels', null, 'C Admin')).toBe(true);
+    expect(isViewAccessibleToPersona('marketplace', null, 'C Admin')).toBe(true);
+    expect(isViewAccessibleToPersona('objects', null, 'C Admin')).toBe(true);
+    expect(isViewAccessibleToPersona('activities', null, 'C Admin')).toBe(true);
   });
 });
 

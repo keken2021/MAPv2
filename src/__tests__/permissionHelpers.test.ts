@@ -155,13 +155,13 @@ describe('permissionDefaults and helpers', () => {
     expect(effectiveOn.create).toBe(true);
   });
 
-  it('seeds sidebar-facing vessel and CAPA rights for Admin, C Admin, and Submitter', () => {
+  it('seeds sidebar-facing vessel and CAPA rights for Administrator and Administrator as client (C Admin)', () => {
     expect(getRoleScopeFlags(matrix, 'Administrator', 'vessels').read).toBe(true);
     expect(getRoleScopeFlags(matrix, 'Administrator', 'capa').read).toBe(true);
     expect(getRoleScopeFlags(matrix, 'C Admin', 'capa').read).toBe(true);
     expect(getRoleScopeFlags(matrix, 'C Admin', 'documents').read).toBe(false);
     expect(getRoleScopeFlags(matrix, 'C Admin', 'crew').read).toBe(false);
-    expect(getRoleScopeFlags(matrix, 'Submitter', 'vessels').read).toBe(true);
+    expect(getRoleScopeFlags(matrix, 'Submitter', 'vessels').read).toBe(false);
   });
 
   it('limits Verifier / Inspector / Approver sidebar-facing reads', () => {
@@ -247,7 +247,8 @@ describe('permissionDefaults and helpers', () => {
     expect(getRoleScopeFlags(matrix, 'Inspector', 'equipment').read).toBe(false);
     expect(isViewAccessibleToPersona('vessels', null, 'Inspector', matrix)).toBe(false);
     expect(isViewAccessibleToPersona('equipment', null, 'Inspector', matrix)).toBe(false);
-    expect(getRoleScopeFlags(matrix, 'Submitter', 'vessels').read).toBe(true);
+    expect(getRoleScopeFlags(matrix, 'Submitter', 'vessels').read).toBe(false);
+    expect(isViewAccessibleToPersona('vessels', null, 'Submitter', matrix)).toBe(false);
 
     expect(getRoleScopeFlags(matrix, 'Verifier', 'documents')).toEqual({
       create: false,

@@ -129,18 +129,16 @@ describe('ActivityDetailView', () => {
     expect(state.currentHashView).toBe('objects');
   });
 
-  it('allows route access for all six roles of canOpenObjectsList', () => {
-    const roles: UserRolePersona[] = [
-      'Administrator',
-      'C Admin',
-      'Submitter',
-      'Verifier',
-      'Inspector',
-      'Approver',
-    ];
+  it('allows route access for Administrator and Administrator as client only in canOpenObjectsList', () => {
+    const adminRoles: UserRolePersona[] = ['Administrator', 'C Admin'];
+    const nonAdminRoles: UserRolePersona[] = ['Submitter', 'Verifier', 'Inspector', 'Approver'];
 
-    roles.forEach((role) => {
+    adminRoles.forEach((role) => {
       expect(isViewAccessibleToPersona('activities', 'MAP-ACT-2026-LNG-001', role)).toBe(true);
+    });
+
+    nonAdminRoles.forEach((role) => {
+      expect(isViewAccessibleToPersona('activities', 'MAP-ACT-2026-LNG-001', role)).toBe(false);
     });
   });
 

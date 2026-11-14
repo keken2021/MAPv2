@@ -91,4 +91,47 @@ describe('Assurance objects sidebar and settings suite', () => {
     fireEvent.click(rolesPermissionsBtn);
     expect(useMapStore.getState().currentHashView).toBe('roles-permissions');
   });
+
+  it('hides Assurance Objects group and Marketplace in sidebar for all non-admin roles (Submitter, Verifier, Inspector, Approver)', () => {
+    const nonAdminRoles = ['Submitter', 'Verifier', 'Inspector', 'Approver'] as const;
+
+    nonAdminRoles.forEach((role) => {
+      cleanup();
+      useMapStore.setState({
+        isAuthenticated: true,
+        activePersona: role,
+        activeDemoOrganization: role === 'Submitter' ? 'Northwind Marine Pty Ltd' : 'Bureau Veritas Inspectorate',
+        currentHashView: 'dashboard',
+      });
+
+      render(<AppSidebar />);
+
+      // Assurance Objects group header and its child buttons must not be present
+      expect(screen.queryByText('Assurance Objects')).toBeNull();
+      expect(screen.queryByRole('button', { name: /Vessels/i })).toBeNull();
+      expect(screen.queryByRole('button', { name: /Equipment/i })).toBeNull();
+      expect(screen.queryByRole('button', { name: /Crew Directory/i })).toBeNull();
+      expect(screen.queryByRole('button', { name: /Activities/i })).toBeNull();
+      // Marketplace must not be present
+      expect(screen.queryByRole('button', { name: /Marketplace/i })).toBeNull();
+    });
+  });
+
+  it('keeps Assurance Objects group and Marketplace visible for Administrator as client (C Admin)', () => {
+    cleanup();
+    useMapStore.setState({
+      isAuthenticated: true,
+      activePersona: 'C Admin',
+      activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      currentHashView: 'dashboard',
+    });
+
+    render(<AppSidebar />);
+
+    expect(screen.getByText('Assurance Objects')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Vessels/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Equipment/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Activities/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Marketplace/i })).toBeInTheDocument();
+  });
 });

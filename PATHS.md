@@ -189,7 +189,7 @@ Root: `C:\mapFiles\MAPv2`
 - Projects: `createProjectWizardOrganization.test.tsx`, `projectComposition.test.ts`, `projectDetailHeader.test.tsx`, `projectNestedSets.test.ts`, `assuranceSetProjectRelationship.test.ts`, `mockDataConsistency.test.ts`, `notifications.test.ts`
 - User Management: `cAdminUserManagement.test.ts`, `userRoleHelpers.test.ts`, `store.test.ts`
 - Audit Trail: `permissionHelpers.test.ts`, `notifications.test.ts`, `mockDataBusinessRules.test.ts`, `store.test.ts`
-- Switchers and side panel: `demoSessionHelpers.test.ts`, `approverAndSidebar.test.ts`, `store.test.ts`
+- Switchers and side panel: `demoSessionHelpers.test.ts`, `approverAndSidebar.test.ts`, `nonAdminObjectPageRedirect.test.tsx`, `store.test.ts`
 
 ## Where new files go (path-directory `references/layout.md`; this section wins here)
 - One Task: `.autopilot/.task-notes/<story id>-<story name>/<task id>-<task name>/` : `plan.md` (+ `.docx`), `changes.md`, `next-steps.md`, `screens/`, other Task records as `<topic>.md`. Prototype Tasks 5193 to 5206 are under `.autopilot/.task-notes/5207-prototype-brd-v4-2-changes/`; Tasks 5242 to 5251 under `.autopilot/.task-notes/5209-prototype-ui-declutter/`

@@ -108,6 +108,14 @@ export const App: React.FC = () => {
         const newView = parts[0];
         const newEntityId = parts[1] ? decodeURIComponent(parts[1]) : undefined;
         const state = useMapStore.getState();
+        const isNonAdminRole = state.activePersona !== 'Administrator' && state.activePersona !== 'C Admin';
+        if (isNonAdminRole && ['vessels', 'equipment', 'crew', 'objects', 'activities'].includes(newView)) {
+          window.location.hash = '#/dashboard';
+          if (state.currentHashView !== 'dashboard') {
+            setCurrentHashView('dashboard');
+          }
+          return;
+        }
         if (state.currentHashView !== newView || state.currentEntityId !== newEntityId) {
           setCurrentHashView(newView, newEntityId);
         }
@@ -326,10 +334,24 @@ export const App: React.FC = () => {
   ]);
 
   useEffect(() => {
+    const isNonAdminRole = activePersona !== 'Administrator' && activePersona !== 'C Admin';
+    const isObjectView =
+      currentHashView === 'vessels' ||
+      currentHashView === 'equipment' ||
+      currentHashView === 'crew' ||
+      currentHashView === 'objects' ||
+      currentHashView === 'activities';
+
+    if (isNonAdminRole && isObjectView) {
+      window.location.hash = '#/dashboard';
+      setCurrentHashView('dashboard');
+      return;
+    }
+
     if (currentHashView === 'objects' && currentEntityId !== 'activity') {
       setCurrentHashView('vessels');
     }
-  }, [currentHashView, currentEntityId, setCurrentHashView]);
+  }, [activePersona, currentHashView, currentEntityId, setCurrentHashView]);
 
     /* a request only grants wizard access while the wizard is open; leaving it ends the grant */
   useEffect(() => {

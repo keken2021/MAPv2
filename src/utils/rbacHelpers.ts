@@ -1369,8 +1369,13 @@ export function isViewAccessibleToPersona(
     return persona === "C Admin";
   }
 
-  /* marketplace is for vessel admin and client admin only, whatever the matrix grants */
+  /* marketplace is for Administrator and Administrator as client only, whatever the matrix grants */
   if (view === "marketplace" && !isMarketplacePersona(persona)) {
+    return false;
+  }
+
+  /* assurance objects and activities are for Administrator and Administrator as client only */
+  if ((view === "objects" || view === "activities") && persona !== "Administrator" && persona !== "C Admin") {
     return false;
   }
 
@@ -1392,10 +1397,7 @@ export function isViewAccessibleToPersona(
     if (
       view === "dashboard" ||
       view === "audit" ||
-      view === "marketplace" ||
-      view === "notifications" ||
-      view === "objects" ||
-      view === "activities"
+      view === "notifications"
     )
       return true;
 
@@ -1429,6 +1431,11 @@ export function isViewAccessibleToPersona(
           "crew",
           "capa",
           "capas",
+          "vessels",
+          "equipment",
+          "marketplace",
+          "objects",
+          "activities",
         ].includes(view)
       ) {
         return false;
