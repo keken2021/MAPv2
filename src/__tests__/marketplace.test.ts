@@ -37,6 +37,7 @@ import { UserProfile } from '../types/user';
 import { MarketplaceItem } from '../types/marketplace';
 import { MarketplaceCard, marketplaceCardStats, resolveMarketplaceCardImage } from '../components/marketplace/MarketplaceCard';
 import { AssuranceSet } from '../types/assurance';
+import { isCanonicalOrganization } from '../utils/organizationRegistry';
 
 describe('Marketplace Module & Segregation', () => {
   const mockUsers: Pick<UserProfile, 'roles' | 'organization'>[] = [
@@ -44,6 +45,13 @@ describe('Marketplace Module & Segregation', () => {
     { roles: ['Submitter'], organization: 'Northwind Marine Pty Ltd' },
     { roles: ['C Admin'], organization: 'Southern Basin Energy Pty Ltd' },
   ];
+
+  it('checks each providerOrg in MOCK_MARKETPLACE_ITEMS is on the kept list', () => {
+    expect(MOCK_MARKETPLACE_ITEMS.length).toBe(12);
+    MOCK_MARKETPLACE_ITEMS.forEach((item) => {
+      expect(isCanonicalOrganization(item.providerOrg)).toBe(true);
+    });
+  });
 
   it('correctly identifies items owned by the current organization', () => {
     // Administrator / Submitter organization: Northwind Marine
