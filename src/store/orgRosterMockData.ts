@@ -17,143 +17,29 @@ export interface OrganizationInfo {
 }
 
 /**
- * 21 organizations from the design table (Owner, Client, Third party, Provider).
+ * 14 organizations from the design table (Owner, Client, Third party).
  * Exact names match existing mockData, projectMockData, and equipmentMockData.
  */
 export const ORGANIZATIONS: readonly OrganizationInfo[] = [
   /* Owners */
-  {
-    name: 'Northwind Marine Pty Ltd',
-    kind: 'owner',
-    shortCode: 'NWM',
-    emailDomain: 'northwindmarine.com',
-  },
-  {
-    name: 'Meridian Marine Services Pty Ltd',
-    kind: 'owner',
-    shortCode: 'MMS',
-    emailDomain: 'meridianmarine.com.au',
-  },
-  {
-    name: 'Austral Ocean Shipping Ltd',
-    kind: 'owner',
-    shortCode: 'AOS',
-    emailDomain: 'australocean.com.au',
-  },
-  {
-    name: 'Oceanic Horizon Logistics Pty Ltd',
-    kind: 'owner',
-    shortCode: 'OHL',
-    emailDomain: 'oceanichorizon.com.au',
-  },
+  { name: 'Northwind Marine Pty Ltd', kind: 'owner', shortCode: 'NWM', emailDomain: 'northwindmarine.com' },
+  { name: 'Meridian Marine Services Pty Ltd', kind: 'owner', shortCode: 'MMS', emailDomain: 'meridianmarine.com.au' },
 
   /* Clients */
-  {
-    name: 'Southern Basin Energy Pty Ltd',
-    kind: 'client',
-    shortCode: 'SBE',
-    emailDomain: 'southernbasin.com.au',
-  },
-  {
-    name: 'Chevron Australia Pty Ltd',
-    kind: 'client',
-    shortCode: 'CHV',
-    emailDomain: 'chevron.com',
-  },
-  {
-    name: 'Woodside Energy Ltd',
-    kind: 'client',
-    shortCode: 'WDS',
-    emailDomain: 'woodside.com.au',
-  },
-  {
-    name: 'Shell Australia Pty Ltd',
-    kind: 'client',
-    shortCode: 'SHL',
-    emailDomain: 'shell.com.au',
-  },
-  {
-    name: 'BHP Petroleum',
-    kind: 'client',
-    shortCode: 'BHP',
-    emailDomain: 'bhp.com',
-  },
-  {
-    name: 'Inpex Operations Australia',
-    kind: 'client',
-    shortCode: 'INP',
-    emailDomain: 'inpex.com.au',
-  },
-  {
-    name: 'Santos Ltd',
-    kind: 'client',
-    shortCode: 'STO',
-    emailDomain: 'santos.com',
-  },
-  {
-    name: 'Beach Energy Ltd',
-    kind: 'client',
-    shortCode: 'BPT',
-    emailDomain: 'beachenergy.com.au',
-  },
+  { name: 'Southern Basin Energy Pty Ltd', kind: 'client', shortCode: 'SBE', emailDomain: 'southernbasin.com.au' },
+  { name: 'Chevron Australia Pty Ltd', kind: 'client', shortCode: 'CHV', emailDomain: 'chevron.com' },
+  { name: 'Woodside Energy Ltd', kind: 'client', shortCode: 'WDS', emailDomain: 'woodside.com.au' },
+  { name: 'Shell Australia Pty Ltd', kind: 'client', shortCode: 'SHL', emailDomain: 'shell.com.au' },
+  { name: 'Inpex Operations Australia', kind: 'client', shortCode: 'INP', emailDomain: 'inpex.com.au' },
+  { name: 'Santos Ltd', kind: 'client', shortCode: 'STO', emailDomain: 'santos.com' },
+  { name: 'Beach Energy Ltd', kind: 'client', shortCode: 'BPT', emailDomain: 'beachenergy.com.au' },
 
   /* Third parties */
-  {
-    name: 'Bureau Veritas Inspectorate',
-    kind: 'third party',
-    shortCode: 'BVI',
-    emailDomain: 'bureauveritas.com',
-  },
-  {
-    name: 'Meridian Marine Surveyors',
-    kind: 'third party',
-    shortCode: 'MSV',
-    emailDomain: 'meridiansurveyors.com.au',
-  },
-  {
-    name: 'Marine Assurance Authority',
-    kind: 'third party',
-    shortCode: 'MAA',
-    emailDomain: 'marineassurance.gov.au',
-  },
-  {
-    name: 'Chevron Australia Vetting',
-    kind: 'third party',
-    shortCode: 'CAV',
-    emailDomain: 'chevronvetting.com',
-  },
-  {
-    name: 'Global Maritime Audits',
-    kind: 'third party',
-    shortCode: 'GMA',
-    emailDomain: 'globalmaritime.com',
-  },
-  {
-    name: 'DNV',
-    kind: 'third party',
-    shortCode: 'DNV',
-    emailDomain: 'dnv.com',
-  },
-  {
-    name: 'AMSA',
-    kind: 'third party',
-    shortCode: 'AMS',
-    emailDomain: 'amsa.gov.au',
-  },
-
-  /* Providers */
-  {
-    name: 'AquaClean Marine Services Pty Ltd',
-    kind: 'provider',
-    shortCode: 'AQC',
-    emailDomain: 'aquacleanmarine.com.au',
-  },
-  {
-    name: 'Pacific Ocean Logistics Pty Ltd',
-    kind: 'provider',
-    shortCode: 'POL',
-    emailDomain: 'pacificocean.com.au',
-  },
+  { name: 'Bureau Veritas Inspectorate', kind: 'third party', shortCode: 'BVI', emailDomain: 'bureauveritas.com' },
+  { name: 'Marine Assurance Authority', kind: 'third party', shortCode: 'MAA', emailDomain: 'marineassurance.gov.au' },
+  { name: 'Global Maritime Audits', kind: 'third party', shortCode: 'GMA', emailDomain: 'globalmaritime.com' },
+  { name: 'DNV', kind: 'third party', shortCode: 'DNV', emailDomain: 'dnv.com' },
+  { name: 'AMSA', kind: 'third party', shortCode: 'AMS', emailDomain: 'amsa.gov.au' },
 ] as const;
 
 /**
@@ -205,20 +91,6 @@ const PERSONNEL_NAMES: Record<string, Record<string, { name: string; username: s
     INS: { name: 'N. Ross', username: 'n.ross' },
     APP: { name: 'G. Sterling', username: 'g.sterling' },
   },
-  AOS: {
-    ADM: { name: 'Capt. T. Lindholm', username: 't.lindholm' },
-    SUB: { name: 'H. Jansen', username: 'h.jansen' },
-    VER: { name: 'R. Dahl', username: 'r.dahl' },
-    INS: { name: 'P. Sorensen', username: 'p.sorensen' },
-    APP: { name: 'K. Mikkelsen', username: 'k.mikkelsen' },
-  },
-  OHL: {
-    ADM: { name: 'C. Vane', username: 'c.vane' },
-    SUB: { name: 'M. Gallagher', username: 'm.gallagher' },
-    VER: { name: 'T. Brennan', username: 't.brennan' },
-    INS: { name: 'D. O\'Connor', username: 'd.oconnor' },
-    APP: { name: 'S. Callahan', username: 's.callahan' },
-  },
   SBE: {
     VER: { name: 'A. Miller', username: 'a.miller' },
     INS: { name: 'L. Patel', username: 'l.patel' },
@@ -233,12 +105,6 @@ const PERSONNEL_NAMES: Record<string, Record<string, { name: string; username: s
   },
   SHL: {
     INS: { name: 'R. Van Dyke', username: 'r.vandyke' },
-  },
-  BHP: {
-    ADM: { name: 'V. Langford', username: 'v.langford' },
-    VER: { name: 'K. Holloway', username: 'k.holloway' },
-    INS: { name: 'B. Whitmore', username: 'b.whitmore' },
-    APP: { name: 'J. Kensington', username: 'j.kensington' },
   },
   INP: {
     INS: { name: 'M. Takahashi', username: 'm.takahashi' },
@@ -256,21 +122,9 @@ const PERSONNEL_NAMES: Record<string, Record<string, { name: string; username: s
   BVI: {
     APP: { name: 'G. Delacroix', username: 'g.delacroix' },
   },
-  MSV: {
-    ADM: { name: 'Capt. R. Thorne', username: 'r.thorne' },
-    VER: { name: 'H. Bishop', username: 'h.bishop' },
-    INS: { name: 'M. Sinclair', username: 'm.sinclair' },
-    APP: { name: 'D. Calder', username: 'd.calder' },
-  },
   MAA: {
     VER: { name: 'C. Kingsley', username: 'c.kingsley' },
     INS: { name: 'R. Thornton', username: 'r.thornton' },
-  },
-  CAV: {
-    ADM: { name: 'G. Vance', username: 'g.vance' },
-    VER: { name: 'W. Sterling', username: 'w.sterling' },
-    INS: { name: 'L. Cartwright', username: 'l.cartwright' },
-    APP: { name: 'M. Lockhart', username: 'm.lockhart' },
   },
   GMA: {
     VER: { name: 'J. Crawford', username: 'j.crawford' },
@@ -288,14 +142,6 @@ const PERSONNEL_NAMES: Record<string, Record<string, { name: string; username: s
     VER: { name: 'J. Wentworth', username: 'j.wentworth' },
     INS: { name: 'K. Murdoch', username: 'k.murdoch' },
     APP: { name: 'H. Abercrombie', username: 'h.abercrombie' },
-  },
-  AQC: {
-    ADM: { name: 'P. Harrington', username: 'p.harrington' },
-    SUB: { name: 'L. Morrison', username: 'l.morrison' },
-  },
-  POL: {
-    ADM: { name: 'Capt. E. Hayes', username: 'e.hayes' },
-    SUB: { name: 'T. Jenkins', username: 't.jenkins' },
   },
 };
 

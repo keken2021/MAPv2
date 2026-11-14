@@ -16,6 +16,7 @@ import {
 import { orgFieldMatches } from '../utils/rbacHelpers';
 import { getEligibleVerifiers, getSessionUserForPersona, usersWithRole } from '../utils/userRoleHelpers';
 import { UserRolePersona } from '../types/user';
+import { isCanonicalOrganization } from '../utils/organizationRegistry';
 
 describe('Organization Role Roster (Task 5483)', () => {
   it('checks every organization has exactly one admin of the right role and Northwind and S. Basin are not duplicated', () => {
@@ -155,5 +156,31 @@ describe('Organization Role Roster (Task 5483)', () => {
     const approverOrgs = approvers.map((u) => u.organization);
     expect(approverOrgs.some((org) => orgFieldMatches('Woodside Energy Ltd', org))).toBe(true);
     expect(approverOrgs.some((org) => orgFieldMatches('DNV', org))).toBe(true);
+  });
+
+  it('checks that each roster organization is on the kept list and none of the 7 removed names has a user', () => {
+    const storeUsers = useMapStore.getState().users;
+    const removedNames = [
+      'BHP Petroleum',
+      'Meridian Marine Surveyors',
+      'Austral Ocean Shipping Ltd',
+      'Oceanic Horizon Logistics Pty Ltd',
+      'AquaClean Marine Services Pty Ltd',
+      'Pacific Ocean Logistics Pty Ltd',
+      'Chevron Australia Vetting',
+    ];
+
+    for (const org of ORGANIZATIONS) {
+      expect(
+        isCanonicalOrganization(org.name) || org.name === 'DNV' || org.name === 'AMSA',
+        `Expected roster organization "${org.name}" to be canonical`,
+      ).toBe(true);
+    }
+
+    for (const name of removedNames) {
+      expect(ORGANIZATIONS.some((o) => o.name === name)).toBe(false);
+      const user = storeUsers.find((u) => u.organization === name);
+      expect(user, `Expected no user for removed organization "${name}", but found ${user?.id}`).toBeUndefined();
+    }
   });
 });
