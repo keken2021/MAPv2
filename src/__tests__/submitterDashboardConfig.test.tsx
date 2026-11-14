@@ -6,6 +6,8 @@ import { MasterDocument } from '../types/document';
 import { CapaItem } from '../types/capa';
 import { AuditTrailEvent } from '../types/audit';
 import { SharedDashboardFrame } from '../components/dashboard/SharedDashboardFrame';
+import { DashboardView } from '../views/DashboardView';
+import { useMapStore } from '../store/useMapStore';
 import {
   formatShortDate,
   isDocumentExpiringIn30Days,
@@ -236,5 +238,35 @@ describe('Submitter dashboard config (Task 5386)', () => {
 
     fireEvent.click(renewBtn);
     expect(setCurrentHashView).toHaveBeenCalledWith('documents', 'DOC-1');
+  });
+
+  /**
+    what: verifies Submitter dashboard shows no vessel cards or fleet totals while keeping assigned sets and documents.
+    how: renders DashboardView for Submitter persona and verifies absence of vessel tiles/fleet totals and presence of assigned sets subtitle and document action items.
+    with what file: src/__tests__/submitterDashboardConfig.test.tsx (Task 5483).
+  */
+  it('renders Submitter dashboard without vessel tiles or fleet totals, keeping assigned sets and documents', () => {
+    useMapStore.setState({
+      isAuthenticated: true,
+      activePersona: 'Submitter',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-102',
+      currentHashView: 'dashboard',
+    });
+
+    render(<DashboardView />);
+
+    expect(screen.getByTestId('shared-dashboard-frame')).toBeInTheDocument();
+
+    // Must not show any vessel cards or fleet count
+    expect(screen.queryByText(/Fleet Total/i)).toBeNull();
+    expect(screen.queryByText(/Vessel Cards/i)).toBeNull();
+    expect(screen.queryByText(/All Fleet Vessels/i)).toBeNull();
+
+    // Must keep assigned sets and documents
+    expect(screen.getByTestId('kpi-tile-returned')).toBeInTheDocument();
+    expect(screen.getByTestId('kpi-tile-missing')).toBeInTheDocument();
+    expect(screen.getByTestId('kpi-tile-expiring')).toBeInTheDocument();
+    expect(screen.getByTestId('needs-your-action-section')).toBeInTheDocument();
   });
 });
