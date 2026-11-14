@@ -138,6 +138,7 @@ import {
   getNextVersionLabel,
   resolveDocumentTargetObject,
 } from "../utils/documentObjectHelpers";
+import { captureDatasheetSnapshotsForSet } from "../utils/objectDatasheetFields";
 import {
   getAssuranceSetCrewIds,
   toSingleAssetSet,
@@ -3689,16 +3690,36 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     }
 
     const prevSets = get().assuranceSets.filter((s) => completedIds.includes(s.id));
+    const snapshotNamesBySet: string[] = [];
 
     set((state) => {
-      const updatedSets = state.assuranceSets.map((s) =>
-        completedIds.includes(s.id)
-          ? recalculateSetReadiness({ ...s, inspectionCompleted: true, inspectionFailedAt: undefined })
-          : s,
-      );
+      const updatedSets = state.assuranceSets.map((s) => {
+        if (!completedIds.includes(s.id)) return s;
+        const { snapshots, objectNames } = captureDatasheetSnapshotsForSet(
+          s,
+          "Inspector",
+          sessionUser.id,
+          state,
+        );
+        objectNames.forEach((n) => {
+          if (!snapshotNamesBySet.includes(n)) snapshotNamesBySet.push(n);
+        });
+        return recalculateSetReadiness({
+          ...s,
+          inspectionCompleted: true,
+          inspectionFailedAt: undefined,
+          datasheetSnapshots: [...(s.datasheetSnapshots || []), ...snapshots],
+        });
+      });
       const { updatedProjects, updatedAssuranceSets } =
         syncAllAffectedProjectRollups(state.projects, updatedSets, completedIds);
       return { assuranceSets: updatedAssuranceSets, projects: updatedProjects };
+    });
+
+    get().logAuditEvent({
+      action: "Inspection Complete: Pass",
+      targetAsset: `Vessel ${vesselName} -> Sets: ${completedIds.join(', ')}`,
+      justificationNotes: `Inspection passed. Datasheet snapshots saved for: ${snapshotNamesBySet.join(', ')}`,
     });
 
     prevSets.forEach((prev) => {
@@ -4009,6 +4030,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       }
     }
     const closedOptionalTasks: AssuranceRequirement[] = [];
+    let capturedApproverObjectNames: string[] = [];
 
     set((state) => {
       const updatedSets = state.assuranceSets.map((s) => {
@@ -4041,12 +4063,25 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
               })
             : s.requirements;
 
-        const candidateSet: AssuranceSet = {
+        let candidateSet: AssuranceSet = {
           ...s,
           requirements: updatedReqs,
           approverDecision: decision,
           approverNotes: notes,
         };
+        if (decision === "Approved") {
+          const { snapshots, objectNames } = captureDatasheetSnapshotsForSet(
+            candidateSet,
+            activePersona === "C Admin" ? "C Admin" : "Approver",
+            sessionUser.id,
+            state,
+          );
+          capturedApproverObjectNames = objectNames;
+          candidateSet = {
+            ...candidateSet,
+            datasheetSnapshots: [...(s.datasheetSnapshots || []), ...snapshots],
+          };
+        }
         /* an approval locks the exact document versions the set was approved against */
         return syncDocumentVersionLock(recalculateSetReadiness(candidateSet), state.documents, new Date().toISOString());
       });
@@ -4071,12 +4106,14 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     }
 
     const pingTag = isDenial ? " [PING: SUBMITTER ACTION REQUIRED]" : "";
+    const snapshotNote = capturedApproverObjectNames.length > 0
+      ? ` | Datasheet snapshots saved for: ${capturedApproverObjectNames.join(', ')}`
+      : '';
     get().logAuditEvent({
       action: `Approver Final Decision: ${decision}${pingTag}`,
       targetAsset: `Assurance Set ${setId}`,
       justificationNotes:
-        notes ||
-        `Executive decision: ${decision}${isDenial ? " — Submitter revision ping dispatched." : ""}`,
+        `${notes || `Executive decision: ${decision}${isDenial ? " — Submitter revision ping dispatched." : ""}`}${snapshotNote}`,
     });
 
     const decidedSet = get().assuranceSets.find((s) => s.id === setId);
@@ -4843,6 +4880,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     ) {
       return;
     }
+    let capturedVerifierObjectNames: string[] = [];
     set((state) => {
       /* the library document is only "on file"; its status is not a verification decision */
       const updatedDocs = state.documents;
@@ -4900,7 +4938,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         const routedToInspector = updatedReqs.some((r) => r.verificationRoute === "Inspector");
         const keepClosed = isClosedAssuranceSet(s) && !denial;
 
-        const candidateSet: AssuranceSet = {
+        let candidateSet: AssuranceSet = {
           ...s,
           requirements: updatedReqs,
           mandatoryInspectionRequired: keepClosed
@@ -4924,6 +4962,21 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
                   : "Rejected",
         };
 
+        if (status === "Verified") {
+          const { snapshots, objectNames } = captureDatasheetSnapshotsForSet(
+            candidateSet,
+            sessionPersona === "Approver" ? "Approver" : "Verifier",
+            sessionUser.id,
+            state,
+            reviewedAt,
+          );
+          capturedVerifierObjectNames = objectNames;
+          candidateSet = {
+            ...candidateSet,
+            datasheetSnapshots: [...(s.datasheetSnapshots || []), ...snapshots],
+          };
+        }
+
         return syncDocumentVersionLock(recalculateSetReadiness(candidateSet), updatedDocs, reviewedAt);
       });
 
@@ -4938,11 +4991,14 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     const routeNote = routeTarget ? ` | Routed to ${routeTarget}` : "";
     const methodNote = status === "Verified" && review?.verificationMethod ? ` | Method: ${review.verificationMethod}` : "";
     const overrideNote = status === "Verified" && review?.overrideReason?.trim() ? ` | Override: ${review.overrideReason.trim()}` : "";
+    const snapshotNote = capturedVerifierObjectNames.length > 0
+      ? ` | Datasheet snapshots saved for: ${capturedVerifierObjectNames.join(', ')}`
+      : '';
     const activePersona = get().activePersona;
     get().logAuditEvent({
       action: `${activePersona === "Approver" ? "Approver" : "Verifier"} Document Action: ${status}${pingTag}`,
       targetAsset: reviewedSetId ? `Document ${docId} -> ${reviewedSetId} / ${requirementId}` : `Document ${docId}`,
-      justificationNotes: `${notes || `Verification status updated to ${status}`}${routeNote}${methodNote}${overrideNote}${isDenial ? " — Submitter revision required." : ""}`,
+      justificationNotes: `${notes || `Verification status updated to ${status}`}${routeNote}${methodNote}${overrideNote}${isDenial ? " — Submitter revision required." : ""}${snapshotNote}`,
     });
 
     const verifiedDoc = get().documents.find((d) => d.id === docId);
