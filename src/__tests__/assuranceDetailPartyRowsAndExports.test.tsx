@@ -50,10 +50,10 @@ describe('Assurance Detail Shared Requirements - Party Rows and Exports (Task 53
       documentId: 'DOC-OC-01',
       documentVersion: 'v1.0',
       verifierStatus: 'Verified',
-      responsibleParty: 'Oceanic Horizon Logistics Pty Ltd',
-      responsibleParties: ['Oceanic Horizon Logistics Pty Ltd', 'Chevron Australia Pty Ltd'],
+      responsibleParty: 'Meridian Marine Services Pty Ltd',
+      responsibleParties: ['Meridian Marine Services Pty Ltd', 'Chevron Australia Pty Ltd'],
       requirementGroupId: 'grp-vessel-class',
-      notes: 'Oceanic class certificate verified by DNV.',
+      notes: 'Meridian class certificate verified by DNV.',
     },
     {
       id: 'REQ-CLASS-02',
@@ -66,7 +66,7 @@ describe('Assurance Detail Shared Requirements - Party Rows and Exports (Task 53
       ocrConfidence: 0,
       verifierStatus: 'Pending',
       responsibleParty: 'Chevron Australia Pty Ltd',
-      responsibleParties: ['Oceanic Horizon Logistics Pty Ltd', 'Chevron Australia Pty Ltd'],
+      responsibleParties: ['Meridian Marine Services Pty Ltd', 'Chevron Australia Pty Ltd'],
       requirementGroupId: 'grp-vessel-class',
       notes: 'Awaiting Chevron endorsement.',
     },
@@ -80,7 +80,7 @@ describe('Assurance Detail Shared Requirements - Party Rows and Exports (Task 53
       isFulfilled: false,
       ocrConfidence: 0,
       verifierStatus: 'Pending',
-      responsibleParty: 'Oceanic Horizon Logistics Pty Ltd',
+      responsibleParty: 'Meridian Marine Services Pty Ltd',
       requirementGroupId: 'grp-safety-equip',
       notes: 'Single party requirement.',
     },
@@ -95,7 +95,7 @@ describe('Assurance Detail Shared Requirements - Party Rows and Exports (Task 53
     createdByName: 'C. Henderson',
     createdByPersona: 'C Admin',
     clientOrg: 'Chevron Australia Pty Ltd',
-    serviceProviderOrg: 'Oceanic Horizon Logistics Pty Ltd',
+    serviceProviderOrg: 'Meridian Marine Services Pty Ltd',
     charterWindowStart: '2026-11-01',
     charterWindowEnd: '2027-11-01',
     complianceDeadline: '2026-11-01',
@@ -141,10 +141,10 @@ describe('Assurance Detail Shared Requirements - Party Rows and Exports (Task 53
     const subRows = container.querySelectorAll('[data-testid="party-sub-row"]');
     expect(subRows.length).toBe(2);
 
-    // Sub-row 1: Oceanic Horizon Logistics Pty Ltd (Verified)
+    // Sub-row 1: Meridian Marine Services Pty Ltd (Verified)
     const party1 = subRows[0].getAttribute('data-party');
-    expect(party1).toBe('Oceanic Horizon Logistics Pty Ltd');
-    expect(within(subRows[0] as HTMLElement).getByText('Oceanic Horizon Logistics Pty Ltd')).toBeInTheDocument();
+    expect(party1).toBe('Meridian Marine Services Pty Ltd');
+    expect(within(subRows[0] as HTMLElement).getByText('Meridian Marine Services Pty Ltd')).toBeInTheDocument();
     expect(within(subRows[0] as HTMLElement).getByText('Verified')).toBeInTheDocument();
     fireEvent.click(within(subRows[0] as HTMLElement).getByTestId('toggle-req-REQ-CLASS-01'));
     expect(screen.getByText('94%')).toBeInTheDocument();
@@ -205,26 +205,26 @@ describe('Assurance Detail Shared Requirements - Party Rows and Exports (Task 53
 
     // Every row in CSV must have 'Responsible Party' column
     expect(csvRows.length).toBe(3);
-    const oceanicClassRow = csvRows.find(
-      (r: any) => r.Requirement === 'Certificate of Class' && r['Responsible Party'] === 'Oceanic Horizon Logistics Pty Ltd',
+    const meridianClassRow = csvRows.find(
+      (r: any) => r.Requirement === 'Certificate of Class' && r['Responsible Party'] === 'Meridian Marine Services Pty Ltd',
     );
     const chevronClassRow = csvRows.find(
       (r: any) => r.Requirement === 'Certificate of Class' && r['Responsible Party'] === 'Chevron Australia Pty Ltd',
     );
     const safetyRow = csvRows.find(
-      (r: any) => r.Requirement === 'Safety Equipment Certificate' && r['Responsible Party'] === 'Oceanic Horizon Logistics Pty Ltd',
+      (r: any) => r.Requirement === 'Safety Equipment Certificate' && r['Responsible Party'] === 'Meridian Marine Services Pty Ltd',
     );
 
-    expect(oceanicClassRow).toBeDefined();
-    expect(oceanicClassRow['Responsible Party']).toBe('Oceanic Horizon Logistics Pty Ltd');
-    expect(oceanicClassRow.Status).toBe('Verified');
+    expect(meridianClassRow).toBeDefined();
+    expect(meridianClassRow['Responsible Party']).toBe('Meridian Marine Services Pty Ltd');
+    expect(meridianClassRow.Status).toBe('Verified');
 
     expect(chevronClassRow).toBeDefined();
     expect(chevronClassRow['Responsible Party']).toBe('Chevron Australia Pty Ltd');
     expect(chevronClassRow.Status).toBe('Pending');
 
     expect(safetyRow).toBeDefined();
-    expect(safetyRow['Responsible Party']).toBe('Oceanic Horizon Logistics Pty Ltd');
+    expect(safetyRow['Responsible Party']).toBe('Meridian Marine Services Pty Ltd');
 
     // Reopen export dropdown and export PDF
     fireEvent.click(exportBtn);
@@ -241,10 +241,10 @@ describe('Assurance Detail Shared Requirements - Party Rows and Exports (Task 53
     expect(partyColIndex).toBeGreaterThan(-1);
 
     // Rows must name the party at the corresponding column
-    const oceanicPdfRow = pdfRows.find((r) => r[0] === 'Certificate of Class' && r[partyColIndex] === 'Oceanic Horizon Logistics Pty Ltd');
+    const meridianPdfRow = pdfRows.find((r) => r[0] === 'Certificate of Class' && r[partyColIndex] === 'Meridian Marine Services Pty Ltd');
     const chevronPdfRow = pdfRows.find((r) => r[0] === 'Certificate of Class' && r[partyColIndex] === 'Chevron Australia Pty Ltd');
 
-    expect(oceanicPdfRow).toBeDefined();
+    expect(meridianPdfRow).toBeDefined();
     expect(chevronPdfRow).toBeDefined();
   });
 });

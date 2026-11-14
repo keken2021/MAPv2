@@ -19,12 +19,12 @@ describe('Assurance Wizard Step 3 Responsible Party Declutter (Task 5355 superse
       users: [
         ...initialState.users,
         {
-          id: 'USR-OHL-01',
-          name: 'J. Ocean',
-          email: 'j.ocean@oceanic.com',
+          id: 'USR-MMS-SUB-01',
+          name: 'J. Meridian',
+          email: 'j.meridian@meridianmarine.com.au',
           roles: ['Submitter'],
           userType: 'Organization',
-          organization: 'Oceanic Horizon Logistics Pty Ltd',
+          organization: 'Meridian Marine Services Pty Ltd',
           departmentOrScope: 'Operations',
           status: 'Active',
           lastActive: '2026-10-29 08:00 UTC',
@@ -72,8 +72,8 @@ describe('Assurance Wizard Step 3 Responsible Party Declutter (Task 5355 superse
     const checklist = container.querySelector('[data-testid="responsible-party-checklist-vessel-class-cert"]');
     expect(checklist).toBeNull();
 
-    const ohlCheckbox = container.querySelector('[data-testid="chk-party-vessel-class-cert-oceanic-horizon-logistics-pty-ltd"]');
-    expect(ohlCheckbox).toBeNull();
+    const mmsCheckbox = container.querySelector('[data-testid="chk-party-vessel-class-cert-meridian-marine-services-pty-ltd"]');
+    expect(mmsCheckbox).toBeNull();
   });
 
   it('saves requirements with the Responding party agreed in Step 1', () => {

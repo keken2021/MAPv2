@@ -19,12 +19,12 @@ describe('Tenant Custom Sections (Task 5303 / 5b-01, 5b-02, ADR 0034)', () => {
       users: [
         ...initialState.users,
         {
-          id: 'USR-OHL-01',
-          name: 'J. Ocean',
-          email: 'j.ocean@oceanic.com',
+          id: 'USR-MMS-SUB-01',
+          name: 'J. Meridian',
+          email: 'j.meridian@meridianmarine.com.au',
           roles: ['Submitter'],
           userType: 'Organization',
-          organization: 'Oceanic Horizon Logistics Pty Ltd',
+          organization: 'Meridian Marine Services Pty Ltd',
           departmentOrScope: 'Operations',
           status: 'Active',
           lastActive: '2026-10-29 08:00 UTC',

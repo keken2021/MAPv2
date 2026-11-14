@@ -73,7 +73,7 @@ describe('document library per person', () => {
       [mine, other],
       [
         setFor('AS-CHEN', 'assignedSubmitter', 'M. Chen (Northwind Marine Pty Ltd)', 'DOC-MINE'),
-        setFor('AS-OTHER', 'assignedSubmitter', 'E. Ramirez (Pacific Ocean Logistics Pty Ltd)', 'DOC-OTHER'),
+        setFor('AS-OTHER', 'assignedSubmitter', 'E. Ramirez (Meridian Marine Services Pty Ltd)', 'DOC-OTHER'),
       ],
       'Submitter',
       'Northwind Marine Pty Ltd',

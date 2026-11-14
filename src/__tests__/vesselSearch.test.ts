@@ -18,7 +18,7 @@ const mockVessel = {
   vesselType: 'Offshore Support Vessel (OSV)',
   vesselSubtype: 'AHTS / PSV',
   shipyardBuilder: 'Damen Shipyards Group',
-  registeredOwner: 'Pacific Ocean Logistics Pty Ltd',
+  registeredOwner: 'Meridian Marine Services Pty Ltd',
   statutoryCertificates: [
     {
       id: 'SC-001',
@@ -149,7 +149,7 @@ describe('matchesVesselSearch - Fleet Registry Search by Assurance Sets and Docu
   it('matches vessel core fields (name, IMO, owner, type, classification)', () => {
     expect(matchesVesselSearch(mockVessel, 'Pacific Endeavour', mockAssuranceSets, mockDocuments)).toBe(true);
     expect(matchesVesselSearch(mockVessel, '9123453', mockAssuranceSets, mockDocuments)).toBe(true);
-    expect(matchesVesselSearch(mockVessel, 'Pacific Ocean Logistics', mockAssuranceSets, mockDocuments)).toBe(true);
+    expect(matchesVesselSearch(mockVessel, 'Meridian Marine Services', mockAssuranceSets, mockDocuments)).toBe(true);
     expect(matchesVesselSearch(mockVessel, 'AHTS', mockAssuranceSets, mockDocuments)).toBe(true);
     expect(matchesVesselSearch(mockVessel, 'Damen', mockAssuranceSets, mockDocuments)).toBe(true);
   });

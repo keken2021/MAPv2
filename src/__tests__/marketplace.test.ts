@@ -48,7 +48,7 @@ describe('Marketplace Module & Segregation', () => {
   it('correctly identifies items owned by the current organization', () => {
     // Administrator / Submitter organization: Northwind Marine
     expect(isItemOwnedByCurrentOrganization('Northwind Marine Pty Ltd', 'Administrator', mockUsers)).toBe(true);
-    expect(isItemOwnedByCurrentOrganization('Pacific Ocean Logistics', 'Submitter', mockUsers)).toBe(true);
+    expect(isItemOwnedByCurrentOrganization('Northwind Marine', 'Submitter', mockUsers)).toBe(true);
     expect(isItemOwnedByCurrentOrganization('Meridian Marine Services Pty Ltd', 'Administrator', mockUsers)).toBe(false);
     expect(isItemOwnedByCurrentOrganization('Subsea 7 Engineering & Robotics', 'Administrator', mockUsers)).toBe(false);
 
@@ -56,7 +56,7 @@ describe('Marketplace Module & Segregation', () => {
     expect(isItemOwnedByCurrentOrganization('Southern Basin Energy Pty Ltd', 'C Admin', mockUsers)).toBe(true);
     expect(isItemOwnedByCurrentOrganization('Chevron Australia Pty Ltd', 'C Admin', mockUsers)).toBe(true);
     expect(isItemOwnedByCurrentOrganization('Northwind Marine Pty Ltd', 'C Admin', mockUsers)).toBe(false);
-    expect(isItemOwnedByCurrentOrganization('Austral Ocean Shipping Ltd', 'C Admin', mockUsers)).toBe(false);
+    expect(isItemOwnedByCurrentOrganization('Meridian Marine Services Pty Ltd', 'C Admin', mockUsers)).toBe(false);
   });
 
   it('strictly excludes own-organization assets for Administrator/Submitter in marketplace items', () => {
@@ -67,7 +67,6 @@ describe('Marketplace Module & Segregation', () => {
     adminItems.forEach((item) => {
       const orgLower = item.providerOrg.toLowerCase();
       expect(orgLower).not.toContain('northwind');
-      expect(orgLower).not.toContain('pacific ocean');
     });
 
     // Verify third-party service provider vessels are included
@@ -180,7 +179,7 @@ describe('Marketplace Module & Segregation', () => {
       name: 'Chartered Vessel',
       category: 'vessel',
       subcategory: 'OSV',
-      providerOrg: 'AquaClean Marine Services Pty Ltd',
+      providerOrg: 'Meridian Marine Services Pty Ltd',
       location: 'Dampier',
       availableFrom: '2026-10-01',
       availableTo: '2027-06-30',
@@ -235,7 +234,7 @@ describe('Marketplace Module & Segregation', () => {
       name: id,
       category,
       subcategory: '',
-      providerOrg: 'AquaClean Marine Services Pty Ltd',
+      providerOrg: 'Meridian Marine Services Pty Ltd',
       location: 'Dampier',
       availableFrom: '2026-10-01',
       availableTo: '2027-06-30',

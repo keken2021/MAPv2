@@ -9,7 +9,7 @@ const initialState = useMapStore.getState();
 
 const CLIENT = 'Chevron Australia Pty Ltd';
 const VENDOR = 'Northwind Marine Pty Ltd';
-const OTHER_ORG = 'Pacific Ocean Logistics Pty Ltd';
+const OTHER_ORG = 'Meridian Marine Services Pty Ltd';
 
 describe('Assurance set parties - One requesting and one responding party (Task 5350)', () => {
   beforeEach(() => {

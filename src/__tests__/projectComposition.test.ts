@@ -29,9 +29,9 @@ const northwindVessel: VesselInformation = {
 const externalVessel: VesselInformation = {
   id: 'V-EXT',
   name: 'External Vessel',
-  registeredOwner: 'AquaClean Marine Services Pty Ltd',
-  technicalManager: 'AquaClean Marine Services Pty Ltd',
-  ismCompany: 'AquaClean Marine Services Pty Ltd',
+  registeredOwner: 'Meridian Marine Services Pty Ltd',
+  technicalManager: 'Meridian Marine Services Pty Ltd',
+  ismCompany: 'Meridian Marine Services Pty Ltd',
 } as VesselInformation;
 
 const northwindCrew: CrewMember = {
@@ -43,7 +43,7 @@ const northwindCrew: CrewMember = {
 const externalCrew: CrewMember = {
   id: 'C-EXT',
   fullName: 'External Crew',
-  organization: 'AquaClean Marine Services Pty Ltd',
+  organization: 'Meridian Marine Services Pty Ltd',
 } as CrewMember;
 
 const northwindEquipment: EquipmentAsset = {
@@ -99,7 +99,7 @@ describe('project composition org scoping', () => {
     expect(requiresAssuranceSetForAssetLink('Northwind Marine Pty Ltd', 'Northwind Marine Pty Ltd')).toBe(
       false,
     );
-    expect(requiresAssuranceSetForAssetLink('Northwind Marine Pty Ltd', 'AquaClean Marine Services Pty Ltd')).toBe(
+    expect(requiresAssuranceSetForAssetLink('Northwind Marine Pty Ltd', 'Meridian Marine Services Pty Ltd')).toBe(
       true,
     );
   });
@@ -133,14 +133,14 @@ describe('project composition org scoping', () => {
       {
         id: 'AS-EXT-CHARTER',
         vesselId: 'V-EXT',
-        initiatorOrg: 'AquaClean Marine Services Pty Ltd',
+        initiatorOrg: 'Meridian Marine Services Pty Ltd',
         visibility: 'public',
         requirements: [],
       },
       {
         id: 'AS-EXT-DRAFT',
         vesselId: 'V-UNCHARTERED',
-        initiatorOrg: 'AquaClean Marine Services Pty Ltd',
+        initiatorOrg: 'Meridian Marine Services Pty Ltd',
         visibility: 'draft',
         requirements: [],
       },
@@ -226,7 +226,7 @@ describe('project composition org scoping', () => {
       equipment: [],
       assuranceSets,
       requestingOrganization: 'Oil Company',
-      allowedProviderOrganizations: ['AquaClean Marine Services Pty Ltd'],
+      allowedProviderOrganizations: ['Meridian Marine Services Pty Ltd'],
     });
 
     expect(linkable.map((a) => a.assetId)).toEqual(['V-EXT']);
@@ -275,13 +275,13 @@ describe('project composition org scoping', () => {
         { organization: 'Oil Company', group: 'Client', chainRole: 'client' },
         { organization: 'Northwind Marine Pty Ltd', group: 'Vendor', chainRole: 'head_contractor' },
       ],
-      invitedOrganizations: ['Oil Company', 'AquaClean Marine Services Pty Ltd'],
+      invitedOrganizations: ['Oil Company', 'Meridian Marine Services Pty Ltd'],
     } as Project;
 
     expect(getProjectIncludedOrganizations(project)).toEqual([
       'Oil Company',
       'Northwind Marine Pty Ltd',
-      'AquaClean Marine Services Pty Ltd',
+      'Meridian Marine Services Pty Ltd',
     ]);
     expect(isOrganizationIncludedInProject(project, 'Northwind Marine Pty Ltd')).toBe(true);
     expect(isOrganizationIncludedInProject(project, 'Unknown Org')).toBe(false);

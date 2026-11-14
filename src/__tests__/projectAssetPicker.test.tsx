@@ -27,14 +27,14 @@ const sampleAssets: LinkableProjectAsset[] = [
     assetType: 'Vessel',
     assetId: 'V-1',
     assetName: 'Alpha Tug',
-    providerOrganization: 'AquaClean Marine Services Pty Ltd',
+    providerOrganization: 'Meridian Marine Services Pty Ltd',
     eligibleAssuranceSets: [{ id: 'AS-1', title: 'Set One' } as LinkableProjectAsset['eligibleAssuranceSets'][number]],
   },
   {
     assetType: 'Crew',
     assetId: 'C-1',
     assetName: 'Beta Crew',
-    providerOrganization: 'AquaClean Marine Services Pty Ltd',
+    providerOrganization: 'Meridian Marine Services Pty Ltd',
     eligibleAssuranceSets: [{ id: 'AS-2', title: 'Set Two' } as LinkableProjectAsset['eligibleAssuranceSets'][number]],
   },
 ];

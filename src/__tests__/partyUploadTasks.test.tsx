@@ -19,12 +19,12 @@ describe('Assurance Set - One Upload Task Per Party (Task 5305 / 5c-02)', () => 
       users: [
         ...initialState.users,
         {
-          id: 'USR-OHL-01',
-          name: 'J. Ocean',
-          email: 'j.ocean@oceanic.com',
+          id: 'USR-MMS-SUB-01',
+          name: 'J. Meridian',
+          email: 'j.meridian@meridianmarine.com.au',
           roles: ['Submitter'],
           userType: 'Organization',
-          organization: 'Oceanic Horizon Logistics Pty Ltd',
+          organization: 'Meridian Marine Services Pty Ltd',
           departmentOrScope: 'Operations',
           status: 'Active',
           lastActive: '2026-10-29 08:00 UTC',
@@ -64,7 +64,7 @@ describe('Assurance Set - One Upload Task Per Party (Task 5305 / 5c-02)', () => 
           createdByPersona: 'C Admin',
           clientOrg: 'Chevron Australia Pty Ltd',
           charterer: 'Chevron Australia Pty Ltd',
-          serviceProviderOrg: 'Oceanic Horizon Logistics Pty Ltd',
+          serviceProviderOrg: 'Meridian Marine Services Pty Ltd',
           requirements: [],
           mandatoryInspectionRequired: false,
           formalApprovalRequired: true,
@@ -77,7 +77,7 @@ describe('Assurance Set - One Upload Task Per Party (Task 5305 / 5c-02)', () => 
     const result = useMapStore.getState().addAssuranceTask(testSetId, {
       title: 'Certificate of Class',
       category: 'Statutory Certificate',
-      responsibleParties: ['Oceanic Horizon Logistics Pty Ltd', 'Chevron Australia Pty Ltd'],
+      responsibleParties: ['Meridian Marine Services Pty Ltd', 'Chevron Australia Pty Ltd'],
     });
     expect(result.success).toBe(true);
 
@@ -96,9 +96,9 @@ describe('Assurance Set - One Upload Task Per Party (Task 5305 / 5c-02)', () => 
     // Both tasks have distinct IDs
     expect(classTasks[0].id).not.toBe(classTasks[1].id);
 
-    // One task is assigned to Oceanic Horizon Logistics, the other to Chevron Australia
+    // One task is assigned to Meridian Marine Services, the other to Chevron Australia
     const parties = classTasks.map((t) => t.responsibleParty || t.assignedSubmitter);
-    expect(parties).toContain('Oceanic Horizon Logistics Pty Ltd');
+    expect(parties).toContain('Meridian Marine Services Pty Ltd');
     expect(parties).toContain('Chevron Australia Pty Ltd');
 
     // Both tasks share the same requirement group ID
@@ -132,7 +132,7 @@ describe('Assurance Set - One Upload Task Per Party (Task 5305 / 5c-02)', () => 
           createdByPersona: 'C Admin',
           clientOrg: 'Chevron Australia Pty Ltd',
           charterer: 'Chevron Australia Pty Ltd',
-          serviceProviderOrg: 'Oceanic Horizon Logistics Pty Ltd',
+          serviceProviderOrg: 'Meridian Marine Services Pty Ltd',
           requirements: [],
           mandatoryInspectionRequired: false,
           formalApprovalRequired: true,
@@ -145,7 +145,7 @@ describe('Assurance Set - One Upload Task Per Party (Task 5305 / 5c-02)', () => 
     const result = useMapStore.getState().addAssuranceTask(setId, {
       title: 'Certificate of Class',
       category: 'Statutory Certificate',
-      responsibleParties: ['Oceanic Horizon Logistics Pty Ltd', 'Chevron Australia Pty Ltd'],
+      responsibleParties: ['Meridian Marine Services Pty Ltd', 'Chevron Australia Pty Ltd'],
     });
     expect(result.success).toBe(true);
 
@@ -228,7 +228,7 @@ describe('Assurance Set - One Upload Task Per Party (Task 5305 / 5c-02)', () => 
           createdByPersona: 'C Admin',
           clientOrg: 'Chevron Australia Pty Ltd',
           charterer: 'Chevron Australia Pty Ltd',
-          serviceProviderOrg: 'Oceanic Horizon Logistics Pty Ltd',
+          serviceProviderOrg: 'Meridian Marine Services Pty Ltd',
           requirements: [],
           mandatoryInspectionRequired: false,
           formalApprovalRequired: true,
@@ -241,7 +241,7 @@ describe('Assurance Set - One Upload Task Per Party (Task 5305 / 5c-02)', () => 
     const result = useMapStore.getState().addAssuranceTask(testSetId, {
       title: 'Joint Bunker Safety Inspection Report',
       category: 'Operational',
-      responsibleParties: ['Oceanic Horizon Logistics Pty Ltd', 'Chevron Australia Pty Ltd'],
+      responsibleParties: ['Meridian Marine Services Pty Ltd', 'Chevron Australia Pty Ltd'],
     });
 
     expect(result.success).toBe(true);
@@ -253,7 +253,7 @@ describe('Assurance Set - One Upload Task Per Party (Task 5305 / 5c-02)', () => 
 
     expect(bunkerTasks).toHaveLength(2);
     expect(bunkerTasks[0].id).not.toBe(bunkerTasks[1].id);
-    expect(bunkerTasks[0].responsibleParty).toBe('Oceanic Horizon Logistics Pty Ltd');
+    expect(bunkerTasks[0].responsibleParty).toBe('Meridian Marine Services Pty Ltd');
     expect(bunkerTasks[1].responsibleParty).toBe('Chevron Australia Pty Ltd');
     expect(bunkerTasks[0].requirementGroupId).toBe(bunkerTasks[1].requirementGroupId);
 

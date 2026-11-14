@@ -16,7 +16,7 @@ const initialState = useMapStore.getState();
 
 const CLIENT = 'Chevron Australia Pty Ltd';
 const VENDOR_NORTHWIND = 'Northwind Marine Pty Ltd';
-const VENDOR_PACIFIC = 'Pacific Ocean Logistics Pty Ltd';
+const VENDOR_MERIDIAN = 'Meridian Marine Services Pty Ltd';
 
 describe('Assurance wizard - One vendor and one client per set (Task 5332)', () => {
   beforeEach(() => {
@@ -45,14 +45,14 @@ describe('Assurance wizard - One vendor and one client per set (Task 5332)', () 
       equipment: [
         ...currentEquipment,
         {
-          id: 'EQ-PACIFIC-01',
-          name: 'Pacific Ocean Crane #1',
-          equipmentIdentifier: 'EQP-PAC-001',
+          id: 'EQ-MERIDIAN-01',
+          name: 'Meridian Test Crane #1',
+          equipmentIdentifier: 'EQP-MMS-001',
           category: 'Machinery & Propulsion',
           manufacturer: 'Liebherr',
           model: 'RL-K 4200',
           parentVesselId: 'VESSEL-002',
-          owningOrganization: VENDOR_PACIFIC,
+          owningOrganization: VENDOR_MERIDIAN,
           complianceReadinessScore: 90,
           availabilityStatus: 'Available',
           availabilityUpdatedAt: '2026-09-15T08:00:00.000Z',
@@ -144,22 +144,22 @@ describe('Assurance wizard - One vendor and one client per set (Task 5332)', () 
     const equipmentOptions = objectPickerOptions(container, 'equipment');
     const vendorsInOptions = new Set(equipmentOptions.map(getOptionHint));
     expect(vendorsInOptions.has(VENDOR_NORTHWIND)).toBe(true);
-    expect(vendorsInOptions.has(VENDOR_PACIFIC)).toBe(true);
+    expect(vendorsInOptions.has(VENDOR_MERIDIAN)).toBe(true);
 
-    // Select equipment from Pacific Ocean Logistics
-    const pacificEq = equipmentOptions.find(
-      (opt) => getOptionHint(opt) === VENDOR_PACIFIC && opt.getAttribute('aria-disabled') !== 'true',
+    // Select equipment from Meridian Marine Services
+    const meridianEq = equipmentOptions.find(
+      (opt) => getOptionHint(opt) === VENDOR_MERIDIAN && opt.getAttribute('aria-disabled') !== 'true',
     );
-    expect(pacificEq).toBeDefined();
-    fireEvent.click(pacificEq!);
+    expect(meridianEq).toBeDefined();
+    fireEvent.click(meridianEq!);
 
-    // Pacific Ocean Logistics is now the set's vendor
+    // Meridian Marine Services is now the set's vendor
     expect(container.querySelector('[data-testid="selected-vendor-badge"]')).toBeNull();
 
-    // Now pickers only list Pacific Ocean Logistics objects
+    // Now pickers only list Meridian Marine Services objects
     const newEquipmentOptions = objectPickerOptions(container, 'equipment');
     newEquipmentOptions.forEach((option) => {
-      expect(getOptionHint(option)).toBe(VENDOR_PACIFIC);
+      expect(getOptionHint(option)).toBe(VENDOR_MERIDIAN);
     });
   });
 

@@ -19,12 +19,12 @@ describe('Assurance Requirements - Remove Per-Requirement Party Picker (Task 535
       users: [
         ...initialState.users,
         {
-          id: 'USR-OHL-01',
-          name: 'J. Ocean',
-          email: 'j.ocean@oceanic.com',
+          id: 'USR-MMS-SUB-01',
+          name: 'J. Meridian',
+          email: 'j.meridian@meridianmarine.com.au',
           roles: ['Submitter'],
           userType: 'Organization',
-          organization: 'Oceanic Horizon Logistics Pty Ltd',
+          organization: 'Meridian Marine Services Pty Ltd',
           departmentOrScope: 'Operations',
           status: 'Active',
           lastActive: '2026-10-29 08:00 UTC',
@@ -124,19 +124,19 @@ describe('Assurance Requirements - Remove Per-Requirement Party Picker (Task 535
 
     pickReviewerRoles(container);
 
-    // In Step 1: Change Responding party to Oceanic Horizon Logistics Pty Ltd
-    // First, add Oceanic Horizon Logistics Pty Ltd if not already listed
+    // In Step 1: Change Responding party to Meridian Marine Services Pty Ltd
+    // First, add Meridian Marine Services Pty Ltd if not already listed
     const addOrgSelect = container.querySelector('#grid-add-organization') as HTMLInputElement | null;
     if (addOrgSelect) {
       fireEvent.focus(addOrgSelect);
-      fireEvent.change(addOrgSelect, { target: { value: 'Oceanic Horizon Logistics Pty Ltd' } });
-      const opt = container.querySelector('#grid-add-organization-listbox [data-item-id="Oceanic Horizon Logistics Pty Ltd"]');
+      fireEvent.change(addOrgSelect, { target: { value: 'Meridian Marine Services Pty Ltd' } });
+      const opt = container.querySelector('#grid-add-organization-listbox [data-item-id="Meridian Marine Services Pty Ltd"]');
       if (opt) fireEvent.click(opt);
     }
 
-    const ohlRoleSelect = container.querySelector('[id="party-role-Oceanic Horizon Logistics Pty Ltd"]') as HTMLSelectElement | null;
-    if (ohlRoleSelect) {
-      fireEvent.change(ohlRoleSelect, { target: { value: 'Responding party' } });
+    const mmsRoleSelect = container.querySelector('[id="party-role-Meridian Marine Services Pty Ltd"]') as HTMLSelectElement | null;
+    if (mmsRoleSelect) {
+      fireEvent.change(mmsRoleSelect, { target: { value: 'Responding party' } });
     }
 
     // Step 1 -> Step 2 -> Step 3 -> Step 4
@@ -152,7 +152,7 @@ describe('Assurance Requirements - Remove Per-Requirement Party Picker (Task 535
     const createdSet = store.assuranceSets.find((s) => s.title === 'Task 5355 Custom Party Set');
     expect(createdSet).toBeDefined();
 
-    const targetParty = ohlRoleSelect ? 'Oceanic Horizon Logistics Pty Ltd' : 'Northwind Marine Pty Ltd';
+    const targetParty = mmsRoleSelect ? 'Meridian Marine Services Pty Ltd' : 'Northwind Marine Pty Ltd';
     createdSet?.requirements.forEach((req: AssuranceRequirement) => {
       expect(req.responsibleParty).toBe(targetParty);
     });

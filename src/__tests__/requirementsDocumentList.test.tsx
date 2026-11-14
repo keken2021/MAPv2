@@ -16,12 +16,12 @@ describe('Requirements Tab: Compact Document Lists and Searchable Picker', () =>
       users: [
         ...initialState.users,
         {
-          id: 'USR-OHL-01',
-          name: 'J. Ocean',
-          email: 'j.ocean@oceanic.com',
+          id: 'USR-MMS-SUB-01',
+          name: 'J. Meridian',
+          email: 'j.meridian@meridianmarine.com.au',
           roles: ['Submitter'],
           userType: 'Organization',
-          organization: 'Oceanic Horizon Logistics Pty Ltd',
+          organization: 'Meridian Marine Services Pty Ltd',
           departmentOrScope: 'Operations',
           status: 'Active',
           lastActive: '2026-10-29 08:00 UTC',
