@@ -37,6 +37,7 @@ Root: `C:\mapFiles\MAPv2`
 - `src/utils/headerNavigation.tsx` : reusable header back navigation helper, hook (`useHeaderBackNavigation`), and back button component (`HeaderBackButton`) preserving contextual return to originating entities (e.g. Assurance Set from CAPA open findings)
 - `src/store/useMapStore.ts` : the single app store; `setActiveSessionUser` switches active user within role
 - `src/store/*MockData.ts` : mock data, one file per domain
+- `src/store/orgRosterMockData.ts` : organization role roster builder ensuring every organization has an admin and fitting operational roles (Task 5483)
 - `src/types/` : TypeScript types per domain (`dashboard.ts` role dashboard configuration types)
 - `src/utils/rbacHelpers.ts` : which role sees which set, asset and action
 - `src/utils/useSessionUser.ts` : hook returning the active demo session user profile for the current persona and organization
@@ -53,6 +54,7 @@ Root: `C:\mapFiles\MAPv2`
 - `src/utils/organizationRegistry.ts` : canonical list of 23 kept organizations, classification of clients (`C Admin`) vs operators/third-parties (`Administrator`), name canonicalization aliases, and validators
 - `src/__tests__/organizationRegistry.test.ts` : unit tests for canonical organization registry, aliases, and mock data consistency
 - `src/__tests__/allOrganizationsHaveAdministrator.test.ts` : tests that every kept organization has at least one active Administrator or C Admin
+- `src/__tests__/orgRoster.test.ts` : unit tests for organization role roster coverage, admin roles, and store persona resolution (Task 5483)
 - `src/__tests__/oilProjectWalkthrough.test.ts` : walk-through tests for Oil Company LNG Field Development project organizations
 - `src/__tests__/loginAndSetActivePersonaFallbacks.test.ts` : tests for login and setActivePersona fallback to first user holding the role
 - `src/__tests__/viewingAsUserSwitcher.test.tsx` : unit and component tests for Viewing as user switcher, helper filtering, store session user switching, and sidebar menu
