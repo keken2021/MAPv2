@@ -6,9 +6,10 @@
 
 import { describe, expect, it, beforeEach } from 'vitest';
 import { useMapStore } from '../store/useMapStore';
-import { filterUsersForPersona } from '../utils/rbacHelpers';
+import { filterUsersForPersona, getClientAdminOrganization, orgFieldMatches } from '../utils/rbacHelpers';
 import { getOperationalRoleOptions, buildRolesFromForm } from '../utils/userRoleHelpers';
 import { UserProfile, UserRolePersona } from '../types/user';
+import { ORGANIZATIONS } from '../store/orgRosterMockData';
 
 describe('C Admin & Vessel Admin User Management & RBAC Isolation', () => {
   beforeEach(() => {
@@ -99,6 +100,30 @@ describe('C Admin & Vessel Admin User Management & RBAC Isolation', () => {
         status: 'Active',
         lastActive: '2 hrs ago',
       },
+      {
+        id: 'USR-OTHER-CLIENT-ADMIN',
+        name: 'M. Taylor',
+        email: 'm.taylor@woodside.example',
+        roles: ['C Admin'],
+        userType: 'Organization',
+        organization: 'Woodside Energy Ltd',
+        departmentOrScope: 'Client Administration',
+        status: 'Active',
+        lastActive: '1 hr ago',
+      },
+      {
+        id: 'USR-OTHER-CLIENT-STAFF',
+        name: 'C. Drummond',
+        email: 'c.drummond@woodside.example',
+        roles: ['Verifier'],
+        userType: 'Organization',
+        organization: 'Woodside Energy Ltd',
+        departmentOrScope: 'Client Verification',
+        status: 'Active',
+        lastActive: '1 hr ago',
+        createdBy: 'C Admin',
+        invitedBy: 'C Admin',
+      },
     ];
 
     const visibleToCAdmin = filterUsersForPersona(mockUsers, 'C Admin');
@@ -108,9 +133,11 @@ describe('C Admin & Vessel Admin User Management & RBAC Isolation', () => {
     expect(visibleIds).toContain('USR-CLIENT-SELF');
     /* C Admin sees users they created */
     expect(visibleIds).toContain('USR-VERIFIER-CREATED');
-    /* Platform Admin and unrelated vessel operators are filtered out */
+    /* Platform Admin, unrelated vessel operators, and other clients' staff are filtered out */
     expect(visibleIds).not.toContain('USR-ADMIN');
     expect(visibleIds).not.toContain('USR-UNRELATED');
+    expect(visibleIds).not.toContain('USR-OTHER-CLIENT-ADMIN');
+    expect(visibleIds).not.toContain('USR-OTHER-CLIENT-STAFF');
   });
 
   /**
@@ -221,17 +248,43 @@ describe('C Admin & Vessel Admin User Management & RBAC Isolation', () => {
   });
 
   /**
-    what: tests that there is exactly one c admin in the system mock data and that users under them have valid operational roles.
-    how: checks mock data users collection to assert only one c admin exists, and asserts all mock users created by c admin have roles among verifier, inspector, or approver.
+    what: tests that there is one C Admin per client organization, S. Basin for Southern Basin, and that users under them have valid operational roles.
+    how: checks mock data users collection to assert each client organization has one C Admin, S. Basin is Southern Basin's C Admin, and asserts all mock users created by C Admin have allowed operational roles.
     with what file: src/__tests__/cAdminUserManagement.test.ts testing mockData.ts and rbacHelpers.ts.
   */
-  it('should ensure C Admin users exist across organizations and all users created under them belong to allowed operational roles', () => {
+  it('should ensure one C Admin per client organization, S. Basin for Southern Basin', () => {
     const storeUsers = useMapStore.getState().users;
-    const cAdmins = storeUsers.filter((u) => u.roles.includes('C Admin'));
+    const clientOrgs = ORGANIZATIONS.filter((o) => o.kind === 'client');
 
-    /* multi-org C Admins */
-    expect(cAdmins.length).toBeGreaterThanOrEqual(1);
-    expect(cAdmins.some((u) => u.name === 'S. Basin')).toBe(true);
+    /* one C Admin per client organization */
+    for (const client of clientOrgs) {
+      const clientAdmins = storeUsers.filter(
+        (u) =>
+          u.status === 'Active' &&
+          Boolean(u.organization) &&
+          orgFieldMatches(client.name, u.organization) &&
+          u.roles.includes('C Admin'),
+      );
+      expect(
+        clientAdmins,
+        `Expected exactly 1 active C Admin in ${client.name}`,
+      ).toHaveLength(1);
+    }
+
+    /* S. Basin for Southern Basin */
+    const southernBasinAdmin = storeUsers.find(
+      (u) =>
+        u.status === 'Active' &&
+        u.organization &&
+        orgFieldMatches('Southern Basin Energy Pty Ltd', u.organization) &&
+        u.roles.includes('C Admin'),
+    );
+    expect(southernBasinAdmin).toBeDefined();
+    expect(southernBasinAdmin?.name).toBe('S. Basin');
+    expect(southernBasinAdmin?.id).toBe('USR-201');
+
+    /* getClientAdminOrganization keeps returning Southern Basin */
+    expect(getClientAdminOrganization(storeUsers)).toBe('Southern Basin Energy Pty Ltd');
 
     /* users created by c admin */
     const usersUnderCAdmin = storeUsers.filter((u) => u.createdBy === 'C Admin');
@@ -250,12 +303,24 @@ describe('C Admin & Vessel Admin User Management & RBAC Isolation', () => {
       expect(hasAllowedRole).toBe(true);
     });
 
-    /* visible to c admin in user management */
+    /* visible to c admin in user management: sees Southern Basin people and invited third parties */
     const visibleToCAdmin = filterUsersForPersona(storeUsers, 'C Admin');
     expect(visibleToCAdmin.some((u) => u.id === 'USR-201')).toBe(true);
     expect(visibleToCAdmin.some((u) => u.id === 'USR-205')).toBe(true);
     expect(visibleToCAdmin.some((u) => u.id === 'USR-207')).toBe(true);
     expect(visibleToCAdmin.some((u) => u.id === 'USR-208')).toBe(true);
+
+    /* other client organizations' C Admins are not visible to Southern Basin C Admin */
+    const otherClientAdmins = storeUsers.filter(
+      (u) =>
+        u.roles.includes('C Admin') &&
+        Boolean(u.organization) &&
+        !orgFieldMatches('Southern Basin Energy Pty Ltd', u.organization),
+    );
+    expect(otherClientAdmins.length).toBeGreaterThanOrEqual(1);
+    for (const otherAdmin of otherClientAdmins) {
+      expect(visibleToCAdmin.some((u) => u.id === otherAdmin.id)).toBe(false);
+    }
   });
 
   /**

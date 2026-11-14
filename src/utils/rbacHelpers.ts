@@ -836,12 +836,12 @@ function getOrgMatchTokens(org: string): string[] {
     .toLowerCase()
     .replace(/[^\w\s]/g, ' ')
     .split(/\s+/)
-    .filter((token) => token.length > 2 && !ORG_MATCH_STOP_WORDS.has(token));
+    .filter((token) => token.length > 1 && !ORG_MATCH_STOP_WORDS.has(token));
 }
 
 /**
   what: true when a vessel ownership/management field matches the client organization name.
-  how: uses substring match first, then requires enough distinctive token overlap.
+  how: uses substring match first, then requires token set containment.
 */
 export function orgFieldMatches(org: string, fieldValue: string): boolean {
   if (!org.trim() || !fieldValue.trim()) return false;
@@ -850,12 +850,16 @@ export function orgFieldMatches(org: string, fieldValue: string): boolean {
   const fieldLower = fieldValue.toLowerCase();
   if (fieldLower.includes(orgLower) || orgLower.includes(fieldLower)) return true;
 
-  const tokens = getOrgMatchTokens(org);
-  if (tokens.length === 0) return false;
+  const orgTokens = getOrgMatchTokens(org);
+  const fieldTokens = getOrgMatchTokens(fieldValue);
+  if (orgTokens.length === 0 || fieldTokens.length === 0) return false;
 
-  const matched = tokens.filter((token) => fieldLower.includes(token));
-  const requiredMatches = tokens.length === 1 ? 1 : Math.min(2, tokens.length);
-  return matched.length >= requiredMatches;
+  const [shorter, longer] = orgTokens.length <= fieldTokens.length
+    ? [orgTokens, fieldTokens]
+    : [fieldTokens, orgTokens];
+
+  const longerSet = new Set(longer);
+  return shorter.every((token) => longerSet.has(token));
 }
 
 /**
@@ -866,6 +870,13 @@ export function getClientAdminOrganization(
   preferredOrganization?: string,
 ): string {
   if (preferredOrganization?.trim()) return preferredOrganization.trim();
+  const southernBasinAdmin = users.find(
+    (user) =>
+      user.roles.includes('C Admin') &&
+      Boolean(user.organization) &&
+      orgFieldMatches('Southern Basin Energy Pty Ltd', user.organization),
+  );
+  if (southernBasinAdmin?.organization) return southernBasinAdmin.organization;
   const cAdmin = users.find((user) => user.roles.includes('C Admin'));
   return cAdmin?.organization || 'Southern Basin Energy Pty Ltd';
 }
@@ -1090,14 +1101,25 @@ export function filterUsersForPersona(
   }
 
   if (persona === "C Admin") {
-    /* c admin sees their own details plus any users they created or invited */
-    return users.filter(
-      (u) =>
-        u.roles.includes("C Admin") ||
-        u.name === "S. Basin" ||
-        u.createdBy === "C Admin" ||
-        u.invitedBy === "C Admin"
-    );
+    /* c admin sees Southern Basin's people and the third parties it invited */
+    const activeOrg = organization?.trim() || user?.organization?.trim() || "Southern Basin Energy Pty Ltd";
+    return users.filter((u) => {
+      // Own organization's people
+      if (
+        (u.organization && orgFieldMatches(activeOrg, u.organization)) ||
+        (activeOrg.toLowerCase().includes("southern basin") && u.name === "S. Basin")
+      ) {
+        return true;
+      }
+      // Third parties invited by C Admin
+      if (
+        u.userType === "Third-Party" &&
+        (u.createdBy === "C Admin" || u.invitedBy === "C Admin")
+      ) {
+        return true;
+      }
+      return false;
+    });
   }
 
   /* verifier, inspector, approver — no access to user list */
