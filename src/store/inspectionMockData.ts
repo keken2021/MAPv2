@@ -43,12 +43,7 @@ export interface PhysicalInspectionRecord {
   location: string;
   client: string;
   status: 'Completed' | 'Scheduled' | 'In Progress';
-  findingsSummary: {
-    satisfactory: number;
-    observations: number;
-    deficiencies: number;
-    capaCode?: string;
-  };
+  findingsSummary: { satisfactory: number; observations: number; deficiencies: number; capaCode?: string };
   checklists: {
     id: string;
     category: string;
@@ -58,12 +53,7 @@ export interface PhysicalInspectionRecord {
     evidence: string[];
     capaId?: string;
   }[];
-  auditTrail: {
-    time: string;
-    action: string;
-    user: string;
-    notes: string;
-  }[];
+  auditTrail: { time: string; action: string; user: string; notes: string }[];
 }
 
 export const DEFAULT_INSPECTION_CHECKLIST_ITEMS: InspectionChecklistTemplateItem[] = [
@@ -157,7 +147,7 @@ export const DEFAULT_INSPECTION_CAPA_ITEMS: InspectionCapaActionItem[] = [
   {
     id: 'CAPA-118',
     title: 'Replace port-side liferaft HRU & update service log',
-    owner: 'Northwind Marine Technical Dept',
+    owner: 'Northwind Marine Pty Ltd',
     dueDate: '25 Sep 2026',
     status: 'Open',
   },
@@ -214,12 +204,7 @@ export const PHYSICAL_INSPECTIONS: PhysicalInspectionRecord[] = [
     location: 'Dampier Port Facility, WA',
     client: 'Chevron Australia Pty Ltd',
     status: 'Completed',
-    findingsSummary: {
-      satisfactory: 12,
-      observations: 2,
-      deficiencies: 1,
-      capaCode: 'CAPA-118',
-    },
+    findingsSummary: { satisfactory: 12, observations: 2, deficiencies: 1, capaCode: 'CAPA-118' },
     checklists: checklistFromDefaults(),
     auditTrail: [
       { time: '2026-10-14 08:30 UTC', action: 'INSPECTION_INITIATED', user: 'N. Technical', notes: 'Inspector boarded vessel at Dampier Berth 3.' },
@@ -238,11 +223,7 @@ export const PHYSICAL_INSPECTIONS: PhysicalInspectionRecord[] = [
     location: 'Henderson, WA',
     client: 'Northwind Marine Pty Ltd',
     status: 'In Progress',
-    findingsSummary: {
-      satisfactory: 4,
-      observations: 1,
-      deficiencies: 0,
-    },
+    findingsSummary: { satisfactory: 4, observations: 1, deficiencies: 0 },
     checklists: checklistFromDefaults(DEFAULT_INSPECTION_CHECKLIST_ITEMS.slice(0, 3)),
     auditTrail: [
       { time: '2026-10-22 09:00 UTC', action: 'INSPECTION_INITIATED', user: 'N. Technical', notes: 'Inspection started at Henderson.' },
