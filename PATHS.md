@@ -48,6 +48,7 @@ Root: `C:\mapFiles\MAPv2`
 - `src/config/readinessScale.ts` : unified readiness scale cut-offs, tones, and CSS class helpers
 - `src/config/thresholds.ts` : centralized reminder, expiry, OCR, and at-risk thresholds (Task 5524 / A17)
 - `src/__tests__/projectOwnerSubSetVisibility.test.ts` : unit tests for master-project owner sub-set visibility and document restriction rule (Task 5529 / A37)
+- `src/__tests__/demoReviewInspectionGuard.test.tsx` : tests for requirement verification status mapping (Submitted / Awaiting Verifier vs To Inspect) and disabling Submit Outcome prior to Inspection stage
 - `src/__tests__/linkedObjectDatasheetDrawer.test.tsx` : tests for LinkedObjectDatasheetDrawer and eye button RBAC in AssuranceDetailView (Task 5483)
 - `src/__tests__/datasheetSignoffSnapshots.test.ts` : tests for datasheet sign-off snapshot capture and audit naming at verification, inspection, and approval (Task 5483)
 - `src/__tests__/editParticipatingOrganizations.test.tsx` : unit and integration tests for participating organizations editing and auto-sync
@@ -264,6 +265,8 @@ Root: `C:\mapFiles\MAPv2`
 - `docs/work-items/audit-fixes-tasks.csv` : 28 Tasks under User Story 5207 from `docs/plans/shown-data-without-basis-audit.md` Part 7, 14 each for Creishen Ayuman (assurance sets) and Kurt Grava (projects, assets, others), 0.5 h each
 - `docs/work-items/brd-v4.2-gap-tasks.csv` : 6 Tasks (5285 to 5290) under User Story 5207 for the BRD V4.2 gaps that wait on nothing (G3, G4, G6, G7, G12), assigned to Creishen Ayuman, 0.25 or 0.5 h each. Source: `docs/plans/brd-gap-status-2026-11-02.md`
 - `docs/plans/2026-11-09-demo-relevant-items.md` : 10 demo items consolidated from the 9 Nov alignment report and Gregg's 60 answers, built as 14 Tasks (6.25 h) plus 4 talk track topics
+- `docs/plans/2026-11-14-pilot-demo-scope-safe-improvements.md` : architectural plan for the 6 scope-safe demo fixes across SS-01 to SS-05 and the 5-step master project walkthrough
+- `docs/work-items/2026-11-14-pilot-demo-scope-safe-improvements-tasks.csv` : 6 builder Tasks (2.75 h total) under User Story 5483 in `MAP\Sprint 3`, assigned to Creishen Ayuman, covering adversarial review demo improvements (SS-01 inspection guard, SS-04 request prefill & tenant feed isolation, SS-05 wizard clean title & period clamp, project provider count & approved %, create button gate & approver decide link, upload banner & clean preview)
 - `docs/work-items/2026-11-09-demo-relevant-items-tasks.csv` : 1 User Story + 15 Tasks in MAP\Sprint 3 under Feature 4749 for demo-relevant alignment items and the project detail Overview success metrics tab, divided between Creishen Ayuman (8 Tasks, 3.5 h) and Kurt Grava (7 Tasks, 3.25 h), 6.75 h total
 - `docs/work-items/success-metrics-tasks.csv`, `success-metrics-task-flat.csv` : Standalone import CSVs for the success metrics task (Project detail Overview tab - Commercial and delivery efficiency metrics, 0.5 h, assigned to Creishen Ayuman) in MAP\Sprint 3 (tree-linked to 5483 or flat task import)
 - `docs/work-items/2026-11-10-recent-commits-tasks.csv`, `2026-11-10-recent-commits-tasks-flat.csv` : Tasks 5500 to 5503 (1.75 h total: 5500 0.5h, 5501 0.25h, 5502 0.5h, 5503 0.5h) under User Story 5483 in `MAP\Sprint 3`, assigned to Creishen Ayuman, covering unticketed `v4` commits `f182c98` and `ce0a6d4`

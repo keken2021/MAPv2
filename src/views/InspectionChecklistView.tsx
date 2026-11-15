@@ -518,7 +518,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
   };
 
   const handleSubmitOutcome = () => {
-    if (!canInspect) return;
+    if (!canInspect || matchedSet?.stage !== 'Inspection') return;
     logAuditEvent({
       action: `Submitted Visual Survey Outcome (${selectedResult})`,
       targetAsset: `${cleanVesselName}${resolvedSetId ? ` (${resolvedSetId})` : ''}`,
@@ -986,14 +986,39 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
               </div>
 
               {isInspector && (
-                <button
-                  type="button"
-                  className="btn btn-warning font-weight-500 w-100 py-2.5 shadow-sm mt-1"
-                  onClick={handleSubmitOutcome}
-                  style={{ fontSize: '0.9rem' }}
+                <div
+                  title={
+                    matchedSet?.stage !== 'Inspection'
+                      ? 'Available once verification stage completes'
+                      : undefined
+                  }
+                  className="w-100"
                 >
-                  Submit Outcome
-                </button>
+                  <button
+                    type="button"
+                    className="btn btn-warning font-weight-500 w-100 py-2.5 shadow-sm mt-1"
+                    onClick={handleSubmitOutcome}
+                    disabled={matchedSet?.stage !== 'Inspection'}
+                    title={
+                      matchedSet?.stage !== 'Inspection'
+                        ? 'Available once verification stage completes'
+                        : undefined
+                    }
+                    data-testid="submit-inspection-outcome-btn"
+                    style={{ fontSize: '0.9rem' }}
+                  >
+                    Submit Outcome
+                  </button>
+                  {matchedSet?.stage !== 'Inspection' && (
+                    <div
+                      className="small text-muted mt-1 text-center"
+                      style={{ fontSize: '0.75rem' }}
+                      data-testid="submit-inspection-outcome-help"
+                    >
+                      Available once verification stage completes
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>

@@ -108,6 +108,7 @@ import { EmptyState } from '../components/common/EmptyState';
 import { Tabs } from '../components/common/Tabs';
 import { ListToolbar } from '../components/common/ListToolbar';
 import { StatusBadge } from '../components/common/StatusBadge';
+import { getRequirementStatusLabel } from '../utils/stageTasks';
 import { ReusedDocumentBadge } from '../components/common/ReusedDocumentBadge';
 import { AssuranceRequirementRow } from '../components/assurance/AssuranceRequirementRow';
 import { AuditEventTarget, AuditTrailEvent, formatAuditTarget, auditEventMatchesSearch } from '../types/audit';
@@ -2352,34 +2353,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   const totalCount = assuranceSet.requirements.length;
 
   const renderRequirementStatus = (req: AssuranceRequirement, canViewDoc: boolean = true) => {
-    if (!canViewDoc || (!req.documentId && !req.linkedDocumentId)) {
-      return <StatusBadge value="Awaiting Upload" tone="neutral" />;
-    }
-    const isSetApproved = assuranceSet.stage === 'Approved' || assuranceSet.approverDecision === 'Approved';
-
-    if (req.verifierStatus === 'Verified') {
-      if (isSetApproved) {
-        return <StatusBadge value="Approved" />;
-      }
-      return <StatusBadge value="Verified" />;
-    }
-    if (req.verifierStatus === 'Correction Requested') {
-      return <StatusBadge value="Returned for Correction" />;
-    }
-    if (req.verifierStatus === 'Rejected') {
-      return <StatusBadge value="Rejected" />;
-    }
-    const isInspectionDoc =
-      (req.category as string).toLowerCase().includes('inspection') ||
-      (req.category as string).toLowerCase().includes('audit') ||
-      req.title.toLowerCase().includes('inspection') ||
-      req.title.toLowerCase().includes('audit');
-
-    if (isInspectionDoc) {
-      return <StatusBadge value="To Inspect" tone="warning" />;
-    }
-
-    return <StatusBadge value="Submitted" tone="neutral" />;
+    const statusLabel = getRequirementStatusLabel(req, assuranceSet, { canViewDoc });
+    return <StatusBadge value={statusLabel} />;
   };
 
   const closeUploadModal = () => {

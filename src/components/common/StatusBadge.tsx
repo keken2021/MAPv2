@@ -88,6 +88,9 @@ export const STATUS_TONE_MAP: Record<string, StatusTone> = {
   'Suspended': 'danger',
 
   // Neutral
+  'Submitted': 'neutral',
+  'Awaiting Verifier': 'neutral',
+  'Awaiting Upload': 'neutral',
   'Initiated': 'neutral',
   'Validation': 'neutral',
   'Verification': 'neutral',

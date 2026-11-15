@@ -4,7 +4,7 @@
   role in system: consumed by AssuranceDetailTasksTab, ProjectTasksTable, useMapStore, and notification helpers.
 */
 
-import { AssuranceSet, AssuranceStage } from '../types/assurance';
+import { AssuranceRequirement, AssuranceSet, AssuranceStage } from '../types/assurance';
 import { UserRolePersona } from '../types/audit';
 import { UserProfile } from '../types/user';
 import { TaskStatus } from '../components/tables/ProjectTasksTable';
@@ -183,4 +183,58 @@ export function isInspectionDueForViewer(
 ): boolean {
   return isStageTaskActionableForViewer(set, 'inspection', persona, organization, user);
 }
+
+/**
+ * Derives the verification status label for a document requirement:
+ * - When document is missing (or not viewable): 'Awaiting Upload'
+ * - When verifierStatus is 'Verified':
+ *   - If set stage is 'Approved' or set approverDecision is 'Approved': 'Approved'
+ *   - Else: 'Verified'
+ * - When verifierStatus is 'Correction Requested': 'Returned for Correction'
+ * - When verifierStatus is 'Rejected': 'Rejected'
+ * - When verifierStatus is 'Waived': 'Waived'
+ * - When awaiting verification / review:
+ *   - 'Awaiting Verifier' if an assigned verifier is present on requirement or set
+ *   - 'Submitted' if no verifier is assigned
+ * Strictly keeps 'To Inspect' for physical inspection checklist tasks.
+ */
+export function getRequirementStatusLabel(
+  req?: Partial<Pick<AssuranceRequirement, 'documentId' | 'linkedDocumentId' | 'verifierStatus' | 'assignedVerifier' | 'title' | 'category'>> | null,
+  set?: Partial<Pick<AssuranceSet, 'stage' | 'approverDecision' | 'assignedVerifier'>> | null,
+  options?: { canViewDoc?: boolean; preferSubmitted?: boolean },
+): string {
+  if (!req) return 'Awaiting Upload';
+  const canView = options?.canViewDoc ?? true;
+  const hasDoc = Boolean(req.documentId || req.linkedDocumentId);
+
+  if (!canView || !hasDoc) {
+    return 'Awaiting Upload';
+  }
+
+  const isSetApproved = set?.stage === 'Approved' || set?.approverDecision === 'Approved';
+
+  if (req.verifierStatus === 'Verified') {
+    return isSetApproved ? 'Approved' : 'Verified';
+  }
+  if (req.verifierStatus === 'Correction Requested') {
+    return 'Returned for Correction';
+  }
+  if (req.verifierStatus === 'Rejected') {
+    return 'Rejected';
+  }
+  if (req.verifierStatus === 'Waived') {
+    return 'Waived';
+  }
+
+  if (options?.preferSubmitted) {
+    return 'Submitted';
+  }
+
+  const verifier = req.assignedVerifier?.trim() || set?.assignedVerifier?.trim();
+  if (verifier) {
+    return 'Awaiting Verifier';
+  }
+  return 'Submitted';
+}
+
 
