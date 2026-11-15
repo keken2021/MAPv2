@@ -8,6 +8,8 @@ import { AssuranceSet } from '../types/assurance';
 import { CapaItem } from '../types/capa';
 import { VesselStatusHistoryEntry } from '../types/vessel';
 import { dimensionLabel } from './vesselStatusHistoryHelpers';
+import { getSetVesselId, SetObjectsInput } from './setObjects';
+import { getSetDeadline, SetDatesInput } from './setDates';
 
 export type VesselActivityKind = 'status' | 'inspection' | 'capa' | 'decision';
 
@@ -24,19 +26,20 @@ export interface VesselActivitySources {
   statusHistory: VesselStatusHistoryEntry[];
   inspections: { id: string; title: string; date: string; status: string }[];
   capaItems: CapaItem[];
-  assuranceSets: Pick<
+  assuranceSets: (Pick<
     AssuranceSet,
     | 'id'
     | 'title'
-    | 'vesselId'
     | 'stage'
     | 'approverDecision'
     | 'lockedAt'
     | 'cancelledAt'
     | 'partiallyClosedAt'
-    | 'complianceDeadline'
+    | 'deadline'
     | 'cancellationReason'
-  >[];
+  > &
+    SetObjectsInput &
+    SetDatesInput)[];
 }
 
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
@@ -80,7 +83,7 @@ function inspectionText(inspection: VesselActivitySources['inspections'][number]
 }
 
 function decisionOf(set: VesselActivitySources['assuranceSets'][number]): { at: string; text: string } | null {
-  const fallback = set.lockedAt || set.cancelledAt || set.partiallyClosedAt || set.complianceDeadline;
+  const fallback = set.lockedAt || set.cancelledAt || set.partiallyClosedAt || getSetDeadline(set);
   if (set.stage === 'Cancelled' || set.cancellationReason) {
     const at = isoAt(set.cancelledAt || fallback);
     return at ? { at, text: `Cancelled — ${set.title}` } : null;
@@ -159,7 +162,7 @@ export function buildVesselActivity(sources: VesselActivitySources): VesselActiv
     });
 
   sources.assuranceSets
-    .filter((set) => set.vesselId === sources.vesselId)
+    .filter((set) => getSetVesselId(set) === sources.vesselId)
     .forEach((set) => {
       const decision = decisionOf(set);
       if (!decision) return;

@@ -6,10 +6,18 @@
 
 import { describe, expect, it } from 'vitest';
 import { MOCK_PROJECTS, PROJECT_SEED_ASSURANCE_SETS } from '../store/projectMockData';
-import { filterProjectsForPersona, withProjectVessels } from '../utils/projectHelpers';
+import { filterProjectsForPersona } from '../utils/projectHelpers';
+import { getSetObjectPool } from '../utils/setObjects';
 import { getAssuranceSetRequestRecipients } from '../utils/assuranceRequestHelpers';
 import { SUBTYPE_TEMPLATES, customRequirementFields, getThreePillarsCategory } from '../utils/assuranceTemplates';
 import { resolveAssuranceRequestSetClient, resolveRequestedServiceProviderOrg } from '../utils/notificationHelpers';
+import { getRequestingParty, getRespondingParty } from '../utils/setParties';
+import {
+  getSetAssignedSubmitter,
+  getSetAssignedVerifier,
+  getSetAssignedInspector,
+  getSetAssignedApprover,
+} from '../utils/setStakeholders';
 import { ThreePillarsCategory } from '../types/assurance';
 import { MOCK_DOCUMENTS, MOCK_USERS } from '../store/mockData';
 import {
@@ -98,19 +106,19 @@ describe('Oil Co LNG Field Development pilot', () => {
     const ss02 = sets.find((set) => set.id === OIL_CO_SS02_ID);
     const ss03 = sets.find((set) => set.id === OIL_CO_SS03_ID);
 
-    expect(ss01?.clientOrg).toBe(OIL_CO_ORG);
-    expect(ss01?.serviceProviderOrg).toBe(NORTHWIND_ORG);
-    expect(ss01?.assignedVerifier).toContain(XY_MARINE_ORG);
-    expect(ss01?.assignedApprover).toContain(XY_MARINE_ORG);
+    expect(getRequestingParty(ss01)).toBe(OIL_CO_ORG);
+    expect(getRespondingParty(ss01)).toBe(NORTHWIND_ORG);
+    expect(getSetAssignedVerifier(ss01)).toContain(XY_MARINE_ORG);
+    expect(getSetAssignedApprover(ss01)).toContain(XY_MARINE_ORG);
 
-    expect(ss02?.clientOrg).toBe(OIL_CO_ORG);
-    expect(ss02?.serviceProviderOrg).toBe(MERIDIAN_ORG);
-    expect(ss02?.assignedVerifier).toContain(AUSTRAL_ORG);
-    expect(ss02?.assignedApprover).toContain(XY_MARINE_ORG);
+    expect(getRequestingParty(ss02)).toBe(OIL_CO_ORG);
+    expect(getRespondingParty(ss02)).toBe(MERIDIAN_ORG);
+    expect(getSetAssignedVerifier(ss02)).toContain(AUSTRAL_ORG);
+    expect(getSetAssignedApprover(ss02)).toContain(XY_MARINE_ORG);
 
-    expect(ss03?.clientOrg).toBe(OIL_CO_ORG);
-    expect(ss03?.serviceProviderOrg).toBe(HARBOURLINE_ORG);
-    expect(ss03?.assignedVerifier).toContain(XY_MARINE_ORG);
+    expect(getRequestingParty(ss03)).toBe(OIL_CO_ORG);
+    expect(getRespondingParty(ss03)).toBe(HARBOURLINE_ORG);
+    expect(getSetAssignedVerifier(ss03)).toContain(XY_MARINE_ORG);
     expect(ss03?.requirements.some((req) => req.notes === 'Issuing-authority review')).toBe(true);
   });
 
@@ -155,9 +163,17 @@ describe('Oil Co LNG Field Development pilot', () => {
       });
 
     sets.forEach((set) => {
-      expect(orgFieldMatches(set.serviceProviderOrg || '', set.assignedVerifier || '')).toBe(false);
-      expect(orgFieldMatches(set.serviceProviderOrg || '', set.assignedApprover || '')).toBe(false);
-      [set.assignedSubmitter, set.assignedVerifier, set.assignedInspector, set.assignedApprover]
+      const providerOrg = getRespondingParty(set) || '';
+      const verifier = getSetAssignedVerifier(set) || '';
+      const approver = getSetAssignedApprover(set) || '';
+      expect(orgFieldMatches(providerOrg, verifier)).toBe(false);
+      expect(orgFieldMatches(providerOrg, approver)).toBe(false);
+      [
+        getSetAssignedSubmitter(set),
+        getSetAssignedVerifier(set),
+        getSetAssignedInspector(set),
+        getSetAssignedApprover(set),
+      ]
         .filter(Boolean)
         .forEach((assignee) => {
           const org = assignee!.slice(assignee!.indexOf('(') + 1, assignee!.lastIndexOf(')'));
@@ -240,24 +256,21 @@ describe('Oil Co LNG Field Development pilot', () => {
     ).toBe(true);
   });
 
-  it('offers Aurora, Endeavour, Oil Co bunker barge and Kestrel integrator on the project and the BRD evidence templates', () => {
-    const choices = withProjectVessels(
-      [],
-      [
-        { id: OIL_CO_AURORA_ID },
-        { id: OIL_CO_ENDEAVOUR_ID },
-        { id: OIL_CO_BUNKER_BARGE_ID },
-        { id: OIL_CO_KESTREL_INTEGRATOR_ID },
-        { id: 'other' },
-      ],
+  it('offers Aurora, Endeavour, Oil Co bunker barge and Kestrel integrator on the project roster pool', () => {
+    const oilPool = getSetObjectPool(
+      { parties: [{ organization: NORTHWIND_ORG, role: 'Requesting party' }, { organization: OIL_CO_ORG, role: 'Responding party' }] },
       project,
+      { vessels: MOCK_VESSELS, assuranceSets: PROJECT_SEED_ASSURANCE_SETS },
     );
-    expect(choices.map((vessel) => vessel.id)).toEqual([
-      OIL_CO_AURORA_ID,
-      OIL_CO_ENDEAVOUR_ID,
-      OIL_CO_BUNKER_BARGE_ID,
-      OIL_CO_KESTREL_INTEGRATOR_ID,
-    ]);
+    expect(oilPool.map((vessel) => vessel.id)).toEqual([OIL_CO_BUNKER_BARGE_ID]);
+
+    const northwindPool = getSetObjectPool(
+      { parties: [{ organization: OIL_CO_ORG, role: 'Requesting party' }, { organization: NORTHWIND_ORG, role: 'Responding party' }] },
+      project,
+      { vessels: MOCK_VESSELS, assuranceSets: PROJECT_SEED_ASSURANCE_SETS },
+    );
+    expect(northwindPool.map((vessel) => vessel.id)).toEqual([OIL_CO_AURORA_ID]);
+
     const bunkerLink = MOCK_PROJECTS.find((item) => item.id === OIL_CO_LNG_PROJECT_ID)?.assetLinks.find(
       (link) => link.assetId === OIL_CO_BUNKER_BARGE_ID,
     );

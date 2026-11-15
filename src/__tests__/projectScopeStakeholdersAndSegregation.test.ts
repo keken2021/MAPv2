@@ -20,6 +20,7 @@ import {
 } from '../utils/userRoleHelpers';
 import { isAssuranceSetAssignedToPersona } from '../utils/rbacHelpers';
 import { eligibleReviewers } from '../utils/projectHelpers';
+import { getRequestingParty, getRespondingParty } from '../utils/setParties';
 import { MOCK_USERS, MOCK_VESSELS } from '../store/mockData';
 
 describe('Category Stakeholders, Segregation of Duties, and Role Boundaries', () => {
@@ -119,15 +120,24 @@ describe('Category Stakeholders, Segregation of Duties, and Role Boundaries', ()
         id: 'MAP-SET-2026-PRJ-TEST-01',
         title: 'Gorgon Stage 2 Deepwater Installation Assurance Set',
         assuranceType: 'Vessel',
-        vesselId: 'VESSEL-001',
-        vesselName: 'MV Northern Endeavour',
-        imoNumber: '9123453',
-        initiatorOrg: 'Chevron Australia Pty Ltd',
-        initiatorRole: 'C Admin · Client Created',
-        charterer: 'Chevron Australia Pty Ltd',
-        charterWindowStart: '2026-11-01',
-        complianceDeadline: '2026-11-01',
-        charterWindowEnd: '2027-11-01',
+        assuranceObjects: [
+          {
+            id: 'VESSEL-001',
+            type: 'vessel',
+            name: 'MV Northern Endeavour',
+            identifier: '9123453',
+            ownerOrganization: 'Northwind Marine Pty Ltd',
+          },
+        ],
+        parties: [
+          { organization: 'Chevron Australia Pty Ltd', role: 'Requesting party' },
+          { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+        ],
+        startDate: '2026-11-01',
+        deadline: '2026-11-01',
+        endDate: '2027-11-01',
+        dateHistory: [],
+        createdBy: { userId: 'USR-221', name: 'C. Henderson', persona: 'C Admin' },
         stage: 'Initiated',
         readinessScore: 0,
         mandatoryInspectionRequired: false,
@@ -225,16 +235,28 @@ describe('Category Stakeholders, Segregation of Duties, and Role Boundaries', ()
       const setWithClientVerifier: AssuranceSet = {
         id: 'MAP-SET-2026-CHEV-001',
         title: 'Wheatstone LNG Platform Offloading Assurance',
-        vesselId: 'VESSEL-002',
-        vesselName: 'MV Oceania Gas Carrier',
-        imoNumber: '9234567',
-        initiatorOrg: 'Northwind Marine Pty Ltd',
-        initiatorRole: 'Vessel Provider Admin',
-        charterer: 'Chevron Australia Pty Ltd',
-        assignedVerifier: 'Sarah Jenkins (Chevron Australia Pty Ltd)',
-        charterWindowStart: '2026-10-01',
-        complianceDeadline: '2026-10-01',
-        charterWindowEnd: '2027-10-01',
+        assuranceObjects: [
+          {
+            id: 'VESSEL-002',
+            type: 'vessel',
+            name: 'MV Oceania Gas Carrier',
+            identifier: '9234567',
+            ownerOrganization: 'Northwind Marine Pty Ltd',
+          },
+        ],
+        parties: [
+          { organization: 'Chevron Australia Pty Ltd', role: 'Requesting party' },
+          { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+        ],
+        stakeholders: {
+          verifierName: 'Sarah Jenkins (Chevron Australia Pty Ltd)',
+          verifierOrg: 'Chevron Australia Pty Ltd',
+        },
+        startDate: '2026-10-01',
+        deadline: '2026-10-01',
+        endDate: '2027-10-01',
+        dateHistory: [],
+        createdBy: { userId: 'USR-101', name: 'K. Osei', persona: 'Administrator' },
         stage: 'Initiated',
         readinessScore: 20,
         mandatoryInspectionRequired: false,
@@ -393,17 +415,28 @@ describe('Category Stakeholders, Segregation of Duties, and Role Boundaries', ()
         id: 'MAP-SET-2026-MIXED-001',
         title: 'Gorgon Marine Fuel & Vessel Multi-Channel Assurance',
         assuranceType: 'Vessel',
-        vesselId: 'VESSEL-001',
-        vesselName: 'MV Pacific Endeavour',
-        imoNumber: '9123453',
-        initiatorOrg: 'Northwind Marine Pty Ltd',
-        initiatorRole: 'Vessel Provider Admin',
-        charterer: 'Northwind Marine Pty Ltd',
-        clientOrg: 'Northwind Marine Pty Ltd',
-        serviceProviderOrg: 'Offshore Fuel Logistics Corp',
-        charterWindowStart: '2026-11-01',
-        complianceDeadline: '2026-11-01',
-        charterWindowEnd: '2027-11-01',
+        assuranceObjects: [
+          {
+            id: 'VESSEL-001',
+            type: 'vessel',
+            name: 'MV Pacific Endeavour',
+            identifier: '9123453',
+            ownerOrganization: 'Northwind Marine Pty Ltd',
+          },
+        ],
+        parties: [
+          { organization: 'Northwind Marine Pty Ltd', role: 'Requesting party' },
+          { organization: 'Offshore Fuel Logistics Corp', role: 'Responding party' },
+        ],
+        stakeholders: {
+          verifierName: 'S. Girard (Bureau Veritas Inspectorate)',
+          approverName: 'P. Nardelli (Marine Assurance Authority)',
+        },
+        startDate: '2026-11-01',
+        deadline: '2026-11-01',
+        endDate: '2027-11-01',
+        dateHistory: [],
+        createdBy: { userId: 'USR-101', name: 'K. Osei', persona: 'Administrator' },
         stage: 'Initiated',
         readinessScore: 0,
         reviewMode: 'mixed',
@@ -415,15 +448,13 @@ describe('Category Stakeholders, Segregation of Duties, and Role Boundaries', ()
         mandatoryInspectionRequired: true,
         formalApprovalRequired: true,
         inspectionCompleted: false,
-        assignedVerifier: 'S. Girard (Bureau Veritas Inspectorate)',
-        assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
         requirements: [],
       };
 
       expect(assuranceSetWithMixedReview.validityCheckRequired).toBe(true);
       expect(assuranceSetWithMixedReview.suitabilityCheckRequired).toBe(true);
-      expect(assuranceSetWithMixedReview.clientOrg).toBe('Northwind Marine Pty Ltd');
-      expect(assuranceSetWithMixedReview.serviceProviderOrg).toBe('Offshore Fuel Logistics Corp');
+      expect(getRequestingParty(assuranceSetWithMixedReview)).toBe('Northwind Marine Pty Ltd');
+      expect(getRespondingParty(assuranceSetWithMixedReview)).toBe('Offshore Fuel Logistics Corp');
     });
 
     it('offers listed organizations as reviewers, never an object owner, and the people of the chosen one', () => {

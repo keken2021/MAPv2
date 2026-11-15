@@ -6,6 +6,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useMapStore } from '../store/useMapStore';
+import { getSetAssignedVerifier, getSetAssignedSubmitter } from '../utils/setStakeholders';
 
 const initialState = useMapStore.getState();
 
@@ -46,7 +47,7 @@ describe('audit actor', () => {
 
     const store = useMapStore.getState();
     const set = store.assuranceSets.find(
-      (s) => s.stage === 'Verification' && s.requirements.length > 0 && s.assignedVerifier?.includes('S. Girard'),
+      (s) => s.stage === 'Verification' && s.requirements.length > 0 && getSetAssignedVerifier(s)?.includes('S. Girard'),
     )!;
     expect(set).toBeDefined();
 
@@ -75,12 +76,12 @@ describe('audit actor', () => {
     });
 
     const set = useMapStore.getState().assuranceSets.find((s) => s.id === 'AS-2026-002')!;
-    const prevSubmitter = set.assignedSubmitter || 'Unassigned';
+    const prevSubmitter = getSetAssignedSubmitter(set) || 'Unassigned';
     const nextSubmitter = 'M. Chen (Northwind Marine Pty Ltd)';
 
     useMapStore.getState().updateAssuranceSet({
       ...set,
-      assignedSubmitter: nextSubmitter,
+      submitters: [{ organization: 'Northwind Marine Pty Ltd', assignee: nextSubmitter }],
     });
 
     const events = useMapStore.getState().auditEvents;

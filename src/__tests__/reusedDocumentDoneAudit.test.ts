@@ -38,20 +38,27 @@ describe('Reused document counts as done with audit logging', () => {
       verifierStatus: 'Pending',
     }));
 
+    const ownerOrg = vessel.registeredOwner || 'Northwind Marine Pty Ltd';
     const newSet: AssuranceSet = {
       id: uniqueId,
       title: `Standing Assurance Set - ${vessel.name}`,
-      assuranceType: 'Vessel',
-      vesselId: vessel.id,
-      vesselName: vessel.name,
-      imoNumber: vessel.imoNumber,
-      initiatorOrg: vessel.registeredOwner || 'Northwind Marine Pty Ltd',
-      initiatorRole: 'C Admin · Client Created',
-      serviceProviderOrg: vessel.registeredOwner || 'Northwind Marine Pty Ltd',
-      charterer: vessel.registeredOwner || 'Northwind Marine Pty Ltd',
-      charterWindowStart: '2026-11-01',
-      complianceDeadline: '2026-11-01',
-      charterWindowEnd: '2027-11-01',
+      parties: [
+        { organization: ownerOrg, role: 'Requesting party' },
+        { organization: ownerOrg, role: 'Responding party' },
+      ],
+      assuranceObjects: [
+        {
+          id: vessel.id,
+          type: 'vessel',
+          name: vessel.name,
+          identifier: vessel.imoNumber,
+          ownerOrganization: ownerOrg,
+        },
+      ],
+      startDate: '2026-11-01',
+      deadline: '2026-11-01',
+      endDate: '2027-11-01',
+      dateHistory: [],
       stage: 'Initiated',
       readinessScore: 10,
       verificationRequired: true,
@@ -59,7 +66,7 @@ describe('Reused document counts as done with audit logging', () => {
       formalApprovalRequired: true,
       inspectionCompleted: false,
       requirements,
-      createdByPersona: 'Administrator',
+      createdBy: { userId: 'USR-101', name: 'K. Osei', persona: 'Administrator' },
     };
 
     store.addAssuranceSet(newSet);

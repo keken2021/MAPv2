@@ -80,20 +80,32 @@ describe('Assurance Detail Party Visibility (Task 5309)', () => {
   const mockTestSet: AssuranceSet = {
     id: 'AS-TEST-PARTY',
     title: 'Party Visibility Test Set',
-    vesselId: 'VESSEL-001',
-    vesselName: 'MV Pacific Endeavour',
-    initiatorOrg: 'Chevron Australia Pty Ltd',
-    createdByUserId: 'USR-221',
-    createdByName: 'C. Henderson',
-    createdByPersona: 'C Admin',
-    clientOrg: 'Chevron Australia Pty Ltd',
-    serviceProviderOrg: 'Northwind Marine Pty Ltd',
-    assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
-    charterWindowStart: '2026-11-01',
-    charterWindowEnd: '2027-11-01',
-    complianceDeadline: '2026-11-01',
+    parties: [
+      { organization: 'Chevron Australia Pty Ltd', role: 'Requesting party' },
+      { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+    ],
+    assuranceObjects: [
+      {
+        id: 'VESSEL-001',
+        type: 'vessel',
+        name: 'MV Pacific Endeavour',
+        identifier: '9123453',
+        ownerOrganization: 'Northwind Marine Pty Ltd',
+      },
+    ],
+    createdBy: { userId: 'USR-221', name: 'C. Henderson', persona: 'C Admin' },
+    stakeholders: {
+      approverOrg: 'Marine Assurance Authority',
+      approverName: 'P. Nardelli (Marine Assurance Authority)',
+    },
+    startDate: '2026-11-01',
+    endDate: '2027-11-01',
+    deadline: '2026-11-01',
+    dateHistory: [],
     stage: 'Approval',
     readinessScore: 90,
+    mandatoryInspectionRequired: false,
+    inspectionCompleted: false,
     sections: [
       {
         id: 'SEC-1',
@@ -102,7 +114,7 @@ describe('Assurance Detail Party Visibility (Task 5309)', () => {
       },
     ],
     requirements: mockRequirements,
-  } as AssuranceSet;
+  };
 
   const mockAuditEvents: AuditTrailEvent[] = [
     {
@@ -269,7 +281,7 @@ describe('Assurance Detail Party Visibility (Task 5309)', () => {
     // Only 1 Uploaded Document event is visible
     expect(screen.getAllByText('Uploaded Document').length).toBe(1);
     expect(screen.queryByText('Meridian Marine')).toBeNull();
-    expect(screen.getByText(/Northwind Marine Pty Ltd/)).toBeDefined();
+    expect(screen.getAllByText(/Northwind Marine Pty Ltd/).length).toBeGreaterThan(0);
   });
 
   it('dynamically adapts document visibility when party organization is switched', () => {

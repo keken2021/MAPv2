@@ -20,7 +20,11 @@ export function daysUntilTarget(targetDate: string, today: string | Date = new D
 }
 
 export function isAssuranceSetAtRisk(
-  set: Pick<AssuranceSet, 'stage' | 'approverDecision' | 'targetDate' | 'complianceDeadline' | 'requirements'>,
+  set: Pick<AssuranceSet, 'stage' | 'approverDecision' | 'requirements'> & {
+    deadline?: string;
+    targetDate?: string;
+    complianceDeadline?: string;
+  },
   today: string | Date = new Date(),
 ): boolean {
   if (
@@ -31,7 +35,7 @@ export function isAssuranceSetAtRisk(
   ) {
     return false;
   }
-  const dateStr = set.targetDate || set.complianceDeadline;
+  const dateStr = set.deadline || set.targetDate || set.complianceDeadline;
   if (!dateStr?.trim()) return false;
   const days = daysUntilTarget(dateStr, today);
   if (days < 0 || days > AT_RISK_DAYS) return false;

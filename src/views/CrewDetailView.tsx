@@ -23,6 +23,7 @@ import { useMapStore } from '../store/useMapStore';
 import { STCWDocumentItem, CrewVesselAssignment, CrewMember } from '../types/crew';
 import { AssuranceObjectType } from '../types/assurance';
 import { DetailHeader } from '../components/common/DetailHeader';
+import { getRequestingParty } from '../utils/setParties';
 import { AccessDeniedState } from '../components/common/AccessDeniedState';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { EmptyState } from '../components/common/EmptyState';
@@ -1119,7 +1120,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                       <td>
                         <StatusBadge value={set.stage} />
                       </td>
-                      <td className="small">{set.initiatorOrg}</td>
+                      <td className="small">{getRequestingParty(set) || '—'}</td>
                       <td className="text-end">
                         <button
                           type="button"

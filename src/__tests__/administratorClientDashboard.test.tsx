@@ -372,21 +372,23 @@ describe('Administrator as client dashboard config', () => {
       {
         ...mockAssuranceSets[0],
         id: 'AS-CLIENT-A',
-        createdByUserId: 'USR-201',
-        createdByName: 'S. Basin',
-        clientOrg: 'Southern Basin Energy Pty Ltd',
-        charterer: 'Southern Basin Energy Pty Ltd',
-        serviceProviderOrg: 'Northwind Marine Pty Ltd',
+        createdBy: { userId: 'USR-201', name: 'S. Basin', persona: 'C Admin' },
+        parties: [
+          { organization: 'Southern Basin Energy Pty Ltd', role: 'Requesting party' },
+          { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+        ],
       },
       {
         ...mockAssuranceSets[2],
         id: 'AS-CLIENT-B',
-        createdByUserId: 'USR-228',
-        createdByName: 'A. Okonkwo',
-        clientOrg: 'Oil Company',
-        charterer: 'Oil Company',
-        serviceProviderOrg: 'Meridian Shipyards',
-        assignedApprover: 'K. Adeyemi',
+        createdBy: { userId: 'USR-228', name: 'A. Okonkwo', persona: 'C Admin' },
+        parties: [
+          { organization: 'Oil Company', role: 'Requesting party' },
+          { organization: 'Meridian Shipyards', role: 'Responding party' },
+        ],
+        stakeholders: {
+          approverName: 'K. Adeyemi',
+        },
       },
     ];
     const capas: CapaItem[] = [

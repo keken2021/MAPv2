@@ -72,21 +72,33 @@ describe('fleet overview readiness index and data synchronization', () => {
   const testAssuranceSet: AssuranceSet = {
     id: 'AS-SYNC-01',
     title: 'Sync Campaign Vetting',
-    vesselId: 'VESSEL-SYNC-01',
-    vesselName: 'MV Sync Pioneer',
-    imoNumber: '9998881',
-    initiatorOrg: 'Chevron Australia',
-    initiatorRole: 'C Admin · Client Created',
-    charterWindowStart: '2026-10-01',
-    complianceDeadline: '2026-10-01',
-    charterWindowEnd: '2027-10-01',
+    assuranceObjects: [
+      {
+        id: 'VESSEL-SYNC-01',
+        type: 'vessel',
+        name: 'MV Sync Pioneer',
+        identifier: '9998881',
+        ownerOrganization: 'Northwind Marine',
+      },
+    ],
+    parties: [
+      { organization: 'Chevron Australia', role: 'Requesting party' },
+      { organization: 'Northwind Marine', role: 'Responding party' },
+    ],
+    startDate: '2026-10-01',
+    deadline: '2026-10-01',
+    endDate: '2027-10-01',
+    dateHistory: [],
+    createdBy: { userId: 'USR-221', name: 'C. Henderson', persona: 'C Admin' },
     stage: 'Validation',
     readinessScore: 40,
     mandatoryInspectionRequired: false,
     inspectionCompleted: false,
-    assignedSubmitter: 'Tester',
-    assignedVerifier: 'Verifier',
-    assignedApprover: 'Approver',
+    submitters: [{ organization: 'Northwind Marine', assignee: 'Tester' }],
+    stakeholders: {
+      verifierName: 'Verifier',
+      approverName: 'Approver',
+    },
     requirements: [
       {
         id: 'REQ-1',
@@ -99,10 +111,7 @@ describe('fleet overview readiness index and data synchronization', () => {
         documentId: 'DOC-1',
         linkedDocumentId: '',
       },
-    ],
-    stakeholders: undefined,
-    assignedStakeholders: undefined,
-    createdByPersona: '',
+    ],
   };
 
   it('calculates vessel readiness accurately matching the linked assurance set score', () => {
@@ -142,11 +151,12 @@ describe('fleet overview readiness index and data synchronization', () => {
     });
 
     const updatedStore = useMapStore.getState();
-    const linkedSet = updatedStore.assuranceSets.find((s) => s.vesselId === initialVessel.id);
+    const linkedSet = updatedStore.assuranceSets.find((s) => s.assuranceObjects?.some((o) => o.id === initialVessel.id));
 
     if (linkedSet) {
-      expect(linkedSet.vesselName).toBe(newName);
-      expect(linkedSet.imoNumber).toBe(newImo);
+      const vesselObj = linkedSet.assuranceObjects?.find((o) => o.id === initialVessel.id);
+      expect(vesselObj?.name).toBe(newName);
+      expect(vesselObj?.identifier).toBe(newImo);
     }
   });
 

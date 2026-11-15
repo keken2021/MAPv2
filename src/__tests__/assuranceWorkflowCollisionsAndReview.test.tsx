@@ -9,7 +9,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { act, render, screen, fireEvent } from '@testing-library/react';
 import { useMapStore } from '../store/useMapStore';
 import { CreateAssuranceSetView } from '../views/CreateAssuranceSetView';
-import { addObject, clickNext, objectItemSelect, objectRowIds, removeObjectRow, pickReviewerRoles, renderWizardWithDefaultVessel } from './assuranceWizardTestHelpers';
+import { addObject, clickNext, objectItemSelect, objectPickerOptions, objectRowIds, removeObjectRow, pickReviewerRoles, renderWizardWithDefaultVessel } from './assuranceWizardTestHelpers';
 
 const initialState = useMapStore.getState();
 

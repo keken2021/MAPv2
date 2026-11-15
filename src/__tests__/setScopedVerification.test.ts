@@ -7,6 +7,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useMapStore } from '../store/useMapStore';
 import { isClosedAssuranceSet } from '../utils/documentVersionSnapshot';
+import { getSetAssignedApprover, getSetAssignedSubmitter, getSetAssignedVerifier } from '../utils/setStakeholders';
+import { getSetVesselId } from '../utils/setObjects';
 import type { AssuranceSet } from '../types/assurance';
 
 const initialState = useMapStore.getState();
@@ -15,7 +17,7 @@ const getSet = (id: string) => useMapStore.getState().assuranceSets.find((s) => 
 /* two open sets whose first requirement uses the same library document and share the same verifier & approver */
 function shareOneDocument(): { setA: AssuranceSet; setB: AssuranceSet; docId: string } {
   const open = useMapStore.getState().assuranceSets.filter(
-    (s) => !isClosedAssuranceSet(s) && s.requirements.length > 0 && s.assignedVerifier?.includes('A. Fontaine'),
+    (s) => !isClosedAssuranceSet(s) && s.requirements.length > 0 && getSetAssignedVerifier(s)?.includes('A. Fontaine'),
   );
   const [first, second] = open;
   const docId = useMapStore.getState().documents[0].id;
@@ -66,7 +68,7 @@ describe('set-scoped verification', () => {
 
   it('a set rejection leaves the documents of the same vessel alone', () => {
     const set = useMapStore.getState().assuranceSets.find(
-      (s) => s.vesselId && !isClosedAssuranceSet(s) && s.assignedApprover?.includes('P. Nardelli'),
+      (s) => getSetVesselId(s) && !isClosedAssuranceSet(s) && getSetAssignedApprover(s)?.includes('P. Nardelli'),
     )!;
     const docsBefore = useMapStore.getState().documents;
 
@@ -91,11 +93,12 @@ describe('set-scoped verification', () => {
     useMapStore.getState().verifyDocument(docId, 'Verified', 'Verified on B.', undefined, setB.requirements[0].id, setB.id);
     const notificationsBefore = useMapStore.getState().notifications.length;
 
-    const ownerDoc = useMapStore.getState().documents.find((d) => d.vesselId === setA.vesselId)!;
-    const submitter = useMapStore.getState().users.find((u) => setA.assignedSubmitter?.includes(u.name))!;
+    const vesselIdA = getSetVesselId(setA);
+    const ownerDoc = useMapStore.getState().documents.find((d) => d.vesselId === vesselIdA)!;
+    const submitter = useMapStore.getState().users.find((u) => getSetAssignedSubmitter(setA)?.includes(u.name))!;
     useMapStore.setState({
       documents: useMapStore.getState().documents.map((d) =>
-        d.id === docId ? { ...d, vesselId: ownerDoc?.vesselId || setA.vesselId, ownerOrganization: 'Northwind Marine Pty Ltd' } : d,
+        d.id === docId ? { ...d, vesselId: ownerDoc?.vesselId || vesselIdA, ownerOrganization: 'Northwind Marine Pty Ltd' } : d,
       ),
       activePersona: 'Submitter',
       activeDemoOrganization: submitter.organization || 'Northwind Marine Pty Ltd',

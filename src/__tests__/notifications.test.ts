@@ -27,10 +27,16 @@ import {
   resolveNotificationRecipient,
 } from '../utils/notificationHelpers';
 import { getProjectClientOrganization } from '../utils/projectHelpers';
+import { getRequestingParty } from '../utils/setParties';
 import { isViewAccessibleToPersona } from '../utils/rbacHelpers';
 import { buildBrdRolePermissionDefaults } from '../utils/permissionDefaults';
 import { getSessionUserForPersona } from '../utils/userRoleHelpers';
 import { formatMaritimeDateTime } from '../utils/formatters';
+import {
+  getSetAssignedSubmitter,
+  getSetAssignedVerifier,
+  getSetAssignedApprover,
+} from '../utils/setStakeholders';
 
 const ALL_PERSONAS: UserRolePersona[] = [
   'Administrator',
@@ -401,18 +407,20 @@ describe('store: assurance set request', () => {
       id: 'AS-NTF-TEST-001',
       title: 'Gorgon Traction Winch Rental Vetting',
       projectId: context.project.id,
-      projectName: context.project.name,
-      charterer: context.clientOrganization,
-      clientOrg: context.clientOrganization,
-      initiatorOrg: 'Northwind Marine Pty Ltd',
-      createdByPersona: 'Submitter',
-      createdByUserId: 'USR-102',
-      createdByName: context.assigneeName,
+      parties: [
+        { organization: context.clientOrganization, role: 'Requesting party' },
+        { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      ],
+      createdBy: {
+        persona: 'Submitter',
+        userId: 'USR-102',
+        name: context.assigneeName,
+      },
     });
 
     const created = useMapStore.getState().assuranceSets.find((s) => s.id === 'AS-NTF-TEST-001');
-    expect(created?.clientOrg).toBe('Chevron Australia Pty Ltd');
-    expect(created?.createdByName).toBe('M. Chen');
+    expect(getRequestingParty(created!)).toBe('Chevron Australia Pty Ltd');
+    expect(created?.createdBy?.name).toBe('M. Chen');
 
     const actioned = inboxOf('USR-102').find((n) => n.id === request.id);
     expect(actioned?.status).toBe('actioned');
@@ -445,7 +453,6 @@ describe('store: workflow notifications', () => {
       id: 'AS-NTF-TEST-002',
       title: 'Northwind Coral Titan Anchor Handling Vetting',
       projectId: undefined,
-      projectName: undefined,
       visibility: 'organization',
     });
 
@@ -469,7 +476,6 @@ describe('store: workflow notifications', () => {
       id: 'AS-NTF-TEST-003',
       title: 'Northwind Draft Campaign For Notification Test',
       projectId: undefined,
-      projectName: undefined,
       visibility: 'draft',
     });
     expect(useMapStore.getState().notifications).toHaveLength(0);
@@ -488,12 +494,15 @@ describe('store: workflow notifications', () => {
       id: 'AS-NTF-TEST-004',
       title: 'Northwind Tasman Pioneer Reassignment Vetting',
       projectId: undefined,
-      projectName: undefined,
-      initiatorOrg: 'Bureau Veritas Inspectorate',
-      initiatorRole: 'Vessel Provider Admin',
-      createdByPersona: 'Administrator',
-      createdByUserId: 'USR-202',
-      createdByName: 'A. Fontaine',
+      parties: [
+        { organization: 'Bureau Veritas Inspectorate', role: 'Requesting party' },
+        { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      ],
+      createdBy: {
+        persona: 'Administrator',
+        userId: 'USR-202',
+        name: 'A. Fontaine',
+      },
       visibility: 'organization',
       stage: 'Initiated',
       approverDecision: 'Pending',
@@ -522,13 +531,17 @@ describe('store: workflow notifications', () => {
       assuranceSets: state.assuranceSets.map((s) =>
         s.id === 'AS-2026-007'
           ? {
-              ...s,
-              initiatorOrg: 'Southern Basin Energy Pty Ltd',
-              initiatorRole: 'C Admin · Client Created',
-              createdByPersona: 'C Admin',
-              createdByUserId: 'USR-201',
-              createdByName: 'S. Basin',
-            }
+            ...s,
+            parties: [
+              { organization: 'Southern Basin Energy Pty Ltd', role: 'Requesting party' },
+              { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+            ],
+            createdBy: {
+              userId: 'USR-201',
+              name: 'S. Basin',
+              persona: 'C Admin',
+            },
+          }
           : s,
       ),
       activePersona: 'C Admin',
@@ -564,7 +577,7 @@ describe('store: workflow notifications', () => {
     const { assuranceSets, users } = useMapStore.getState();
     const linked = assuranceSets
       .flatMap((s) => s.requirements.map((r) => ({ set: s, docId: r.documentId, reqId: r.id })))
-      .find(({ set, docId }) => docId && resolveNotificationRecipient(set.assignedSubmitter, users));
+      .find(({ set, docId }) => docId && resolveNotificationRecipient(getSetAssignedSubmitter(set), users));
     expect(linked).toBeDefined();
 
     useMapStore.setState({
@@ -574,7 +587,7 @@ describe('store: workflow notifications', () => {
     });
     useMapStore.getState().verifyDocument(linked!.docId!, 'Correction Requested', 'Expiry falls inside the charter window.', undefined, linked!.reqId, linked!.set.id);
 
-    const submitter = resolveNotificationRecipient(linked!.set.assignedSubmitter, users)!;
+    const submitter = resolveNotificationRecipient(getSetAssignedSubmitter(linked!.set), users)!;
     const correction = inboxOf(submitter.id).find(
       (n) => n.type === 'document_correction' && n.assuranceSetId === linked!.set.id,
     );
@@ -591,11 +604,11 @@ describe('store: workflow notifications', () => {
       (s) =>
         s.stage === 'Approval' &&
         s.requirements.length > 0 &&
-        s.assignedVerifier?.includes('A. Fontaine') &&
-        resolveNotificationRecipient(s.assignedApprover, users),
+        getSetAssignedVerifier(s)?.includes('A. Fontaine') &&
+        resolveNotificationRecipient(getSetAssignedApprover(s), users),
     )!;
     expect(targetSet).toBeDefined();
-    const approver = resolveNotificationRecipient(targetSet.assignedApprover, users)!;
+    const approver = resolveNotificationRecipient(getSetAssignedApprover(targetSet), users)!;
     const req = targetSet.requirements[0];
 
     useMapStore.setState({
@@ -733,11 +746,20 @@ describe('target date notices', () => {
       ...baseSet,
       id: testSetId,
       title: 'Meridian Anchor Inspection Campaign',
-      vesselName: 'MV Meridian',
+      assuranceObjects: [
+        {
+          id: 'VES-MERIDIAN',
+          type: 'vessel',
+          name: 'MV Meridian',
+          ownerOrganization: 'Northwind Marine Pty Ltd',
+        },
+      ],
       stage: 'Verification',
       mandatoryInspectionRequired: true,
       inspectionCompleted: false,
-      assignedInspector: 'N. Technical (Bureau Veritas Inspectorate)',
+      stakeholders: {
+        inspectorName: 'N. Technical (Bureau Veritas Inspectorate)',
+      },
       requirements: [
         {
           id: 'REQ-INSP-TEST-01',
@@ -793,7 +815,7 @@ describe('target date notices', () => {
     // 2. Another update at 'Inspection' stage does not duplicate the notification
     useMapStore.getState().updateAssuranceSet({
       ...useMapStore.getState().assuranceSets.find((s) => s.id === testSetId)!,
-      targetDate: '2026-12-01',
+      deadline: '2026-12-01',
     });
 
     const duplicateCheck = inboxOf('USR-203').filter(

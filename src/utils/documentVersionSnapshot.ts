@@ -13,6 +13,9 @@ import {
 } from '../types/assurance';
 import { MasterDocument } from '../types/document';
 import { getAssuranceSetObjects } from './assuranceTemplates';
+import { getRequestingParty, isInternalDeployment, type SetPartiesInput } from './setParties';
+import { getSetStartDate } from './setDates';
+import { getSetAssignedVerifier } from './setStakeholders';
 
 /* a finished set stays approved when a later set reuses one of its library documents */
 export function isClosedAssuranceSet(set: Pick<AssuranceSet, 'stage' | 'approverDecision'>): boolean {
@@ -125,7 +128,7 @@ export function freezeClosedSetDocuments<T extends AssuranceSet>(sets: T[], docu
       .flatMap((doc) => (doc ? [doc.versions.find((v) => v.versionLabel === doc.currentVersion)?.uploadedAt || ''] : []))
       .filter(Boolean)
       .sort();
-    const lockDate = uploads[uploads.length - 1] || set.charterWindowStart;
+    const lockDate = uploads[uploads.length - 1] || getSetStartDate(set);
     return syncDocumentVersionLock(set, documents, lockDate);
   });
 }
@@ -179,8 +182,8 @@ const sameOrganization = (left?: string, right?: string) => {
   return a === b || a.includes(b) || b.includes(a);
 };
 
-const clientOf = (set: Pick<AssuranceSet, 'clientOrg' | 'charterer'>) =>
-  (set.clientOrg || set.charterer || '').trim();
+const clientOf = (set: SetPartiesInput & Pick<AssuranceSet, 'parties'>) =>
+  (getRequestingParty(set) || '').trim();
 
 const organizationInLabel = (label?: string) => {
   const match = label?.match(/\(([^)]+)\)\s*$/);
@@ -193,11 +196,13 @@ const organizationInLabel = (label?: string) => {
   with what file: src/utils/documentVersionSnapshot.ts used by deriveObjectVerification.
 */
 export function objectVerificationChannel(
-  set: Pick<AssuranceSet, 'clientOrg' | 'charterer' | 'reviewMode' | 'internalDeployment' | 'assignedVerifier' | 'stakeholders'>,
+  set: SetPartiesInput & (Pick<AssuranceSet, 'parties' | 'reviewMode' | 'stakeholders'> & { assignedVerifier?: string }),
 ): ObjectVerificationChannel {
+  if (set.reviewMode === 'third_party') return 'external';
+  if (set.reviewMode === 'internal') return 'internal';
   const client = clientOf(set);
-  const verifierOrg = set.stakeholders?.verifierOrg || organizationInLabel(set.assignedVerifier);
-  if (set.reviewMode === 'internal' || set.internalDeployment) return 'internal';
+  const verifierOrg = set.stakeholders?.verifierOrg || (set.assignedVerifier ? organizationInLabel(set.assignedVerifier) : undefined);
+  if (isInternalDeployment(set)) return 'internal';
   if (verifierOrg && sameOrganization(verifierOrg, client)) return 'internal';
   return 'external';
 }
@@ -209,7 +214,7 @@ export function objectVerificationChannel(
 */
 export function documentClientOrganizations(
   documentId: string,
-  sets: Pick<AssuranceSet, 'clientOrg' | 'charterer' | 'requirements'>[],
+  sets: (SetPartiesInput & Pick<AssuranceSet, 'parties' | 'requirements'>)[],
 ): string[] {
   const organizations = new Set<string>();
   for (const set of sets) {
@@ -266,7 +271,7 @@ export function deriveObjectVerification(
   return {
     status,
     channel,
-    verifiedBy: snapshot?.verifiedBy || chosen?.stakeholders?.verifierName || chosen?.assignedVerifier,
+    verifiedBy: snapshot?.verifiedBy || chosen?.stakeholders?.verifierName || (chosen ? getSetAssignedVerifier(chosen) : undefined),
     verifiedAt: snapshot?.verifiedAt || chosen?.sentForReviewAt || chosen?.lockedAt,
     clientOrganization: clientOf(ownSets[0]),
   };

@@ -8,6 +8,7 @@ import { describe, expect, it, beforeEach } from 'vitest';
 import { useMapStore } from '../store/useMapStore';
 import { getBackButtonInfo, isViewAccessibleToPersona } from '../utils/rbacHelpers';
 import { AssuranceSet } from '../types/assurance';
+import { getSetAssignedInspector } from '../utils/setStakeholders';
 
 describe('C Admin Inspector Checklist Isolation', () => {
   beforeEach(() => {
@@ -35,20 +36,31 @@ describe('C Admin Inspector Checklist Isolation', () => {
     const newCAdminSet: AssuranceSet = {
       id: 'AS-CADMIN-TEST-1',
       title: 'Chevron Vetting Campaign 2026',
-      vesselId: 'vessel-1',
-      vesselName: 'MV Pacific Endeavour',
-      imoNumber: '9234567',
-      initiatorOrg: 'Chevron Australia Pty Ltd',
-      initiatorRole: 'C Admin · Client Created',
-      charterer: 'Chevron Australia Pty Ltd',
-      charterWindowStart: '2026-11-01',
-      complianceDeadline: '2026-11-01',
-      charterWindowEnd: '2027-11-01',
+      parties: [
+        { organization: 'Chevron Australia Pty Ltd', role: 'Requesting party' },
+        { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      ],
+      assuranceObjects: [
+        {
+          id: 'vessel-1',
+          type: 'vessel',
+          name: 'MV Pacific Endeavour',
+          identifier: '9234567',
+          ownerOrganization: 'Northwind Marine Pty Ltd',
+        },
+      ],
+      startDate: '2026-11-01',
+      deadline: '2026-11-01',
+      endDate: '2027-11-01',
+      dateHistory: [],
       stage: 'Initiated',
       readinessScore: 0,
       mandatoryInspectionRequired: true,
       inspectionCompleted: false,
-      assignedInspector: 'Pending Admin Assignment',
+      createdBy: { userId: 'USR-221', name: 'C. Henderson', persona: 'C Admin' },
+      stakeholders: {
+        inspectorName: 'Pending Admin Assignment',
+      },
       requirements: [
         {
           id: 'REQ-1',
@@ -60,9 +72,6 @@ describe('C Admin Inspector Checklist Isolation', () => {
           verifierStatus: 'Pending',
         },
       ],
-      stakeholders: undefined,
-      assignedStakeholders: undefined,
-      createdByPersona: ''
     };
 
     store.addAssuranceSet(newCAdminSet);
@@ -70,7 +79,7 @@ describe('C Admin Inspector Checklist Isolation', () => {
     const created = useMapStore.getState().assuranceSets.find((s) => s.id === 'AS-CADMIN-TEST-1');
     expect(created).toBeDefined();
     expect(created?.mandatoryInspectionRequired).toBe(true);
-    expect(created?.assignedInspector).toBe('Pending Admin Assignment');
+    expect(getSetAssignedInspector(created!)).toBe('Pending Admin Assignment');
   });
 
   /**

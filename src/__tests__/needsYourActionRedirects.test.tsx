@@ -94,27 +94,40 @@ function makeSet(overrides: Partial<AssuranceSet>): AssuranceSet {
   return {
     id: 'AS-E2E-1',
     title: 'Gorgon OSV Compliance',
-    vesselId: 'VESSEL-001',
-    vesselName: 'MV Pacific Endeavour',
-    imoNumber: '9123453',
-    clientOrg: 'Southern Basin Energy Pty Ltd',
-    initiatorOrg: 'Southern Basin Energy Pty Ltd',
-    initiatorRole: 'Client Admin',
-    requestingParty: 'Southern Basin Energy Pty Ltd',
-    serviceProviderOrg: 'Northwind Marine Pty Ltd',
-    respondingParty: 'Northwind Marine Pty Ltd',
+    assuranceObjects: [
+      {
+        id: 'VESSEL-001',
+        type: 'vessel',
+        name: 'MV Pacific Endeavour',
+        ownerOrganization: 'Northwind Marine Pty Ltd',
+        identifier: '9123453',
+      },
+    ],
+    parties: [
+      { organization: 'Southern Basin Energy Pty Ltd', role: 'Requesting party' },
+      { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+    ],
+    createdBy: {
+      userId: 'USR-201',
+      name: 'S. Basin',
+      persona: 'C Admin',
+    },
     stage: 'Verification',
     readinessScore: 70,
     approverDecision: 'Pending',
     mandatoryInspectionRequired: false,
     inspectionCompleted: false,
-    assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
-    assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
-    assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
-    targetDate: '2026-11-10T00:00:00Z',
-    complianceDeadline: '2026-11-10T00:00:00Z',
-    charterWindowStart: '2026-11-01',
-    charterWindowEnd: '2027-11-01',
+    submitters: [
+      { organization: 'Northwind Marine Pty Ltd', assignee: 'M. Chen (Northwind Marine Pty Ltd)' },
+    ],
+    stakeholders: {
+      verifierName: 'A. Fontaine (Bureau Veritas Inspectorate)',
+      approverName: 'P. Nardelli (Marine Assurance Authority)',
+    },
+    startDate: '2026-11-01',
+    endDate: '2027-11-01',
+    deadline: '2026-11-10T00:00:00Z',
+    dateHistory: [],
     requirements: [],
     ...overrides,
   };
@@ -187,10 +200,15 @@ describe('Dashboard "Needs your action" end-to-end redirects across all personas
     const cAdminSet = makeSet({
       id: 'AS-CADMIN-E2E',
       title: 'Basin Charter Setup',
-      createdByUserId: 'USR-201',
-      createdByName: 'S. Basin',
-      assignedVerifier: '',
-      assignedApprover: '',
+      createdBy: {
+        userId: 'USR-201',
+        name: 'S. Basin',
+        persona: 'C Admin',
+      },
+      stakeholders: {
+        verifierName: '',
+        approverName: '',
+      },
       mandatoryInspectionRequired: false,
     });
 
@@ -231,16 +249,30 @@ describe('Dashboard "Needs your action" end-to-end redirects across all personas
     const assignSet = makeSet({
       id: 'AS-ADM-ASSIGN',
       title: 'Anchor Charter Prep',
-      createdByUserId: 'USR-101',
-      createdByName: 'K. Osei',
-      assignedSubmitter: '',
+      parties: [
+        { organization: 'Northwind Marine Pty Ltd', role: 'Requesting party' },
+        { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      ],
+      createdBy: {
+        userId: 'USR-101',
+        name: 'K. Osei',
+        persona: 'Administrator',
+      },
+      submitters: [],
       stage: 'Validation',
     });
     const workSet = makeSet({
       id: 'AS-ADM-WORK',
       title: 'Primary Compliance Set',
-      createdByUserId: 'USR-101',
-      createdByName: 'K. Osei',
+      parties: [
+        { organization: 'Northwind Marine Pty Ltd', role: 'Requesting party' },
+        { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      ],
+      createdBy: {
+        userId: 'USR-101',
+        name: 'K. Osei',
+        persona: 'Administrator',
+      },
       requirements: [
         makeReq({
           id: 'REQ-ADM-RET',
@@ -332,7 +364,9 @@ describe('Dashboard "Needs your action" end-to-end redirects across all personas
       id: 'AS-SUB-E2E',
       title: 'Northwind Charter Package',
       mandatoryInspectionRequired: true,
-      assignedInspector: 'N. Technical (Bureau Veritas Inspectorate)',
+      stakeholders: {
+        inspectorName: 'N. Technical (Bureau Veritas Inspectorate)',
+      },
       requirements: [
         makeReq({
           id: 'REQ-SUB-RET',
@@ -448,7 +482,7 @@ describe('Dashboard "Needs your action" end-to-end redirects across all personas
     const setWithDoc = makeSet({
       id: 'AS-VER-WITH-DOC',
       title: 'Verification Ready Set',
-      targetDate: '2026-11-08T00:00:00Z',
+      deadline: '2026-11-08T00:00:00Z',
       requirements: [
         makeReq({
           id: 'REQ-VER-DOC',
@@ -482,7 +516,7 @@ describe('Dashboard "Needs your action" end-to-end redirects across all personas
     const setWithoutDoc = makeSet({
       id: 'AS-VER-NO-DOC',
       title: 'Unuploaded Pending Set',
-      targetDate: '2026-11-12T00:00:00Z',
+      deadline: '2026-11-12T00:00:00Z',
       requirements: [
         makeReq({
           id: 'REQ-VER-NODOC',
@@ -515,8 +549,10 @@ describe('Dashboard "Needs your action" end-to-end redirects across all personas
       title: 'Damper Field Inspection',
       stage: 'Inspection',
       mandatoryInspectionRequired: true,
-      assignedInspector: 'N. Technical (Bureau Veritas Inspectorate)',
-      targetDate: '2026-11-08T00:00:00Z',
+      stakeholders: {
+        inspectorName: 'N. Technical (Bureau Veritas Inspectorate)',
+      },
+      deadline: '2026-11-08T00:00:00Z',
     });
     const flaggedCapa = makeCapa({
       id: 'CAPA-INSP-1',
@@ -556,13 +592,21 @@ describe('Dashboard "Needs your action" end-to-end redirects across all personas
     const inspectionDueSet = makeSet({
       id: 'AS-INSP-DUE-E2E',
       title: 'Triton Rig Diving System Inspection',
-      vesselName: 'MV Triton Rig',
+      assuranceObjects: [
+        {
+          id: 'VES-TRITON',
+          type: 'vessel',
+          name: 'MV Triton Rig',
+          ownerOrganization: 'Northwind Marine Pty Ltd',
+        },
+      ],
       stage: 'Inspection',
       mandatoryInspectionRequired: true,
       inspectionCompleted: false,
-      assignedInspector: 'N. Technical (Bureau Veritas Inspectorate)',
-      targetDate: '2027-06-01T00:00:00Z',
-      complianceDeadline: '2027-06-01T00:00:00Z',
+      stakeholders: {
+        inspectorName: 'N. Technical (Bureau Veritas Inspectorate)',
+      },
+      deadline: '2027-06-01T00:00:00Z',
       requirements: [],
     });
 
@@ -596,7 +640,9 @@ describe('Dashboard "Needs your action" end-to-end redirects across all personas
       stage: 'Approval',
       approverDecision: 'Pending',
       mandatoryInspectionRequired: false,
-      assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
+      stakeholders: {
+        approverName: 'P. Nardelli (Marine Assurance Authority)',
+      },
       requirements: [
         makeReq({
           id: 'REQ-APPR-1',

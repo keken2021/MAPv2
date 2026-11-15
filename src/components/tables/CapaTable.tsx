@@ -8,6 +8,7 @@ import React, { useState } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown, Eye, Search, AlertCircle } from 'lucide-react';
 import { useMapStore } from '../../store/useMapStore';
 import { canSessionUserAccessCapa, filterVesselsForPersona, isAssuranceSetAssignedToPersona } from '../../utils/rbacHelpers';
+import { getSetVesselId, getSetVesselName } from '../../utils/setObjects';
 import { useSessionUser } from '../../utils/useSessionUser';
 import { AccessDeniedState } from '../common/AccessDeniedState';
 import { exportToCsv, exportToPdf } from '../../utils/exportHelpers';
@@ -103,7 +104,7 @@ export const CapaTable: React.FC<CapaTableProps> = ({ vesselName, vesselId }) =>
             (c) => c.vesselId === v.id || c.vesselName.toLowerCase() === v.name.toLowerCase(),
           ) ||
           accessibleSets.some(
-            (s) => s.vesselId === v.id || s.vesselName?.toLowerCase() === v.name.toLowerCase(),
+            (s) => getSetVesselId(s) === v.id || getSetVesselName(s)?.toLowerCase() === v.name.toLowerCase(),
           ),
       ),
     [vessels, assuranceSets, activePersona, activeDemoOrganization, sessionUser, availableCapas, accessibleSets],
@@ -315,11 +316,14 @@ export const CapaTable: React.FC<CapaTableProps> = ({ vesselName, vesselId }) =>
     if (isFleetOverview) return undefined;
     const ids = new Set(
       accessibleSets
-        .filter(
-          (set) =>
-            set.vesselName.toLowerCase() === selectedVesselName.toLowerCase() ||
-            set.vesselId === selectedVesselName,
-        )
+        .filter((set) => {
+          const vName = getSetVesselName(set);
+          const vId = getSetVesselId(set);
+          return (
+            (Boolean(vName) && vName.toLowerCase() === selectedVesselName.toLowerCase()) ||
+            (Boolean(vId) && vId === selectedVesselName)
+          );
+        })
         .map((set) => set.id),
     );
     return ids.size === 1 ? [...ids][0] : undefined;

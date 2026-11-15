@@ -25,6 +25,7 @@ import { ReadinessGauge } from '../common/ReadinessGauge';
 import { StatusBadge } from '../common/StatusBadge';
 import { TablePagination } from '../common/TablePagination';
 import { isAssuranceSetAtRisk } from '../../config/thresholds';
+import { getRespondingParty } from '../../utils/setParties';
 
 interface ProjectOverviewTabProps {
   project: Project;
@@ -115,7 +116,7 @@ export const ProjectOverviewTab: React.FC<ProjectOverviewTabProps> = ({
     };
 
     sets.forEach((set) => {
-      addProviderSet(set.serviceProviderOrg, set);
+      addProviderSet(getRespondingParty(set), set);
       getAssuranceSetObjects(set).forEach((obj) => addProviderSet(obj.ownerOrganization, set));
       (set.parties ?? [])
         .filter((p) => p.group === 'Vendor')

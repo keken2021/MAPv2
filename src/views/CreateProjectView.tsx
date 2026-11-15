@@ -34,6 +34,7 @@ import { ProjectAssetPicker } from "../components/common/ProjectAssetPicker";
 import { EmptyState } from "../components/common/EmptyState";
 import { calculateAssuranceSetReadiness } from "../utils/readinessHelpers";
 import { getAssuranceSetCrewNames } from "../utils/assuranceTemplates";
+import { getSetVessel } from "../utils/setObjects";
 
 const DEFAULT_ROLES: Partial<Record<ProjectAssetType, string>> = {
   Vessel: "Subject vessel",
@@ -956,8 +957,8 @@ export const CreateProjectView: React.FC = () => {
                           className={`small ${isSelected ? "text-white-50" : "text-muted"}`}
                         >
                           {s.assuranceType || "Asset"} · {s.stage}
-                          {s.vesselName ? ` · ${s.vesselName}` : ""}
-                          {s.crewName ? ` · ${getAssuranceSetCrewNames(s).join(", ")}` : ""}
+                          {getSetVessel(s)?.name ? ` · ${getSetVessel(s)?.name}` : ""}
+                          {getAssuranceSetCrewNames(s).length > 0 ? ` · ${getAssuranceSetCrewNames(s).join(", ")}` : ""}
                         </div>
                       </div>
                       <button

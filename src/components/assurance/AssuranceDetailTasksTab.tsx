@@ -14,6 +14,7 @@ import { ProjectTasksTable, getTaskRowActionLabel } from '../tables/ProjectTasks
 import { StatusBadge } from '../common/StatusBadge';
 import { INSPECTION_TASK_TITLE, APPROVAL_TASK_TITLE } from '../../utils/stageTasks';
 import { AssuranceSetRoleActions } from '../../utils/rbacHelpers';
+import { getSetEndDate } from '../../utils/setDates';
 
 export interface AssuranceDetailTasksTabProps {
   tasksPaneMounted: boolean;
@@ -114,7 +115,7 @@ export const AssuranceDetailTasksTab: React.FC<AssuranceDetailTasksTabProps> = (
               {shortCertificates.length === 1
                 ? '1 certificate expires'
                 : `${shortCertificates.length} certificates expire`}{' '}
-              before the contract ends on {formatMaritimeDate(assuranceSet.charterWindowEnd || '')}.
+              before the contract ends on {formatMaritimeDate(getSetEndDate(assuranceSet) || '')}.
             </div>
           )}
           <ProjectTasksTable

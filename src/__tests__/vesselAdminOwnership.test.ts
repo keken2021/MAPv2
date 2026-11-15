@@ -23,6 +23,9 @@ import { MOCK_USERS } from '../store/mockData';
 import { MOCK_VESSELS, MOCK_ASSURANCE_SETS, MOCK_DOCUMENTS } from '../store/mockData';
 import { VesselInformation } from '../types/vessel';
 import { useMapStore } from '../store/useMapStore';
+import { getSetVesselId, getSetVesselName, getSetImoNumber } from '../utils/setObjects';
+import { getSetOrganizations } from '../utils/setParties';
+import { getSetAssignedSubmitter, getSetCreatedBy } from '../utils/setStakeholders';
 
 const adminUser = MOCK_USERS.find((u) => u.id === 'USR-101')!;
 const submitterUser = MOCK_USERS.find((u) => u.id === 'USR-102')!;
@@ -119,16 +122,13 @@ describe('vessel provider fleet ownership isolation and c admin visibility', () 
     expect(adminVisibleSets.length).toBeGreaterThan(0);
     adminVisibleSets.forEach((set) => {
       const isNorthwindStakeholder =
-        set.vesselId === 'VESSEL-005' ||
-        Boolean(set.initiatorOrg?.toLowerCase().includes('northwind')) ||
-        Boolean(set.assignedSubmitter?.toLowerCase().includes('northwind')) ||
-        Boolean(set.stakeholders?.submitterOrg?.toLowerCase().includes('northwind')) ||
-        Boolean(set.assignedStakeholders?.submitterOrg?.toLowerCase().includes('northwind')) ||
-        Boolean(set.assignedStakeholders?.verifierOrg?.toLowerCase().includes('northwind')) ||
-        Boolean(set.assignedStakeholders?.inspectorOrg?.toLowerCase().includes('northwind')) ||
-        Boolean(set.assignedStakeholders?.approverOrg?.toLowerCase().includes('northwind'));
+        getSetVesselId(set) === 'VESSEL-005' ||
+        getSetOrganizations(set).some((org) => org.toLowerCase().includes('northwind')) ||
+        Boolean(getSetAssignedSubmitter(set)?.toLowerCase().includes('northwind')) ||
+        Boolean(set.stakeholders?.submitterOrg?.toLowerCase().includes('northwind'));
 
-      const isCreatedByAdmin = set.createdByPersona === 'Administrator' || set.createdByPersona === 'Submitter';
+      const persona = getSetCreatedBy(set).persona;
+      const isCreatedByAdmin = persona === 'Administrator' || persona === 'Submitter';
 
       expect(isNorthwindStakeholder || isCreatedByAdmin).toBe(true);
     });
@@ -189,16 +189,16 @@ describe('vessel provider fleet ownership isolation and c admin visibility', () 
       const matchesAssuranceSet = MOCK_ASSURANCE_SETS.some(
         (set) =>
           set.id === targetSet.id &&
-          (set.vesselId === v.id ||
-            (set.vesselName && v.name && set.vesselName.toLowerCase() === v.name.toLowerCase()) ||
-            (set.imoNumber && v.imoNumber && set.imoNumber === v.imoNumber))
+          (getSetVesselId(set) === v.id ||
+            (getSetVesselName(set) && v.name && getSetVesselName(set).toLowerCase() === v.name.toLowerCase()) ||
+            (getSetImoNumber(set) && v.imoNumber && getSetImoNumber(set) === v.imoNumber))
       );
       return matchesAssuranceSet;
     });
 
     expect(filteredVessels.length).toBe(1);
-    expect(filteredVessels[0].id).toBe(targetSet.vesselId);
-    expect(filteredVessels[0].name).toBe(targetSet.vesselName);
+    expect(filteredVessels[0].id).toBe(getSetVesselId(targetSet));
+    expect(filteredVessels[0].name).toBe(getSetVesselName(targetSet));
   });
 
   it('guarantees vessels with Under Charter status NEVER show up in client admin vessel views even with assurance set filter', () => {
@@ -206,7 +206,7 @@ describe('vessel provider fleet ownership isolation and c admin visibility', () 
     const underCharterVessel = MOCK_VESSELS.find((v) => v.status === 'Under Charter');
     expect(underCharterVessel).toBeDefined();
 
-    const underCharterSet = MOCK_ASSURANCE_SETS.find((s) => s.vesselId === underCharterVessel?.id);
+    const underCharterSet = MOCK_ASSURANCE_SETS.find((s) => getSetVesselId(s) === underCharterVessel?.id);
     expect(underCharterSet).toBeDefined();
 
     // Simulate C Admin filtering
@@ -219,9 +219,9 @@ describe('vessel provider fleet ownership isolation and c admin visibility', () 
         return MOCK_ASSURANCE_SETS.some(
           (set) =>
             set.id === underCharterSet.id &&
-            (set.vesselId === v.id ||
-              (set.vesselName && v.name && set.vesselName.toLowerCase() === v.name.toLowerCase()) ||
-              (set.imoNumber && v.imoNumber && set.imoNumber === v.imoNumber))
+            (getSetVesselId(set) === v.id ||
+              (getSetVesselName(set) && v.name && getSetVesselName(set)!.toLowerCase() === v.name.toLowerCase()) ||
+              (getSetImoNumber(set) && v.imoNumber && getSetImoNumber(set) === v.imoNumber))
         );
       }
       return true;
@@ -289,14 +289,20 @@ describe('vessel provider fleet ownership isolation and c admin visibility', () 
     const extAssuranceSet = {
       ...MOCK_ASSURANCE_SETS[0],
       id: 'AS-NORTHWIND-EXT',
-      vesselId: 'VESSEL-EXT-01',
-      vesselName: 'MV Global Transporter',
-      assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
+      assuranceObjects: [
+        {
+          id: 'VESSEL-EXT-01',
+          type: 'vessel' as const,
+          name: 'MV Global Transporter',
+          ownerOrganization: 'Northwind Marine Pty Ltd',
+        },
+      ],
+      submitters: [{ organization: 'Northwind Marine Pty Ltd', assignee: 'M. Chen (Northwind Marine Pty Ltd)' }],
     };
 
     const sets = [...MOCK_ASSURANCE_SETS, extAssuranceSet];
     const filteredBySet = allFleet.filter((v) =>
-      sets.some((s) => s.id === 'AS-NORTHWIND-EXT' && (s.vesselId === v.id || s.vesselName === v.name))
+      sets.some((s) => s.id === 'AS-NORTHWIND-EXT' && (getSetVesselId(s) === v.id || getSetVesselName(s) === v.name))
     );
 
     expect(filteredBySet.length).toBe(1);
@@ -420,10 +426,13 @@ describe('vessel provider fleet ownership isolation and c admin visibility', () 
 
     /* verify mock assurance sets have matching vessel ids and assigned stakeholders */
     MOCK_ASSURANCE_SETS.forEach((set) => {
-      const targetVessel = MOCK_VESSELS.find((v) => v.id === set.vesselId);
-      expect(targetVessel).toBeDefined();
-      expect(set.vesselName).toBe(targetVessel?.name);
-      expect(set.imoNumber).toBe(targetVessel?.imoNumber);
+      const vesselId = getSetVesselId(set);
+      if (vesselId) {
+        const targetVessel = MOCK_VESSELS.find((v) => v.id === vesselId);
+        expect(targetVessel).toBeDefined();
+        expect(getSetVesselName(set)).toBe(targetVessel?.name);
+        expect(getSetImoNumber(set)).toBe(targetVessel?.imoNumber);
+      }
       expect(set.requirements.length).toBeGreaterThan(0);
     });
 
@@ -642,9 +651,19 @@ describe('vessel provider fleet ownership isolation and c admin visibility', () 
 
     const sets = [
       /* chartered: external vessel, vessel scope, northwind is the client */
-      { ...baseSet, id: 'AS-CHARTER-001', assuranceType: 'Vessel' as const, vesselId: external.id, clientOrg: org, charterer: org },
+      {
+        ...baseSet,
+        id: 'AS-CHARTER-001',
+        parties: [{ organization: org, role: 'Requesting party' as const }],
+        assuranceObjects: [{ id: external.id, type: 'vessel', name: external.name, ownerOrganization: external.registeredOwner || '' }],
+      },
       /* not chartered: own vessel, even with northwind as client */
-      { ...baseSet, id: 'AS-CHARTER-002', assuranceType: 'Vessel' as const, vesselId: owned.id, clientOrg: org, charterer: org },
+      {
+        ...baseSet,
+        id: 'AS-CHARTER-002',
+        parties: [{ organization: org, role: 'Requesting party' as const }],
+        assuranceObjects: [{ id: owned.id, type: 'vessel', name: owned.name, ownerOrganization: owned.registeredOwner || '' }],
+      },
     ];
 
     const chartered = filterVesselAdminChartered(MOCK_VESSELS, sets, org);
@@ -657,10 +676,21 @@ describe('vessel provider fleet ownership isolation and c admin visibility', () 
     const baseSet = MOCK_ASSURANCE_SETS[0];
 
     const otherClient = [
-      { ...baseSet, id: 'AS-CHARTER-003', assuranceType: 'Vessel' as const, vesselId: external.id, clientOrg: 'Woodside Energy Ltd', charterer: 'Woodside Energy Ltd' },
+      {
+        ...baseSet,
+        id: 'AS-CHARTER-003',
+        parties: [{ organization: 'Woodside Energy Ltd', role: 'Requesting party' as const }],
+        assuranceObjects: [{ id: external.id, type: 'vessel', name: external.name, ownerOrganization: external.registeredOwner || '' }],
+      },
     ];
     const crewSet = [
-      { ...baseSet, id: 'AS-CHARTER-004', assuranceType: 'Crew' as const, vesselId: external.id, clientOrg: org, charterer: org },
+      {
+        ...baseSet,
+        id: 'AS-CHARTER-004',
+        subtypes: ['Crew' as const],
+        parties: [{ organization: org, role: 'Requesting party' as const }],
+        assuranceObjects: [{ id: 'CREW-1', type: 'crew', name: 'Crew 1', ownerOrganization: external.registeredOwner || '' }],
+      },
     ];
 
     expect(filterVesselAdminChartered(MOCK_VESSELS, otherClient, org)).toEqual([]);

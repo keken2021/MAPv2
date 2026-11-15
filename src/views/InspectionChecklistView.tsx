@@ -11,6 +11,7 @@ import { AccessDeniedState } from '../components/common/AccessDeniedState';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { getStatusDisplayLabel } from '../utils/formatters';
 import { getAssuranceSetRoleActions, isAssuranceSetAssignedToPersona } from '../utils/rbacHelpers';
+import { getSetVessel } from '../utils/setObjects';
 import { useSessionUser } from '../utils/useSessionUser';
 import { CapaItem } from '../types/capa';
 import { CapaReinspectionDrawer } from '../components/drawers/CapaReinspectionDrawer';
@@ -62,15 +63,17 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
   const targetIdentifier = propSetId || vesselName || currentEntityId || '';
   const decodedTarget = targetIdentifier ? decodeURIComponent(targetIdentifier) : '';
 
-  const candidateSets = assuranceSets.filter(
-    (s) =>
+  const candidateSets = assuranceSets.filter((s) => {
+    const v = getSetVessel(s);
+    return (
       s.id === targetIdentifier ||
       s.id === decodedTarget ||
-      s.vesselName === targetIdentifier ||
-      s.vesselName === decodedTarget ||
-      s.vesselId === targetIdentifier ||
-      s.vesselId === decodedTarget,
-  );
+      v?.name === targetIdentifier ||
+      v?.name === decodedTarget ||
+      v?.id === targetIdentifier ||
+      v?.id === decodedTarget
+    );
+  });
 
   const accessibleCandidateSets = sessionUser
     ? candidateSets.filter(
@@ -90,13 +93,13 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
 
   const matchedVessel =
     matchedSet
-      ? vessels.find((v) => v.id === matchedSet.vesselId || v.name === matchedSet.vesselName)
+      ? vessels.find((v) => v.id === getSetVessel(matchedSet)?.id || v.name === getSetVessel(matchedSet)?.name)
       : undefined;
 
   const resolvedSetId = matchedSet?.id || '';
 
   const cleanVesselName =
-    matchedSet?.vesselName ||
+    getSetVessel(matchedSet)?.name ||
     matchedVessel?.name ||
     (!targetIdentifier.startsWith('AS-') && decodedTarget ? decodedTarget : '') ||
     '';
@@ -114,8 +117,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
   const initialDate =
     propDate ||
     physicalInspection?.date ||
-    matchedSet?.targetDate ||
-    matchedSet?.complianceDeadline ||
+    matchedSet?.deadline ||
     new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
   const [inspectionLocation, setInspectionLocation] = useState<string>(initialLocation);
@@ -136,10 +138,10 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
       setInspectionDate(propDate);
     } else if (physicalInspection?.date) {
       setInspectionDate(physicalInspection.date);
-    } else if (matchedSet?.targetDate) {
-      setInspectionDate(matchedSet.targetDate);
+    } else if (matchedSet?.deadline) {
+      setInspectionDate(matchedSet.deadline);
     }
-  }, [propDate, physicalInspection?.date, matchedSet?.targetDate]);
+  }, [propDate, physicalInspection?.date, matchedSet?.deadline]);
 
   const initialItems = React.useMemo(() => {
     if (physicalInspection?.checklists && physicalInspection.checklists.length > 0) {
@@ -499,7 +501,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
     const newCapaStoreItem: CapaItem = {
       id: capaId,
       assuranceSetId: resolvedSetId || undefined,
-      vesselId: matchedSet?.vesselId || matchedVessel?.id,
+      vesselId: getSetVessel(matchedSet)?.id || matchedVessel?.id,
       vesselName: cleanVesselName,
       checklistItemTitle: 'General Inspection Finding',
       title: newCapaTitle,

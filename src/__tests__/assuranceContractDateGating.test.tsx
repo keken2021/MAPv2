@@ -64,28 +64,37 @@ const expiredProject: Project = {
 const baseSet: AssuranceSet = {
   id: 'AS-TEST-GATING-01',
   title: 'Test Gating Vessel Set',
-  vesselId: 'VESSEL-001',
-  vesselName: 'MV Pacific Endeavour',
-  imoNumber: '9123453',
   assuranceType: 'Vessel',
   subtypes: ['Vessel'],
-  initiatorOrg: 'Northwind Marine Pty Ltd',
-  initiatorRole: 'Vessel Provider Admin',
-  charterer: 'Northwind Marine Pty Ltd',
-  clientOrg: 'Northwind Marine Pty Ltd',
-  serviceProviderOrg: 'Northwind Marine Pty Ltd',
-  charterWindowStart: '2026-12-01',
-  complianceDeadline: '2026-12-01',
-  charterWindowEnd: '2027-02-15',
+  assuranceObjects: [
+    {
+      id: 'VESSEL-001',
+      type: 'vessel',
+      name: 'MV Pacific Endeavour',
+      identifier: '9123453',
+      ownerOrganization: 'Northwind Marine Pty Ltd',
+    },
+  ],
+  parties: [
+    { organization: 'Northwind Marine Pty Ltd', role: 'Requesting party' },
+    { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+  ],
+  startDate: '2026-12-01',
+  deadline: '2026-12-01',
+  endDate: '2027-02-15',
+  dateHistory: [],
+  createdBy: { userId: 'USR-101', name: 'User', persona: 'Administrator' },
   stage: 'Initiated',
   readinessScore: 20,
   mandatoryInspectionRequired: false,
   inspectionCompleted: false,
   verificationRequired: true,
   formalApprovalRequired: true,
-  assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
-  assignedVerifier: 'L. Ferreira (XY Marine Services)',
-  assignedApprover: 'S. Rahman (XY Marine Services)',
+  submitters: [{ organization: 'Northwind Marine Pty Ltd', assignee: 'M. Chen (Northwind Marine Pty Ltd)' }],
+  stakeholders: {
+    verifierName: 'L. Ferreira (XY Marine Services)',
+    approverName: 'S. Rahman (XY Marine Services)',
+  },
   reviewMode: 'third_party',
   requirements: [],
   visibility: 'organization',
@@ -238,11 +247,11 @@ describe('Assurance Set Contract Period Date Gating', () => {
       const setWithProject: AssuranceSet = {
         ...baseSet,
         id: 'AS-TEST-DETAIL-01',
-        clientOrg: 'Oil Company',
-        charterer: 'Oil Company',
-        serviceProviderOrg: 'Northwind Marine Pty Ltd',
+        parties: [
+          { organization: 'Oil Company', role: 'Requesting party' },
+          { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+        ],
         projectId: 'MAP-PROJ-TEST-OILCO',
-        projectName: 'Oil Company Field Campaign',
         datePermissionGrants: [dateGrant],
       };
 
@@ -271,11 +280,11 @@ describe('Assurance Set Contract Period Date Gating', () => {
       const setWithProject: AssuranceSet = {
         ...baseSet,
         id: 'AS-TEST-DETAIL-02',
-        clientOrg: 'Oil Company',
-        charterer: 'Oil Company',
-        serviceProviderOrg: 'Northwind Marine Pty Ltd',
+        parties: [
+          { organization: 'Oil Company', role: 'Requesting party' },
+          { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+        ],
         projectId: 'MAP-PROJ-TEST-OILCO',
-        projectName: 'Oil Company Field Campaign',
         datePermissionGrants: [dateGrant],
       };
 

@@ -37,6 +37,8 @@ import { ASSURANCE_SCOPE_OPTIONS } from '../../utils/assuranceTemplates';
 import { usePagination } from '../../utils/usePagination';
 import { useDeferredFilters } from '../../utils/useDeferredFilters';
 import { TablePagination } from '../common/TablePagination';
+import { getSetVessel } from '../../utils/setObjects';
+import { getRequestingParty } from '../../utils/setParties';
 
 type AssuranceSortField =
   | 'id'
@@ -108,7 +110,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({
     );
 
   const accessibleSets = assuranceSets.filter((s) => {
-    if (vesselId && s.vesselId !== vesselId) return false;
+    if (vesselId && getSetVessel(s)?.id !== vesselId) return false;
     if (isWorkflowRole) {
       return (
         isAssuranceSetAssignedToPersona(s, activePersona, activeDemoOrganization, sessionUser, users) ||
@@ -292,7 +294,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({
       s.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       s.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (getProjectId(s) || NO_PROJECT_LABEL).toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (s.initiatorOrg && s.initiatorOrg.toLowerCase().includes(searchTerm.toLowerCase()));
+      Boolean(getRequestingParty(s)?.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesStage = stageFilter === 'ALL' || s.stage === stageFilter;
     const matchesScope = scopeFilter === 'ALL' || s.assuranceType === scopeFilter || (s.subtypes && s.subtypes.includes(scopeFilter as any));
     const setProjectId = getProjectId(s);
@@ -415,11 +417,11 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({
       Title: s.title,
       Project: getProjectId(s) || NO_PROJECT_LABEL,
       CreatedBy: getAssuranceSetCreatedByLabel(s, users, activePersona, viewerOrg),
-      Organization: s.initiatorOrg,
+      Organization: getRequestingParty(s) || '',
       Stage: s.stage,
       ReadinessScore: `${calculateAssuranceSetReadiness(s)}%`,
-      CharterPeriodStart: s.charterWindowStart,
-      CharterPeriodEnd: s.charterWindowEnd,
+      CharterPeriodStart: s.startDate || '',
+      CharterPeriodEnd: s.endDate || '',
     }));
     exportToCsv('Assurance_Sets', exportData);
     setIsExportOpen(false);
@@ -444,7 +446,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({
       s.id,
       s.title,
       getProjectId(s) || NO_PROJECT_LABEL,
-      s.initiatorOrg,
+      getRequestingParty(s) || '',
       s.stage,
       `${calculateAssuranceSetReadiness(s)}%`,
     ]);
@@ -627,7 +629,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({
                     </td>
                     <td>
                       {/* creator name for sets made inside the viewer organization, otherwise the initiating organization */}
-                      <span title={s.initiatorOrg}>{getAssuranceSetCreatedByLabel(s, users, activePersona, viewerOrg)}</span>
+                      <span title={getRequestingParty(s)}>{getAssuranceSetCreatedByLabel(s, users, activePersona, viewerOrg)}</span>
                     </td>
                     <td>
                       <div className="d-flex align-items-center gap-1.5 flex-wrap">

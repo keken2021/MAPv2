@@ -9,6 +9,7 @@ import {
   objectVerifications,
 } from '../store/assuranceObjectMockData';
 import { getOrganizationsFromUsers } from '../utils/demoSessionHelpers';
+import { getRequestingParty } from '../utils/setParties';
 import type { ObjectVerificationStatus } from '../types/assurance';
 
 const STATUSES: ObjectVerificationStatus[] = [
@@ -88,7 +89,7 @@ describe('assurance object mock data', () => {
     const mixedIds = ['AS-01-V001', 'AS-SBE-012-V001', 'AS-2026-101'];
     const sets = useMapStore.getState().assuranceSets.filter((set) => mixedIds.includes(set.id));
     expect(sets).toHaveLength(3);
-    expect(new Set(sets.map((set) => set.clientOrg)).size).toBeGreaterThanOrEqual(2);
+    expect(new Set(sets.map((set) => getRequestingParty(set))).size).toBeGreaterThanOrEqual(2);
 
     const storeIds = new Set(useMapStore.getState().assuranceObjects.map((object) => object.id));
     const types = new Set<string>();

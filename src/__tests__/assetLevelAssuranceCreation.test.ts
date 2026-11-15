@@ -10,6 +10,14 @@ import { AssuranceSet, AssuranceRequirement } from '../types/assurance';
 import { SUBTYPE_STANDARD_DOCS, EXISTING_ACTIVITIES } from '../utils/assuranceTemplates';
 import { autoAttachDocumentsToRequirements } from '../utils/documentMatchingHelpers';
 import { calculateAssuranceSetReadiness } from '../utils/readinessHelpers';
+import { isInternalDeployment } from '../utils/setParties';
+import {
+  getSetVesselId,
+  getSetCrewIds,
+  getSetCrewNames,
+  getSetEquipmentId,
+  getSetEquipmentName,
+} from '../utils/setObjects';
 import {
   getOrganizationRoleCandidates,
   hasBlockingAssuranceAssignmentConflict,
@@ -50,31 +58,36 @@ describe('Asset-Level Assurance Set Creation (Non-Project Scopes)', () => {
       id: 'MAP-VES-2026-STAT-TEST01',
       title: `Northwind Marine - ${vessel.name} Standing Passport`,
       assuranceType: 'Vessel',
-      vesselId: vessel.id,
-      vesselName: vessel.name,
-      imoNumber: vessel.imoNumber,
-      initiatorOrg: vessel.registeredOwner,
-      serviceProviderOrg: vessel.registeredOwner,
-      charterer: vessel.registeredOwner,
-      charterWindowStart: '2026-11-01',
-      complianceDeadline: '2026-11-01',
-      charterWindowEnd: '2027-11-01',
+      parties: [
+        { organization: vessel.registeredOwner, role: 'Requesting party' },
+        { organization: vessel.registeredOwner, role: 'Responding party' },
+      ],
+      assuranceObjects: [
+        {
+          id: vessel.id,
+          type: 'vessel',
+          name: vessel.name,
+          ownerOrganization: vessel.registeredOwner,
+          identifier: vessel.imoNumber,
+        },
+      ],
+      startDate: '2026-11-01',
+      endDate: '2027-11-01',
+      deadline: '2026-11-01',
       stage: 'Initiated',
       readinessScore: 0,
       subtypes: ['Vessel'],
       visibility: 'organization',
-      internalDeployment: true,
       requirements: fulfilledRequirements,
-      initiatorRole: 'C Admin · Client Created',
       mandatoryInspectionRequired: false,
-      inspectionCompleted: false
+      inspectionCompleted: false,
     };
 
     const readiness = calculateAssuranceSetReadiness(set);
     set.readinessScore = readiness;
 
-    expect(set.vesselId).toBe('VESSEL-001');
-    expect(set.internalDeployment).toBe(true);
+    expect(getSetVesselId(set)).toBe('VESSEL-001');
+    expect(isInternalDeployment(set)).toBe(true);
     expect(set.requirements.some((r) => r.documentId && r.verifierStatus === 'Verified' && r.isFulfilled)).toBe(true);
     expect(set.requirements.some((r) => !r.isFulfilled)).toBe(true);
     expect(set.readinessScore).toBeGreaterThan(10);
@@ -109,34 +122,36 @@ describe('Asset-Level Assurance Set Creation (Non-Project Scopes)', () => {
       id: 'MAP-CRW-2026-STCW-TEST01',
       title: `Northwind Marine - ${crewMember.fullName} Qualification Passport`,
       assuranceType: 'Crew',
-      crewId: crewMember.id,
-      crewName: crewMember.fullName,
-      vesselName: crewMember.fullName,
-      imoNumber: 'N/A',
-      initiatorOrg: 'Northwind Marine Pty Ltd',
-      serviceProviderOrg: crewMember.organization || 'Northwind Marine Pty Ltd',
-      charterer: 'Northwind Marine Pty Ltd',
-      charterWindowStart: '2026-11-01',
-      complianceDeadline: '2026-11-01',
-      charterWindowEnd: '2027-11-01',
+      parties: [
+        { organization: 'Northwind Marine Pty Ltd', role: 'Requesting party' },
+        { organization: crewMember.organization || 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      ],
+      assuranceObjects: [
+        {
+          id: crewMember.id,
+          type: 'crew',
+          name: crewMember.fullName,
+          ownerOrganization: crewMember.organization || 'Northwind Marine Pty Ltd',
+        },
+      ],
+      startDate: '2026-11-01',
+      endDate: '2027-11-01',
+      deadline: '2026-11-01',
       stage: 'Initiated',
       readinessScore: 0,
       subtypes: ['Crew'],
       visibility: 'organization',
-      internalDeployment: true,
       requirements: fulfilledRequirements,
-      vesselId: '',
-      initiatorRole: 'C Admin · Client Created',
       mandatoryInspectionRequired: false,
-      inspectionCompleted: false
+      inspectionCompleted: false,
     };
 
     const readiness = calculateAssuranceSetReadiness(set);
     set.readinessScore = readiness;
 
-    expect(set.crewId).toBe('CREW-101');
-    expect(set.crewName).toBe(crewMember.fullName);
-    expect(set.internalDeployment).toBe(true);
+    expect(getSetCrewIds(set)).toContain('CREW-101');
+    expect(getSetCrewNames(set)).toContain(crewMember.fullName);
+    expect(isInternalDeployment(set)).toBe(true);
     expect(set.requirements.some((r) => r.documentId || r.linkedDocumentId)).toBe(true);
     expect(set.requirements.some((r) => r.isFulfilled && r.verifierStatus === 'Verified')).toBe(true);
     expect(set.requirements.some((r) => !r.isFulfilled)).toBe(true);
@@ -171,31 +186,33 @@ describe('Asset-Level Assurance Set Creation (Non-Project Scopes)', () => {
       id: 'MAP-EQP-2026-LIFT-TEST01',
       title: `Northwind Marine - ${item.name} Technical Passport`,
       assuranceType: 'Equipment',
-      equipmentId: item.id,
-      equipmentName: item.name,
-      vesselName: item.name,
-      imoNumber: 'N/A',
-      initiatorOrg: item.owningOrganization,
-      serviceProviderOrg: item.owningOrganization,
-      charterer: item.owningOrganization,
-      charterWindowStart: '2026-11-01',
-      complianceDeadline: '2026-11-01',
-      charterWindowEnd: '2027-11-01',
+      parties: [
+        { organization: item.owningOrganization, role: 'Requesting party' },
+        { organization: item.owningOrganization, role: 'Responding party' },
+      ],
+      assuranceObjects: [
+        {
+          id: item.id,
+          type: 'equipment',
+          name: item.name,
+          ownerOrganization: item.owningOrganization,
+        },
+      ],
+      startDate: '2026-11-01',
+      endDate: '2027-11-01',
+      deadline: '2026-11-01',
       stage: 'Initiated',
       readinessScore: 0,
       subtypes: ['Equipment'],
       visibility: 'organization',
-      internalDeployment: true,
       requirements: fulfilledRequirements,
-      vesselId: '',
-      initiatorRole: 'C Admin · Client Created',
       mandatoryInspectionRequired: false,
-      inspectionCompleted: false
+      inspectionCompleted: false,
     };
 
-    expect(set.equipmentId).toBe(item.id);
-    expect(set.equipmentName).toBe(item.name);
-    expect(set.internalDeployment).toBe(true);
+    expect(getSetEquipmentId(set)).toBe(item.id);
+    expect(getSetEquipmentName(set)).toBe(item.name);
+    expect(isInternalDeployment(set)).toBe(true);
   });
 
 

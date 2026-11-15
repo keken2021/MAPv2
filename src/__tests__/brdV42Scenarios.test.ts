@@ -33,8 +33,7 @@ describe('BRD V4.2 Scenarios Mock Data (Task 5206)', () => {
 
   describe('Scenario 1: Date change', () => {
     it('sets target date on set and tasks, with active short-term permission and history ledger', () => {
-      expect(ss01?.targetDate).toBe('2026-11-15');
-      expect(ss01?.complianceDeadline).toBe('2026-11-15');
+      expect(ss01?.deadline).toBe('2026-11-15');
 
       // Date permission grant
       expect(ss01?.datePermissionGrants).toBeDefined();
@@ -46,14 +45,14 @@ describe('BRD V4.2 Scenarios Mock Data (Task 5206)', () => {
       expect(isDatePermissionActive(grant!, new Date('2026-10-28'))).toBe(true);
 
       // Date change history
-      expect(ss01?.targetDateHistory).toBeDefined();
-      expect(ss01?.targetDateHistory?.length).toBeGreaterThanOrEqual(2);
-      const setHistory = ss01?.targetDateHistory?.find((h) => h.scope === 'set');
+      expect(ss01?.dateHistory).toBeDefined();
+      expect(ss01?.dateHistory?.length).toBeGreaterThanOrEqual(2);
+      const setHistory = ss01?.dateHistory?.find((h) => h.scope === 'set');
       expect(setHistory?.oldDate).toBe('2026-11-01');
       expect(setHistory?.newDate).toBe('2026-11-15');
       expect(setHistory?.changedBy).toContain('Oil Company');
 
-      const taskHistory = ss01?.targetDateHistory?.find((h) => h.scope === 'task');
+      const taskHistory = ss01?.dateHistory?.find((h) => h.scope === 'task');
       expect(taskHistory?.taskId).toBe('REQ-SS01-10');
       expect(taskHistory?.newDate).toBe('2026-11-12');
 
@@ -61,7 +60,7 @@ describe('BRD V4.2 Scenarios Mock Data (Task 5206)', () => {
       const req10 = ss01?.requirements.find((r) => r.id === 'REQ-SS01-10');
       expect(req10?.targetDate).toBe('2026-11-12');
       expect(new Date(req10?.targetDate!).getTime()).toBeLessThanOrEqual(
-        new Date(ss01?.targetDate!).getTime(),
+        new Date(ss01?.deadline!).getTime(),
       );
 
       // Audit event and notification
@@ -115,8 +114,8 @@ describe('BRD V4.2 Scenarios Mock Data (Task 5206)', () => {
   describe('Scenario 4: Shared operation date', () => {
     it('holds shared on-hire date on the master project and aligns set timelines', () => {
       expect(project?.onHireDate).toBe('2026-11-15');
-      expect(ss01?.charterWindowStart).toBe('2026-11-15');
-      expect(ss01?.complianceDeadline).toBe('2026-11-15');
+      expect(ss01?.startDate).toBe('2026-11-15');
+      expect(ss01?.deadline).toBe('2026-11-15');
 
       // Additional projects with on-hire dates
       const sbeProj = MOCK_PROJECTS.find((p) => p.id === 'MAP-PROJ-2026-MARINE-009');
@@ -128,7 +127,7 @@ describe('BRD V4.2 Scenarios Mock Data (Task 5206)', () => {
     it('distinguishes external review on vessel from internal self-assurance on operational methods', () => {
       // SS-01 vessel review is external
       expect(ss01?.reviewMode).toBe('third_party');
-      expect(ss01?.assignedVerifier).toContain('XY Marine Assurance');
+      expect(ss01?.stakeholders?.verifierOrg).toBe('XY Marine Assurance');
 
       const vesselVerification = deriveObjectVerification(OIL_CO_AURORA_ID, [ss01!], OIL_CO_ORG);
       expect(vesselVerification?.status).toBe('Externally verified');

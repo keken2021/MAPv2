@@ -177,7 +177,7 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
 
   /* Library detail has no set context; use a linked set whose contract outruns this certificate */
   const linkedCharterWindowEnd = accessibleLinkedSets
-    .map((set) => set.charterWindowEnd)
+    .map((set) => set.endDate)
     .find((end) => end && documentExpiresBeforeContractEnd(doc, end));
 
   const linkedReqVerifierStatus = accessibleLinkedSets

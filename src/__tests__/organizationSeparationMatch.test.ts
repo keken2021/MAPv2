@@ -98,10 +98,10 @@ describe('set roles follow the organization the set names', () => {
 describe('findAssuranceSetCreatorUser', () => {
   it('finds the creator by id, else by name and organization', () => {
     const creatorOf = (fields: Partial<AssuranceSet>) => findAssuranceSetCreatorUser(fields as AssuranceSet, MOCK_USERS);
-    expect(creatorOf({ createdByUserId: 'USR-250' })?.id).toBe('USR-250');
-    expect(creatorOf({ createdByName: 'S. Girard', initiatorOrg: NW })?.id).toBe('USR-250');
-    expect(creatorOf({ createdByName: 'S. Girard', initiatorOrg: BV })?.id).toBe('USR-244');
-    expect(creatorOf({ createdByName: 'S. Girard' })).toBeUndefined();
+    expect(creatorOf({ createdBy: { userId: 'USR-250' } })?.id).toBe('USR-250');
+    expect(creatorOf({ createdBy: { name: 'S. Girard' }, parties: [{ organization: NW, role: 'Requesting party' }] })?.id).toBe('USR-250');
+    expect(creatorOf({ createdBy: { name: 'S. Girard' }, parties: [{ organization: BV, role: 'Requesting party' }] })?.id).toBe('USR-244');
+    expect(creatorOf({ createdBy: { name: 'S. Girard' } })).toBeUndefined();
   });
 });
 

@@ -145,7 +145,11 @@ describe('ProjectDetailView recipient access for Administrator', () => {
     render(<ProjectDetailView projectId={vendorProject.id} />);
 
     expect(screen.getByTestId('btn-request-assurance-set')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Add Asset' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Add Asset' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Add Asset' })).toHaveAttribute(
+      'title',
+      "Only the project's client organization may add roster assets.",
+    );
     expect(screen.queryByRole('button', { name: 'Create Assurance Set' })).toBeNull();
   });
 });
@@ -172,6 +176,10 @@ describe('Oil Co LNG project: included vendor can open and request', () => {
 
     expect(screen.getByText('Oil Company LNG Field Development')).toBeInTheDocument();
     expect(screen.getByTestId('btn-request-assurance-set')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Add Asset' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Add Asset' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Add Asset' })).toHaveAttribute(
+      'title',
+      "Only the project's client organization may add roster assets.",
+    );
   });
 });

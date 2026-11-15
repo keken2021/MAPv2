@@ -21,6 +21,13 @@ import {
 } from '../utils/assuranceTemplates';
 import { MOCK_ASSURANCE_SETS } from '../store/mockData';
 import { generateUniqueAssuranceSetId, generateUniqueRequirementId } from '../utils/validation';
+import {
+  getSetCrew,
+  getSetCrewIds,
+  getSetCrewNames,
+  getSetEquipmentId,
+  getSetEquipmentName,
+} from '../utils/setObjects';
 
 describe('Segmented Assurance Set Creation Workflow', () => {
   beforeEach(() => {
@@ -140,25 +147,28 @@ describe('Segmented Assurance Set Creation Workflow', () => {
       title: 'Northwind - Scarborough Subsea Engineering Campaign',
       assuranceType: 'Vessel',
       subtypes: ['Vessel', 'Crew', 'Equipment'],
-      vesselId: 'VESSEL-001',
-      vesselName: 'MV Pacific Endeavour',
-      imoNumber: '9123453',
-      crewId: 'CREW-001',
-      crewName: 'Capt. James Stirling',
-      initiatorOrg: 'Northwind Marine Pty Ltd',
-      initiatorRole: 'Vessel Provider Admin',
-      charterer: 'Woodside Energy Ltd',
-      charterWindowStart: '2026-12-01',
-      complianceDeadline: '2026-12-01',
-      charterWindowEnd: '2027-12-01',
+      assuranceObjects: [
+        {
+          id: 'VESSEL-001',
+          type: 'vessel',
+          name: 'MV Pacific Endeavour',
+          ownerOrganization: 'Northwind Marine Pty Ltd',
+          identifier: '9123453',
+        },
+      ],
+      parties: [
+        { organization: 'Woodside Energy Ltd', role: 'Requesting party' },
+        { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      ],
+      startDate: '2026-12-01',
+      deadline: '2026-12-01',
+      endDate: '2027-12-01',
       stage: 'Initiated',
       readinessScore: 10,
       mandatoryInspectionRequired: true,
       inspectionCompleted: false,
       requirements: projectRequirements,
       stakeholders: undefined,
-      assignedStakeholders: undefined,
-      createdByPersona: '',
     };
 
     store.addAssuranceSet(newProjectSet);
@@ -168,7 +178,7 @@ describe('Segmented Assurance Set Creation Workflow', () => {
     expect(retrieved?.assuranceType).toBe('Vessel');
     /* one asset per set: only the vessel scope, its link and its requirements are kept */
     expect(retrieved?.subtypes).toEqual(['Vessel']);
-    expect(retrieved?.crewId).toBeUndefined();
+    expect(getSetCrew(retrieved!)).toEqual([]);
     expect(retrieved?.requirements.length).toBeGreaterThan(0);
     expect(retrieved?.requirements.every((r) => r.subtype === 'Vessel')).toBe(true);
 
@@ -198,23 +208,27 @@ describe('Segmented Assurance Set Creation Workflow', () => {
       title: 'Northwind - Annual Crew Competency Audit',
       assuranceType: 'Crew',
       subtypes: ['Crew'],
-      vesselId: 'VESSEL-002',
-      vesselName: 'MV Coral Titan',
-      imoNumber: '9284714',
-      initiatorOrg: 'Northwind Marine Pty Ltd',
-      initiatorRole: 'Vessel Provider Admin',
-      charterer: 'Shell Australia Pty Ltd',
-      charterWindowStart: '2026-11-01',
-      complianceDeadline: '2026-11-01',
-      charterWindowEnd: '2027-05-01',
+      assuranceObjects: [
+        {
+          id: 'CREW-001',
+          type: 'crew',
+          name: 'Capt. James Stirling',
+          ownerOrganization: 'Northwind Marine Pty Ltd',
+        },
+      ],
+      parties: [
+        { organization: 'Shell Australia Pty Ltd', role: 'Requesting party' },
+        { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      ],
+      startDate: '2026-11-01',
+      deadline: '2026-11-01',
+      endDate: '2027-05-01',
       stage: 'Initiated',
       readinessScore: 10,
       mandatoryInspectionRequired: false,
       inspectionCompleted: false,
       requirements,
       stakeholders: undefined,
-      assignedStakeholders: undefined,
-      createdByPersona: '',
     };
 
     store.addAssuranceSet(newCrewSet);
@@ -292,23 +306,27 @@ describe('Segmented Assurance Set Creation Workflow', () => {
       subtypes: ['Equipment'],
       visibility: 'draft',
       templateSource: 'organization',
-      vesselId: 'VESSEL-001',
-      vesselName: 'MV Pacific Endeavour',
-      imoNumber: '9123453',
-      initiatorOrg: 'Northwind Marine Pty Ltd',
-      initiatorRole: 'Vessel Provider Admin',
-      charterer: 'Northwind Marine Pty Ltd',
-      charterWindowStart: '2026-11-01',
-      complianceDeadline: '2026-11-01',
-      charterWindowEnd: '2027-11-01',
+      assuranceObjects: [
+        {
+          id: 'EQ-001',
+          type: 'equipment',
+          name: 'Equipment 01',
+          ownerOrganization: 'Northwind Marine Pty Ltd',
+        },
+      ],
+      parties: [
+        { organization: 'Northwind Marine Pty Ltd', role: 'Requesting party' },
+        { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      ],
+      startDate: '2026-11-01',
+      deadline: '2026-11-01',
+      endDate: '2027-11-01',
       stage: 'Initiated',
       readinessScore: 0,
       mandatoryInspectionRequired: false,
       inspectionCompleted: false,
       requirements: [],
       stakeholders: undefined,
-      assignedStakeholders: undefined,
-      createdByPersona: '',
     };
 
     store.addAssuranceSet(draftSet);
@@ -349,23 +367,28 @@ describe('Segmented Assurance Set Creation Workflow', () => {
       subtypes: ['Vessel', 'Crew', 'Equipment'],
       visibility: 'draft',
       templateSource: 'organization',
-      vesselId: 'VESSEL-001',
-      vesselName: 'MV Pacific Endeavour',
-      imoNumber: '9123453',
-      initiatorOrg: 'Northwind Marine Pty Ltd',
-      initiatorRole: 'Vessel Provider Admin',
-      charterer: 'Woodside Energy Ltd',
-      charterWindowStart: '2026-11-01',
-      complianceDeadline: '2026-11-01',
-      charterWindowEnd: '2027-11-01',
+      assuranceObjects: [
+        {
+          id: 'VESSEL-001',
+          type: 'vessel',
+          name: 'MV Pacific Endeavour',
+          ownerOrganization: 'Northwind Marine Pty Ltd',
+          identifier: '9123453',
+        },
+      ],
+      parties: [
+        { organization: 'Woodside Energy Ltd', role: 'Requesting party' },
+        { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      ],
+      startDate: '2026-11-01',
+      deadline: '2026-11-01',
+      endDate: '2027-11-01',
       stage: 'Initiated',
       readinessScore: 0,
       mandatoryInspectionRequired: true,
       inspectionCompleted: false,
       requirements: [],
       stakeholders: undefined,
-      assignedStakeholders: undefined,
-      createdByPersona: '',
     };
 
     store.addAssuranceSet(draftSet);
@@ -414,27 +437,31 @@ describe('Segmented Assurance Set Creation Workflow', () => {
       title: 'Northwind - Initial Partial Draft Campaign',
       assuranceType: 'Vessel',
       projectId: 'MAP-PROJ-2026-OFFSHORE-001',
-      projectName: 'Gorgon Stage 2 & Jansz-Io Compression',
       subtypes: ['Vessel', 'Crew', 'Equipment'],
       visibility: 'draft',
       templateSource: 'organization',
-      vesselId: 'VESSEL-001',
-      vesselName: 'MV Pacific Endeavour',
-      imoNumber: '9123453',
-      initiatorOrg: 'Northwind Marine Pty Ltd',
-      initiatorRole: 'Vessel Provider Admin',
-      charterer: 'Northwind Marine Pty Ltd',
-      charterWindowStart: '2026-11-01',
-      complianceDeadline: '2026-11-01',
-      charterWindowEnd: '2027-11-01',
+      assuranceObjects: [
+        {
+          id: 'VESSEL-001',
+          type: 'vessel',
+          name: 'MV Pacific Endeavour',
+          ownerOrganization: 'Northwind Marine Pty Ltd',
+          identifier: '9123453',
+        },
+      ],
+      parties: [
+        { organization: 'Northwind Marine Pty Ltd', role: 'Requesting party' },
+        { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      ],
+      startDate: '2026-11-01',
+      deadline: '2026-11-01',
+      endDate: '2027-11-01',
       stage: 'Initiated',
       readinessScore: 0,
       mandatoryInspectionRequired: true,
       inspectionCompleted: false,
       requirements: [],
       stakeholders: undefined,
-      assignedStakeholders: undefined,
-      createdByPersona: '',
     };
 
     // Save draft initial creation
@@ -500,25 +527,29 @@ describe('Segmented Assurance Set Creation Workflow', () => {
       title: 'Chevron - Gorgon Stage 2 Compression Vetting',
       assuranceType: 'Vessel',
       projectId: 'MAP-PROJ-2026-OFFSHORE-001',
-      projectName: 'Gorgon Stage 2 & Jansz-Io Compression',
       subtypes: ['Vessel', 'Crew', 'Equipment'],
-      vesselId: 'VESSEL-001',
-      vesselName: 'MV Pacific Endeavour',
-      imoNumber: '9123453',
-      initiatorOrg: 'Chevron Australia Pty Ltd',
-      initiatorRole: 'C Admin · Client Created',
-      charterer: 'Chevron Australia Pty Ltd',
-      charterWindowStart: '2026-11-01',
-      complianceDeadline: '2026-11-01',
-      charterWindowEnd: '2027-11-01',
+      assuranceObjects: [
+        {
+          id: 'VESSEL-001',
+          type: 'vessel',
+          name: 'MV Pacific Endeavour',
+          ownerOrganization: 'Northwind Marine Pty Ltd',
+          identifier: '9123453',
+        },
+      ],
+      parties: [
+        { organization: 'Chevron Australia Pty Ltd', role: 'Requesting party' },
+        { organization: 'Chevron Australia Pty Ltd', role: 'Responding party' },
+      ],
+      startDate: '2026-11-01',
+      deadline: '2026-11-01',
+      endDate: '2027-11-01',
       stage: 'Initiated',
       readinessScore: 10,
       mandatoryInspectionRequired: true,
       inspectionCompleted: false,
       requirements: [],
       stakeholders: undefined,
-      assignedStakeholders: undefined,
-      createdByPersona: '',
     };
 
     store.addAssuranceSet(projectSetWithAttachment);
@@ -552,34 +583,36 @@ describe('Segmented Assurance Set Creation Workflow', () => {
       id: crewSetId,
       title: 'Northwind - Alexander Wright Master Crew Credential Assurance',
       assuranceType: 'Crew',
-      crewId: 'CREW-101',
-      crewName: 'Capt. Alexander Wright',
       subtypes: ['Crew'],
-      vesselId: 'VESSEL-001',
-      vesselName: 'Capt. Alexander Wright',
-      imoNumber: 'N/A',
-      initiatorOrg: 'Northwind Marine Pty Ltd',
-      initiatorRole: 'Vessel Provider Admin',
-      charterer: 'Northwind Marine Pty Ltd',
-      charterWindowStart: '2026-11-01',
-      complianceDeadline: '2026-11-01',
-      charterWindowEnd: '2027-11-01',
+      assuranceObjects: [
+        {
+          id: 'CREW-101',
+          type: 'crew',
+          name: 'Capt. Alexander Wright',
+          ownerOrganization: 'Northwind Marine Pty Ltd',
+        },
+      ],
+      parties: [
+        { organization: 'Northwind Marine Pty Ltd', role: 'Requesting party' },
+        { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      ],
+      startDate: '2026-11-01',
+      deadline: '2026-11-01',
+      endDate: '2027-11-01',
       stage: 'Initiated',
       readinessScore: 10,
       mandatoryInspectionRequired: false,
       inspectionCompleted: false,
       requirements: [],
       stakeholders: undefined,
-      assignedStakeholders: undefined,
-      createdByPersona: '',
     };
     store.addAssuranceSet(crewSet);
 
     const retrievedCrewSet = useMapStore.getState().assuranceSets.find((s) => s.id === crewSetId);
     expect(retrievedCrewSet).toBeDefined();
     expect(retrievedCrewSet?.assuranceType).toBe('Crew');
-    expect(retrievedCrewSet?.crewId).toBe('CREW-101');
-    expect(retrievedCrewSet?.crewName).toBe('Capt. Alexander Wright');
+    expect(getSetCrewIds(retrievedCrewSet!)).toContain('CREW-101');
+    expect(getSetCrewNames(retrievedCrewSet!)).toContain('Capt. Alexander Wright');
 
     // 2. Equipment scope assurance set
     const eqSetId = generateUniqueAssuranceSetId(useMapStore.getState().assuranceSets);
@@ -587,36 +620,38 @@ describe('Segmented Assurance Set Creation Workflow', () => {
       id: eqSetId,
       title: 'Northwind - WROV Schilling System Certification',
       assuranceType: 'Equipment',
-      equipmentId: 'EQ-101',
-      equipmentName: 'Work-Class ROV System (WROV-01)',
       subtypes: ['Equipment'],
-      vesselId: 'VESSEL-001',
-      vesselName: 'Work-Class ROV System (WROV-01)',
-      imoNumber: 'N/A',
-      initiatorOrg: 'Northwind Marine Pty Ltd',
-      initiatorRole: 'Vessel Provider Admin',
-      charterer: 'Northwind Marine Pty Ltd',
-      charterWindowStart: '2026-11-01',
-      complianceDeadline: '2026-11-01',
-      charterWindowEnd: '2027-11-01',
+      assuranceObjects: [
+        {
+          id: 'EQ-101',
+          type: 'equipment',
+          name: 'Work-Class ROV System (WROV-01)',
+          ownerOrganization: 'Northwind Marine Pty Ltd',
+        },
+      ],
+      parties: [
+        { organization: 'Northwind Marine Pty Ltd', role: 'Requesting party' },
+        { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      ],
+      startDate: '2026-11-01',
+      deadline: '2026-11-01',
+      endDate: '2027-11-01',
       stage: 'Initiated',
       readinessScore: 10,
       mandatoryInspectionRequired: true,
       inspectionCompleted: false,
       requirements: [],
       stakeholders: undefined,
-      assignedStakeholders: undefined,
-      createdByPersona: '',
     };
     store.addAssuranceSet(eqSet);
 
     const retrievedEqSet = useMapStore.getState().assuranceSets.find((s) => s.id === eqSetId);
     expect(retrievedEqSet).toBeDefined();
     expect(retrievedEqSet?.assuranceType).toBe('Equipment');
-    expect(retrievedEqSet?.equipmentId).toBe('EQ-101');
-    expect(retrievedEqSet?.equipmentName).toBe('Work-Class ROV System (WROV-01)');
+    expect(getSetEquipmentId(retrievedEqSet!)).toBe('EQ-101');
+    expect(getSetEquipmentName(retrievedEqSet!)).toBe('Work-Class ROV System (WROV-01)');
 
-      });
+  });
 });
 
 

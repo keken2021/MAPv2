@@ -19,6 +19,8 @@ import {
   APPROVAL_TASK_TITLE,
   APPROVAL_TASK_STATUS,
 } from '../../utils/stageTasks';
+import { getRequestingParty, getRespondingParty } from '../../utils/setParties';
+import { getSetEndDate } from '../../utils/setDates';
 
 export type TaskStatus = 'Pending' | 'On-going' | 'Done' | 'To Inspect' | 'To Approve';
 
@@ -105,8 +107,8 @@ export function getTaskRowActionLabel(
   const needsRenewalUpload = Boolean(
     context?.document &&
       (isDocumentExpired(context.document, context.today) ||
-        (row.parentSet?.charterWindowEnd &&
-          documentExpiresBeforeContractEnd(context.document, row.parentSet.charterWindowEnd))),
+        (getSetEndDate(row.parentSet) &&
+          documentExpiresBeforeContractEnd(context.document, getSetEndDate(row.parentSet)))),
   );
 
   const isPending =
@@ -147,8 +149,8 @@ export function resolveViewerPartyForRow(
   }
   const org = (activeDemoOrganization || sessionUser?.organization || '').trim().toLowerCase();
   if (org && parentSet) {
-    const responding = (parentSet.respondingParty || parentSet.serviceProviderOrg || '').trim().toLowerCase();
-    const requesting = (parentSet.requestingParty || parentSet.clientOrg || '').trim().toLowerCase();
+    const responding = (getRespondingParty(parentSet) || '').trim().toLowerCase();
+    const requesting = (getRequestingParty(parentSet) || '').trim().toLowerCase();
     if (responding && (org === responding || org.includes(responding) || responding.includes(org))) {
       return 'responding';
     }
@@ -249,8 +251,8 @@ export const ProjectTaskRow: React.FC<ProjectTaskRowProps> = ({
         Boolean(
           rowLinkedDoc &&
             (isDocumentExpired(rowLinkedDoc, today) ||
-              (parentSet.charterWindowEnd &&
-                documentExpiresBeforeContractEnd(rowLinkedDoc, parentSet.charterWindowEnd))),
+              (getSetEndDate(parentSet) &&
+                documentExpiresBeforeContractEnd(rowLinkedDoc, getSetEndDate(parentSet)))),
         )));
   const displayActionLabel = actionLabel === 'Upload' && isReupload ? 'Reupload' : actionLabel;
 

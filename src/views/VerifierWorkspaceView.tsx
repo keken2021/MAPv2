@@ -21,6 +21,7 @@ import { usePagination } from '../utils/usePagination';
 import { useDeferredFilters } from '../utils/useDeferredFilters';
 import { TablePagination } from '../components/common/TablePagination';
 import { isComplianceDeadlineOverdue, toIsoLocalDate } from '../utils/validation';
+import { getSetVesselName } from '../utils/setObjects';
 
 /**
   what: documents in the verification queue for this session user.
@@ -164,7 +165,7 @@ export const VerifierWorkspaceView: React.FC = () => {
           requirementId: requirement.id,
           requirementVerifierStatus: requirement.verifierStatus,
           setTitle: set.title,
-          vesselName: set.vesselName,
+          vesselName: getSetVesselName(set) || set.title,
           stage: set.stage,
         };
       }
@@ -196,7 +197,7 @@ export const VerifierWorkspaceView: React.FC = () => {
     if (linkedSet.stage === 'Approved' || linkedSet.stage === 'Certified' || linkedSet.stage === 'Cancelled') return false;
     if (isComplianceDeadlineOverdue(linkedSet)) return true;
     const req = linkedSet.requirements?.find((r) => r.documentId === d.id || r.linkedDocumentId === d.id);
-    const deadline = req?.targetDate || linkedSet.revisedCompletionDate || linkedSet.complianceDeadline || linkedSet.targetDate;
+    const deadline = req?.targetDate || linkedSet.revisedCompletionDate || linkedSet.deadline;
     if (!deadline) return false;
     return deadline < toIsoLocalDate();
   };
@@ -327,7 +328,7 @@ export const VerifierWorkspaceView: React.FC = () => {
         const info = getAssuranceSetInfo(doc.id);
         const linkedSet = info ? assuranceSets.find((s) => s.id === info.setId) : undefined;
         const req = linkedSet?.requirements?.find((r) => r.documentId === doc.id || r.linkedDocumentId === doc.id);
-        return req?.targetDate || linkedSet?.revisedCompletionDate || linkedSet?.complianceDeadline || linkedSet?.targetDate || '';
+        return req?.targetDate || linkedSet?.revisedCompletionDate || linkedSet?.deadline || '';
       };
       valA = getDueDeadline(a);
       valB = getDueDeadline(b);
@@ -376,7 +377,7 @@ export const VerifierWorkspaceView: React.FC = () => {
       const info = getAssuranceSetInfo(d.id);
       const linkedSet = info ? assuranceSets.find((s) => s.id === info.setId) : undefined;
       const req = linkedSet?.requirements?.find((r) => r.documentId === d.id || r.linkedDocumentId === d.id);
-      const effectiveDeadline = req?.targetDate || linkedSet?.revisedCompletionDate || linkedSet?.complianceDeadline || linkedSet?.targetDate || '';
+      const effectiveDeadline = req?.targetDate || linkedSet?.revisedCompletionDate || linkedSet?.deadline || '';
       return {
         SetID: info ? info.setId : 'N/A',
         Title: d.title,
@@ -395,7 +396,7 @@ export const VerifierWorkspaceView: React.FC = () => {
       const info = getAssuranceSetInfo(d.id);
       const linkedSet = info ? assuranceSets.find((s) => s.id === info.setId) : undefined;
       const req = linkedSet?.requirements?.find((r) => r.documentId === d.id || r.linkedDocumentId === d.id);
-      const effectiveDeadline = req?.targetDate || linkedSet?.revisedCompletionDate || linkedSet?.complianceDeadline || linkedSet?.targetDate || '—';
+      const effectiveDeadline = req?.targetDate || linkedSet?.revisedCompletionDate || linkedSet?.deadline || '—';
       return [
         info ? info.setId : 'N/A',
         d.title,
@@ -461,7 +462,7 @@ export const VerifierWorkspaceView: React.FC = () => {
                 const info = getAssuranceSetInfo(doc.id);
                 const linkedSet = info ? assuranceSets.find((s) => s.id === info.setId) : undefined;
                 const req = linkedSet?.requirements?.find((r) => r.documentId === doc.id || r.linkedDocumentId === doc.id);
-                const effectiveDeadline = req?.targetDate || linkedSet?.revisedCompletionDate || linkedSet?.complianceDeadline || linkedSet?.targetDate;
+                const effectiveDeadline = req?.targetDate || linkedSet?.revisedCompletionDate || linkedSet?.deadline;
                 const overdue = isDocOverdue(doc);
                 let daysLate = 0;
                 if (overdue && effectiveDeadline) {

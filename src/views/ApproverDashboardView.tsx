@@ -22,6 +22,10 @@ import {
 } from '../utils/readinessHelpers';
 import { isComplianceDeadlineOverdue, toIsoLocalDate } from '../utils/validation';
 import { AssuranceSet } from '../types/assurance';
+import { getRequestingParty } from '../utils/setParties';
+import { getSetStartDate, getSetEndDate, getSetDeadline } from '../utils/setDates';
+import { getSetAssignedSubmitter, getSetAssignedVerifier, getSetAssignedInspector, getSetAssignedApprover, getSetCreatedBy } from '../utils/setStakeholders';
+import { getSetVesselId, getSetVesselName, getSetImoNumber } from '../utils/setObjects';
 import { Ship, Camera, ShieldCheck, ArrowUpDown, ArrowUp, ArrowDown, FileCheck, RotateCcw, XCircle, Eye, Search, Inbox } from 'lucide-react';
 import { FilterModal } from '../components/common/FilterModal';
 import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
@@ -198,7 +202,7 @@ export const ApproverDashboardView: React.FC = () => {
     if (!sessionUser) return false;
     const isAssigned = usesApproverAssignment
       ? isAssuranceSetAssignedToPersona(s, 'Approver', activeDemoOrganization, sessionUser, users) &&
-        (!sessionUser.name || assigneeMatchesUser(s.assignedApprover, sessionUser))
+        (!sessionUser.name || assigneeMatchesUser(getSetAssignedApprover(s), sessionUser))
       : isAssuranceSetAssignedToPersona(s, activePersona, activeDemoOrganization, sessionUser, users);
     if (usesApproverAssignment) {
       const isVerificationReq = s.verificationRequired !== false;
@@ -266,13 +270,13 @@ export const ApproverDashboardView: React.FC = () => {
   const handleExportCsv = () => {
     const headers = ['Set ID', 'Title', 'Vessel', 'IMO', 'Created By', 'Due', 'Decision'];
     const rows = sortedSets.map((s) => {
-      const due = s.revisedCompletionDate || s.complianceDeadline || '';
+      const due = s.revisedCompletionDate || getSetDeadline(s) || '';
       return [
         s.id,
         `"${(s.title || '').replace(/"/g, '""')}"`,
-        `"${(s.vesselName || '').replace(/"/g, '""')}"`,
-        s.imoNumber || '',
-        `"${(s.assignedSubmitter || s.initiatorOrg || '').replace(/"/g, '""')}"`,
+        `"${(getSetVesselName(s) || '').replace(/"/g, '""')}"`,
+        getSetImoNumber(s) || '',
+        `"${(getSetAssignedSubmitter(s) || getRequestingParty(s) || '').replace(/"/g, '""')}"`,
         due,
         s.approverDecision || s.stage,
       ].join(',');
@@ -295,12 +299,15 @@ export const ApproverDashboardView: React.FC = () => {
     if (activeTab === 'approved' && !isApproved(set)) return false;
     if (activeTab === 'returned' && !isReturned(set)) return false;
 
+    const vName = getSetVesselName(set);
+    const imo = getSetImoNumber(set);
+    const sub = getSetAssignedSubmitter(set);
     const matchesSearch =
       set.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       set.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      set.vesselName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      set.imoNumber.includes(searchTerm) ||
-      (set.assignedSubmitter && set.assignedSubmitter.toLowerCase().includes(searchTerm.toLowerCase()));
+      (vName && vName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (imo && imo.includes(searchTerm)) ||
+      (sub && sub.toLowerCase().includes(searchTerm.toLowerCase()));
 
     const matchesStage = stageFilter === 'All' || set.stage === stageFilter;
 
@@ -311,11 +318,11 @@ export const ApproverDashboardView: React.FC = () => {
     let comp = 0;
     if (pipelineSortField === 'id') comp = a.id.localeCompare(b.id);
     else if (pipelineSortField === 'title') comp = a.title.localeCompare(b.title);
-    else if (pipelineSortField === 'vesselName') comp = a.vesselName.localeCompare(b.vesselName);
-    else if (pipelineSortField === 'initiator') comp = (a.assignedSubmitter || a.initiatorOrg || '').localeCompare(b.assignedSubmitter || b.initiatorOrg || '');
+    else if (pipelineSortField === 'vesselName') comp = (getSetVesselName(a) || '').localeCompare(getSetVesselName(b) || '');
+    else if (pipelineSortField === 'initiator') comp = (getSetAssignedSubmitter(a) || getRequestingParty(a) || '').localeCompare(getSetAssignedSubmitter(b) || getRequestingParty(b) || '');
     else if (pipelineSortField === 'due') {
-      const deadlineA = a.revisedCompletionDate || a.complianceDeadline || '';
-      const deadlineB = b.revisedCompletionDate || b.complianceDeadline || '';
+      const deadlineA = a.revisedCompletionDate || getSetDeadline(a) || '';
+      const deadlineB = b.revisedCompletionDate || getSetDeadline(b) || '';
       comp = deadlineA.localeCompare(deadlineB);
     }
     else if (pipelineSortField === 'status') comp = (a.approverDecision || a.stage).localeCompare(b.approverDecision || b.stage);
@@ -331,7 +338,10 @@ export const ApproverDashboardView: React.FC = () => {
 
   /* render detail page if currentEntityId is present */
   if (selectedSet) {
-    const vessel = vessels.find((v) => v.id === selectedSet.vesselId || v.name === selectedSet.vesselName);
+    const vesselId = getSetVesselId(selectedSet);
+    const vesselName = getSetVesselName(selectedSet);
+    const imoNumber = getSetImoNumber(selectedSet);
+    const vessel = vessels.find((v) => v.id === vesselId || v.name === vesselName);
     const isAlreadyApproved = selectedSet.stage === 'Approved' || selectedSet.approverDecision === 'Approved';
 
     return (
@@ -342,13 +352,13 @@ export const ApproverDashboardView: React.FC = () => {
           <div>
             <h3 className="fw-bold mb-0 text-primary">{selectedSet.title}</h3>
             <span className="small text-secondary font-mono-code">
-              {selectedSet.id} · {selectedSet.vesselName} (IMO {selectedSet.imoNumber})
+              {selectedSet.id} · {getSetVesselName(selectedSet)} (IMO {getSetImoNumber(selectedSet)})
             </span>
             <ObjectVerificationBadge
               verification={deriveObjectVerification(
-                getAssuranceSetObjects(selectedSet)[0]?.id || selectedSet.vesselId,
+                getAssuranceSetObjects(selectedSet)[0]?.id || getSetVesselId(selectedSet),
                 assuranceSets,
-                selectedSet.clientOrg || selectedSet.charterer || activeDemoOrganization,
+                getRequestingParty(selectedSet) || activeDemoOrganization,
               )}
             />
           </div>
@@ -370,14 +380,14 @@ export const ApproverDashboardView: React.FC = () => {
                 <div className="row g-3 font-mono-code small mb-3">
                   <div className="col-md-6 border-end pr-3">
                     <div className="text-secondary mb-1">Created By:</div>
-                    <div className="fw-bold text-dark mb-2">{selectedSet.initiatorOrg}</div>
+                    <div className="fw-bold text-dark mb-2">{getRequestingParty(selectedSet)}</div>
 
                     <div className="text-secondary mb-1">Role:</div>
-                    <div className="fw-bold text-dark mb-2">{getRoleDisplayLabel(selectedSet.initiatorRole)}</div>
+                    <div className="fw-bold text-dark mb-2">{getSetCreatedBy(selectedSet).persona || 'Client Admin'}</div>
 
                     <div className="text-secondary mb-1">Contract Period:</div>
                     <div className="fw-bold text-dark">
-                      {formatMaritimeDate(selectedSet.charterWindowStart)} - {formatMaritimeDate(selectedSet.charterWindowEnd)}
+                      {formatMaritimeDate(getSetStartDate(selectedSet))} - {formatMaritimeDate(getSetEndDate(selectedSet))}
                     </div>
                   </div>
 
@@ -410,13 +420,13 @@ export const ApproverDashboardView: React.FC = () => {
                     <div className="col-md-3 col-6">
                       <div className="p-2 rounded bg-light border">
                         <div className="text-secondary small">Submitter</div>
-                        <div className="fw-bold text-dark text-truncate small">{selectedSet.assignedSubmitter || 'Unassigned'}</div>
+                        <div className="fw-bold text-dark text-truncate small">{getSetAssignedSubmitter(selectedSet) || 'Unassigned'}</div>
                       </div>
                     </div>
                     <div className="col-md-3 col-6">
                       <div className="p-2 rounded bg-light border">
                         <div className="text-secondary small">Verifier</div>
-                        <div className="fw-bold text-dark text-truncate small">{selectedSet.assignedVerifier || 'Unassigned'}</div>
+                        <div className="fw-bold text-dark text-truncate small">{getSetAssignedVerifier(selectedSet) || 'Unassigned'}</div>
                       </div>
                     </div>
                     <div className="col-md-3 col-6">
@@ -424,7 +434,7 @@ export const ApproverDashboardView: React.FC = () => {
                         <div className="text-secondary small">Inspector</div>
                         <div className="fw-bold text-dark text-truncate small">
                           {selectedSet.mandatoryInspectionRequired
-                            ? (selectedSet.assignedInspector || 'Unassigned')
+                            ? (getSetAssignedInspector(selectedSet) || 'Unassigned')
                             : 'N/A'}
                         </div>
                       </div>
@@ -432,7 +442,7 @@ export const ApproverDashboardView: React.FC = () => {
                     <div className="col-md-3 col-6">
                       <div className="p-2 rounded bg-light border">
                         <div className="text-secondary small">Approver</div>
-                        <div className="fw-bold text-dark text-truncate small">{selectedSet.assignedApprover || 'Unassigned'}</div>
+                        <div className="fw-bold text-dark text-truncate small">{getSetAssignedApprover(selectedSet) || 'Unassigned'}</div>
                       </div>
                     </div>
                   </div>
@@ -670,7 +680,7 @@ export const ApproverDashboardView: React.FC = () => {
             <div className="map-photo-lightbox-content" onClick={(e) => e.stopPropagation()}>
               <div className="p-3 border-bottom d-flex align-items-center justify-between">
                 <h6 className="fw-bold mb-0 text-dark">
-                  Photo — {selectedSet.vesselName}
+                  Photo — {vesselName || selectedSet.title}
                 </h6>
                 <button
                   type="button"
@@ -686,10 +696,10 @@ export const ApproverDashboardView: React.FC = () => {
                   </div>
                 </div>
                 <div className="text-xl font-bold font-mono text-white tracking-wide mb-1">
-                  {selectedSet.vesselName.toUpperCase()}
+                  {(vesselName || selectedSet.title).toUpperCase()}
                 </div>
                 <div className="text-xs text-slate-400 font-mono flex items-center gap-2">
-                  <span>IMO {selectedSet.imoNumber}</span>
+                  <span>IMO {imoNumber || '—'}</span>
                   <span>•</span>
                   <span className="inline-flex items-center gap-1 text-emerald-400">
                     <ShieldCheck className="w-3.5 h-3.5" /> VERIFIED PHOTO
@@ -812,7 +822,7 @@ export const ApproverDashboardView: React.FC = () => {
                   const onTime = getAssuranceSetOnTimeStatus(set);
                   const openFindings = getAssuranceSetOpenFindingsCount(set, capaItems);
                   const remaining = getAssuranceSetRemainingItems(set);
-                  const effectiveDeadline = set.revisedCompletionDate || set.complianceDeadline;
+                  const effectiveDeadline = set.revisedCompletionDate || set.deadline;
                   const overdue = isComplianceDeadlineOverdue(set);
                   let daysLate = 0;
                   if (overdue && effectiveDeadline) {
@@ -833,11 +843,11 @@ export const ApproverDashboardView: React.FC = () => {
                       </td>
                       <td className="fw-semibold text-dark">{set.title}</td>
                       <td>
-                        <div className="fw-semibold text-dark">{set.vesselName}</div>
-                        <div className="text-secondary small font-mono-code">IMO {set.imoNumber}</div>
+                        <div className="fw-semibold text-dark">{getSetVesselName(set)}</div>
+                        <div className="text-secondary small font-mono-code">IMO {getSetImoNumber(set)}</div>
                       </td>
                       <td className="small text-secondary">
-                        {set.assignedSubmitter || set.initiatorOrg}
+                        {getSetAssignedSubmitter(set) || getRequestingParty(set)}
                       </td>
                       <td className="small due-cell">
                         {overdue ? (

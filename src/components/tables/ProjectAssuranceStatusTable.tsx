@@ -23,6 +23,8 @@ import {
 import { getAssuranceSetObjects } from '../../utils/assuranceTemplates';
 import { calculateAssuranceSetReadiness } from '../../utils/readinessHelpers';
 import { usePagination } from '../../utils/usePagination';
+import { getSetVessel } from '../../utils/setObjects';
+import { getRequestingParty, getRespondingParty } from '../../utils/setParties';
 
 type SortField = 'name' | 'stage';
 type AttentionFilter = 'all' | AssuranceSetAttention;
@@ -87,10 +89,9 @@ export const ProjectAssuranceStatusTable: React.FC<ProjectAssuranceStatusTablePr
       set.title,
       set.id,
       set.stage,
-      set.vesselName,
-      set.serviceProviderOrg,
-      set.clientOrg,
-      set.initiatorOrg,
+      getSetVessel(set)?.name,
+      getRespondingParty(set),
+      getRequestingParty(set),
       objectNames,
       ...row.reasons,
       ...(set.requirements ?? []).map((r) => `${r.title} ${r.category}`),

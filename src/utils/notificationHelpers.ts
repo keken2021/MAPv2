@@ -28,6 +28,9 @@ import { PENDING_ASSIGNMENT, StakeholderRole, findUserByAssigneeLabel, getStakeh
 import { UserRolePersona } from '../types/audit';
 import { isTaskOpen } from './readinessHelpers';
 import { isInspectionDue } from './inspectionTask';
+import { getSetDeadline, getSetProjectName } from './setDates';
+import { getSetAssignedSubmitter, getSetAssignedVerifier, getSetAssignedInspector, getSetAssignedApprover, SetStakeholdersInput } from './setStakeholders';
+import { getSetVessel } from './setObjects';
 
 /**
   what: subject line for an invitation to create one assurance set.
@@ -108,7 +111,7 @@ export function seedAssignmentNotices(
       recipientUserId: recipient.id,
       senderName: 'MAP System',
       assuranceSetId: set.id,
-      vesselName: set.vesselName || undefined,
+      vesselName: getSetVessel(set)?.name || undefined,
       assignedRole: role,
       status: 'unread',
       createdAt: `${today}T00:00:00.000Z`,
@@ -118,9 +121,9 @@ export function seedAssignmentNotices(
     if (set.visibility === 'draft') return;
     const assignments: { role: UserRolePersona; label?: string; organization?: string }[] = [
       ...setSubmitters(set).map((s) => ({ role: 'Submitter' as UserRolePersona, label: s.assignee, organization: s.organization })),
-      { role: 'Verifier', label: set.assignedVerifier },
-      { role: 'Inspector', label: set.mandatoryInspectionRequired ? set.assignedInspector : undefined },
-      { role: 'Approver', label: set.assignedApprover },
+      { role: 'Verifier', label: getSetAssignedVerifier(set) },
+      { role: 'Inspector', label: set.mandatoryInspectionRequired ? getSetAssignedInspector(set) : undefined },
+      { role: 'Approver', label: getSetAssignedApprover(set) },
     ];
     assignments.forEach(({ role, label, organization }) => {
       const person = label && label !== PENDING_ASSIGNMENT ? findUserByAssigneeLabel(users, label) : undefined;
@@ -135,10 +138,10 @@ export function seedAssignmentNotices(
       /* personal isolation: only notify the set's own creator to fill pending roles, never broadcast to all same-org admins */
       const creator = getAssuranceSetCreator(set, users);
       const creatorUser =
-        (set.createdByUserId &&
+        (set.createdBy?.userId &&
           users.find(
             (u) =>
-              u.id === set.createdByUserId &&
+              u.id === set.createdBy?.userId &&
               u.status === 'Active' &&
               (u.roles.includes('Administrator') || u.roles.includes('C Admin')) &&
               u.organization?.trim().toLowerCase() === org,
@@ -267,7 +270,7 @@ export interface NotificationAction {
 }
 
 export interface NotificationActionContext {
-  assuranceSets: (Pick<AssuranceSet, 'id' | 'vesselName'> &
+  assuranceSets: (Pick<AssuranceSet, 'id'> & { vesselName?: string } &
     Partial<Pick<AssuranceSet, 'stage' | 'mandatoryInspectionRequired' | 'inspectionCompleted'>>)[];
   documents: Pick<MasterDocument, 'id'>[];
   capaItems: Pick<CapaItem, 'id' | 'vesselName'>[];
@@ -340,7 +343,7 @@ export function getNotificationAction(
         return workspaceOrSet({
           label,
           view: 'inspector',
-          entityId: notification.vesselName || set?.vesselName,
+          entityId: (notification.vesselName || set?.vesselName) as string | undefined,
           disabledReason,
         });
       }
@@ -527,11 +530,15 @@ const noticeLabel: Record<TargetDateNoticeKind, string> = {
 };
 
 export function targetDateRecipientIds(
-  set: Pick<AssuranceSet, 'assignedSubmitter' | 'assignedVerifier' | 'assignedApprover'>,
+  set: SetStakeholdersInput,
   users: UserProfile[],
   actorUserId?: string,
 ): string[] {
-  const ids = [set.assignedSubmitter, set.assignedVerifier, set.assignedApprover]
+  const ids = [
+    getSetAssignedSubmitter(set),
+    getSetAssignedVerifier(set),
+    getSetAssignedApprover(set),
+  ]
     .map((label) => resolveNotificationRecipient(label, users)?.id)
     .filter((id): id is string => Boolean(id));
   if (actorUserId) ids.push(actorUserId);
@@ -573,11 +580,11 @@ export function buildTargetDateNoticeDrafts(input: {
         recipientUserId,
         senderName: 'MAP',
         projectId: input.set.projectId,
-        projectName: input.set.projectName,
+        projectName: getSetProjectName(input.set),
         assuranceSetId: input.set.id,
         taskId,
         targetDate,
-        vesselName: input.set.vesselName,
+        vesselName: getSetVessel(input.set)?.name,
       });
     });
   };
@@ -598,13 +605,24 @@ export function buildTargetDateNoticeDrafts(input: {
   if (setStillOpen(input.set)) {
     items.push({
       title: input.set.title,
-      date: input.set.targetDate || input.set.complianceDeadline,
+      date: getSetDeadline(input.set),
       open: true,
     });
     input.set.requirements.forEach((task: AssuranceRequirement) => {
       if (!isTaskOpen(task)) return;
       items.push({ taskId: task.id, title: task.title, date: task.targetDate, open: true });
     });
+  }
+  if (input.changed?.scope === 'task' && input.changed.taskId) {
+    const alreadyInItems = items.some((i) => i.taskId === input.changed!.taskId);
+    if (!alreadyInItems) {
+      items.push({
+        taskId: input.changed.taskId,
+        title: input.changed.taskTitle || 'Task',
+        date: input.changed.newDate,
+        open: true,
+      });
+    }
   }
   items.forEach((item) => {
     const kind = targetDateNoticeKind(item.date, input.today);

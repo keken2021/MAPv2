@@ -35,6 +35,12 @@ import {
   customRequirementFields,
 } from '../utils/assuranceTemplates';
 import { AssuranceRequirement, AssuranceSet } from '../types/assurance';
+import { getRequestingParty, getRespondingParty } from '../utils/setParties';
+import {
+  getSetAssignedSubmitter,
+  getSetAssignedVerifier,
+  getSetAssignedApprover,
+} from '../utils/setStakeholders';
 
 const initialState = useMapStore.getState();
 
@@ -63,25 +69,35 @@ function buildSs04(): AssuranceSet {
     assuranceType: 'Vessel',
     subtypes: ['Vessel'],
     projectId: OIL_CO_LNG_PROJECT_ID,
-    projectName: 'Oil Company LNG Field Development',
-    vesselId: 'VES-OILCO-BUNKER-BARGE',
-    vesselName: 'Oilco Bunker Barge Aurora Supply',
-    imoNumber: '9876139',
-    initiatorOrg: NORTHWIND_ORG,
-    initiatorRole: 'C Admin · Client Created',
-    createdByPersona: 'C Admin',
-    createdByUserId: 'USR-235',
-    createdByName: 'T. Okada',
-    clientOrg: NORTHWIND_ORG,
-    charterer: NORTHWIND_ORG,
-    serviceProviderOrg: OIL_CO_ORG,
-    assignedSubmitter: 'J. Hale (Oil Company)',
-    assignedVerifier: 'N. Brooks (Coastal Fuel Testing)',
-    assignedApprover: 'C. Almeida (Coastal Fuel Testing)',
+    assuranceObjects: [
+      {
+        id: 'VES-OILCO-BUNKER-BARGE',
+        type: 'vessel',
+        name: 'Oilco Bunker Barge Aurora Supply',
+        ownerOrganization: OIL_CO_ORG,
+        identifier: '9876139',
+      },
+    ],
+    parties: [
+      { organization: NORTHWIND_ORG, role: 'Requesting party' },
+      { organization: OIL_CO_ORG, role: 'Responding party' },
+      { organization: COASTAL_ORG, role: 'Third party' },
+    ],
+    createdBy: {
+      userId: 'USR-235',
+      name: 'T. Okada',
+      persona: 'C Admin',
+    },
+    submitters: [{ organization: OIL_CO_ORG, assignee: 'J. Hale (Oil Company)' }],
+    stakeholders: {
+      submitterName: 'J. Hale (Oil Company)',
+      verifierName: 'N. Brooks (Coastal Fuel Testing)',
+      approverName: 'C. Almeida (Coastal Fuel Testing)',
+    },
     reviewMode: 'third_party',
-    charterWindowStart: '2026-11-15',
-    complianceDeadline: '2026-11-15',
-    charterWindowEnd: '2027-05-15',
+    startDate: '2026-11-15',
+    deadline: '2026-11-15',
+    endDate: '2027-05-15',
     stage: 'Initiated',
     readinessScore: 10,
     mandatoryInspectionRequired: false,
@@ -98,26 +114,35 @@ function buildSs05(): AssuranceSet {
     assuranceType: 'Equipment',
     subtypes: ['Equipment'],
     projectId: OIL_CO_LNG_PROJECT_ID,
-    projectName: 'Oil Company LNG Field Development',
-    initiatorOrg: OIL_CO_ORG,
-    clientOrg: OIL_CO_ORG,
-    charterer: OIL_CO_ORG,
-    serviceProviderOrg: KESTREL_ORG,
-    /* attach needs a project asset; reuse Endeavour already on the LNG project (same as finishedSetsStayApproved) */
-    vesselId: OIL_CO_ENDEAVOUR_ID,
-    vesselName: 'OSV Meridian Endeavour',
-    imoNumber: '9876501',
-    initiatorRole: 'C Admin · Client Created',
-    createdByPersona: 'C Admin',
-    createdByUserId: 'USR-228',
-    createdByName: 'A. Okonkwo',
-    assignedSubmitter: 'A. Petrov (Kestrel Control Systems)',
-    assignedVerifier: 'R. Singh (Sentinel Cyber Assurance)',
-    assignedApprover: 'K. Adeyemi (Oil Company)',
+    assuranceObjects: [
+      {
+        id: OIL_CO_ENDEAVOUR_ID,
+        type: 'vessel',
+        name: 'OSV Meridian Endeavour',
+        ownerOrganization: MERIDIAN_ORG,
+        identifier: '9876501',
+      },
+    ],
+    parties: [
+      { organization: OIL_CO_ORG, role: 'Requesting party' },
+      { organization: KESTREL_ORG, role: 'Responding party' },
+      { organization: SENTINEL_ORG, role: 'Third party' },
+    ],
+    createdBy: {
+      userId: 'USR-228',
+      name: 'A. Okonkwo',
+      persona: 'C Admin',
+    },
+    submitters: [{ organization: KESTREL_ORG, assignee: 'A. Petrov (Kestrel Control Systems)' }],
+    stakeholders: {
+      submitterName: 'A. Petrov (Kestrel Control Systems)',
+      verifierName: 'R. Singh (Sentinel Cyber Assurance)',
+      approverName: 'K. Adeyemi (Oil Company)',
+    },
     reviewMode: 'third_party',
-    charterWindowStart: '2026-11-15',
-    complianceDeadline: '2026-11-15',
-    charterWindowEnd: '2027-05-15',
+    startDate: '2026-11-15',
+    deadline: '2026-11-15',
+    endDate: '2027-05-15',
     stage: 'Initiated',
     readinessScore: 10,
     mandatoryInspectionRequired: false,
@@ -135,11 +160,11 @@ describe('Scenario flexibility: Oil Co five-set spine', () => {
   it('keeps SS-01 parties stable while adding role-reversed SS-04 and equipment SS-05, then rolls up to Ready', () => {
     const ss01Before = useMapStore.getState().assuranceSets.find((s) => s.id === OIL_CO_SS01_ID)!;
     const ss01Snapshot = {
-      clientOrg: ss01Before.clientOrg,
-      serviceProviderOrg: ss01Before.serviceProviderOrg,
-      assignedSubmitter: ss01Before.assignedSubmitter,
-      assignedVerifier: ss01Before.assignedVerifier,
-      assignedApprover: ss01Before.assignedApprover,
+      requestingParty: getRequestingParty(ss01Before),
+      respondingParty: getRespondingParty(ss01Before),
+      assignedSubmitter: getSetAssignedSubmitter(ss01Before),
+      assignedVerifier: getSetAssignedVerifier(ss01Before),
+      assignedApprover: getSetAssignedApprover(ss01Before),
       stage: ss01Before.stage,
     };
 
@@ -189,25 +214,25 @@ describe('Scenario flexibility: Oil Co five-set spine', () => {
       roles: ['C Admin' as const],
     };
     const storedSs04 = useMapStore.getState().assuranceSets.find((s) => s.id === 'AS-2026-104')!;
-    expect(storedSs04.clientOrg).toBe(NORTHWIND_ORG);
-    expect(storedSs04.serviceProviderOrg).toBe(OIL_CO_ORG);
-    expect(storedSs04.assignedVerifier).toContain(COASTAL_ORG);
+    expect(getRequestingParty(storedSs04)).toBe(NORTHWIND_ORG);
+    expect(getRespondingParty(storedSs04)).toBe(OIL_CO_ORG);
+    expect(getSetAssignedVerifier(storedSs04)).toContain(COASTAL_ORG);
     expect(isAssuranceSetOwnedOrInitiatedByOrganization(storedSs04, NORTHWIND_ORG)).toBe(true);
     expect(isAssuranceSetOwnedOrInitiatedByOrganization(storedSs04, MERIDIAN_ORG)).toBe(false);
     expect(isAssuranceSetAssignedToPersona(storedSs04, 'C Admin', NORTHWIND_ORG, northwindCAdminUser)).toBe(true);
 
     const storedSs05 = useMapStore.getState().assuranceSets.find((s) => s.id === 'AS-2026-105')!;
     expect(storedSs05.assuranceType).toBe('Equipment');
-    expect(storedSs05.serviceProviderOrg).toBe(KESTREL_ORG);
-    expect(storedSs05.assignedVerifier).toContain(SENTINEL_ORG);
+    expect(getRespondingParty(storedSs05)).toBe(KESTREL_ORG);
+    expect(getSetAssignedVerifier(storedSs05)).toContain(SENTINEL_ORG);
     expect(storedSs05.requirements.length).toBeGreaterThan(0);
 
     const ss01After = useMapStore.getState().assuranceSets.find((s) => s.id === OIL_CO_SS01_ID)!;
-    expect(ss01After.clientOrg).toBe(ss01Snapshot.clientOrg);
-    expect(ss01After.serviceProviderOrg).toBe(ss01Snapshot.serviceProviderOrg);
-    expect(ss01After.assignedSubmitter).toBe(ss01Snapshot.assignedSubmitter);
-    expect(ss01After.assignedVerifier).toBe(ss01Snapshot.assignedVerifier);
-    expect(ss01After.assignedApprover).toBe(ss01Snapshot.assignedApprover);
+    expect(getRequestingParty(ss01After)).toBe(ss01Snapshot.requestingParty);
+    expect(getRespondingParty(ss01After)).toBe(ss01Snapshot.respondingParty);
+    expect(getSetAssignedSubmitter(ss01After)).toBe(ss01Snapshot.assignedSubmitter);
+    expect(getSetAssignedVerifier(ss01After)).toBe(ss01Snapshot.assignedVerifier);
+    expect(getSetAssignedApprover(ss01After)).toBe(ss01Snapshot.assignedApprover);
     expect(ss01After.stage).toBe(ss01Snapshot.stage);
 
     const ss02After = useMapStore.getState().assuranceSets.find((s) => s.id === OIL_CO_SS02_ID)!;

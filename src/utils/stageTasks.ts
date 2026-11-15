@@ -9,6 +9,7 @@ import { UserRolePersona } from '../types/audit';
 import { UserProfile } from '../types/user';
 import { TaskStatus } from '../components/tables/ProjectTasksTable';
 import { getAssuranceSetRoleActions } from './rbacHelpers';
+import { getSetAssignedVerifier } from './setStakeholders';
 
 export const INSPECTION_TASK_TITLE = 'Inspection';
 export const INSPECTION_TASK_STATUS: TaskStatus = 'To Inspect';
@@ -200,7 +201,7 @@ export function isInspectionDueForViewer(
  */
 export function getRequirementStatusLabel(
   req?: Partial<Pick<AssuranceRequirement, 'documentId' | 'linkedDocumentId' | 'verifierStatus' | 'assignedVerifier' | 'title' | 'category'>> | null,
-  set?: Partial<Pick<AssuranceSet, 'stage' | 'approverDecision' | 'assignedVerifier'>> | null,
+  set?: (Partial<Pick<AssuranceSet, 'stage' | 'approverDecision' | 'stakeholders'>> & { assignedVerifier?: string }) | null,
   options?: { canViewDoc?: boolean; preferSubmitted?: boolean },
 ): string {
   if (!req) return 'Awaiting Upload';
@@ -230,7 +231,7 @@ export function getRequirementStatusLabel(
     return 'Submitted';
   }
 
-  const verifier = req.assignedVerifier?.trim() || set?.assignedVerifier?.trim();
+  const verifier = req.assignedVerifier?.trim() || set?.assignedVerifier?.trim() || getSetAssignedVerifier(set)?.trim();
   if (verifier) {
     return 'Awaiting Verifier';
   }

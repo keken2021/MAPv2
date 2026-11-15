@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { useMapStore } from '../store/useMapStore';
 import { AssuranceRequirement, AssuranceSet } from '../types/assurance';
 import { MasterDocument } from '../types/document';
+import { getSetVessel } from '../utils/setObjects';
 import { SUBTYPE_TEMPLATES } from '../utils/assuranceTemplates';
 import {
   DEMO_OPEN_UPLOAD_COUNT,
@@ -91,15 +92,24 @@ function buildPreseededSet(templateId: string): {
     set: {
       id: 'AS-DEMO-PRESEED',
       title: template.name,
-      assuranceType: 'Vessel',
-      vesselId: 'VES-DEMO',
-      vesselName: 'Demo Vessel',
-      imoNumber: '1234567',
-      initiatorOrg: 'Oil Company',
-      initiatorRole: 'Vessel Provider Admin',
-      charterWindowStart: '2026-11-18',
-      complianceDeadline: '2026-11-18',
-      charterWindowEnd: '2026-11-20',
+      parties: [
+        { organization: 'Northwind Marine Pty Ltd', role: 'Requesting party' },
+        { organization: 'Oil Company', role: 'Responding party' },
+        { organization: 'Coastal Fuel Testing', role: 'Third party' },
+      ],
+      assuranceObjects: [
+        {
+          id: 'VES-DEMO',
+          type: 'vessel',
+          name: 'Demo Vessel',
+          identifier: '1234567',
+          ownerOrganization: 'Oil Company',
+        },
+      ],
+      startDate: '2026-11-18',
+      deadline: '2026-11-18',
+      endDate: '2026-11-20',
+      dateHistory: [],
       stage: 'Validation',
       readinessScore: 10,
       verificationRequired: true,
@@ -107,10 +117,14 @@ function buildPreseededSet(templateId: string): {
       mandatoryInspectionRequired: false,
       inspectionCompleted: false,
       requirements,
-      assignedSubmitter: 'J. Hale (Oil Company)',
-      assignedVerifier: 'N. Brooks (Coastal Fuel Testing)',
-      clientOrg: 'Northwind Marine Pty Ltd',
-      serviceProviderOrg: 'Oil Company',
+      createdBy: { userId: 'USR-101', name: 'K. Osei', persona: 'Administrator' },
+      submitters: [{ organization: 'Oil Company', assignee: 'J. Hale (Oil Company)' }],
+      stakeholders: {
+        submitterOrg: 'Oil Company',
+        submitterName: 'J. Hale (Oil Company)',
+        verifierOrg: 'Coastal Fuel Testing',
+        verifierName: 'N. Brooks (Coastal Fuel Testing)',
+      },
     },
     documents,
     openTitles: tasks.slice(0, DEMO_OPEN_UPLOAD_COUNT).map((task) => task.title),
@@ -176,13 +190,13 @@ describe('oil Co AS-04 / AS-05 demo preseed', () => {
       requirements: set.requirements.map((req) =>
         openTitles.includes(req.title)
           ? {
-              ...req,
-              documentId: `DOC-LIVE-${req.id}`,
-              documentVersion: 'v1.0',
-              ocrConfidence: 90,
-              verifierStatus: 'Pending' as const,
-              isFulfilled: false,
-            }
+            ...req,
+            documentId: `DOC-LIVE-${req.id}`,
+            documentVersion: 'v1.0',
+            ocrConfidence: 90,
+            verifierStatus: 'Pending' as const,
+            isFulfilled: false,
+          }
           : req,
       ),
     };
@@ -229,7 +243,7 @@ describe('oil Co AS-04 / AS-05 demo preseed', () => {
         id: `DOC-LIVE-${index}`,
         title: req.title,
         entityType: 'Vessel Certificate',
-        vesselId: set.vesselId,
+        vesselId: getSetVessel(set)?.id || 'VES-DEMO',
         certificateNo: `LIVE-${index}`,
         issuingAuthority: 'Oil Company',
         expiryDate: '2027-11-15',

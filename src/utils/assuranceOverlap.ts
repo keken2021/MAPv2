@@ -5,8 +5,17 @@
 */
 
 import { AssuranceSet, AssuranceSubtype } from '../types/assurance';
-import { getAssuranceSetCrewIds, getAssuranceSetCrewNames, getAssuranceSetScopes } from './assuranceTemplates';
 import { formatMaritimeDate } from './formatters';
+import { getSetStartDate, getSetEndDate } from './setDates';
+import {
+  getSetVesselId,
+  getSetVesselName,
+  getSetEquipmentId,
+  getSetEquipmentName,
+  getSetCrewIds,
+  getSetCrewNames,
+  getAssuranceSetScopes,
+} from './setObjects';
 
 export interface ContractPeriodCandidate {
   /** id of the set being edited, so it does not conflict with itself */
@@ -46,19 +55,23 @@ export function findOverlappingAssuranceSets(
   sets.forEach((set) => {
     if (set.id === candidate.id) return;
     if (set.visibility === 'draft') return;
-    if (!set.charterWindowStart || !set.charterWindowEnd) return;
+    const setStart = getSetStartDate(set);
+    const setEnd = getSetEndDate(set);
+    if (!setStart || !setEnd) return;
     if (getAssuranceSetScopes(set)[0] !== scope) return;
-    if (!contractPeriodsOverlap(start, end, set.charterWindowStart, set.charterWindowEnd)) return;
+    if (!contractPeriodsOverlap(start, end, setStart, setEnd)) return;
 
-    if (scope === 'Vessel' && candidate.vesselId && set.vesselId === candidate.vesselId) {
-      conflicts.push({ set, assetName: set.vesselName || set.vesselId });
+    const setVesselId = getSetVesselId(set);
+    const setEquipmentId = getSetEquipmentId(set);
+    if (scope === 'Vessel' && candidate.vesselId && setVesselId === candidate.vesselId) {
+      conflicts.push({ set, assetName: getSetVesselName(set) || setVesselId });
     } else if (scope === 'Crew') {
-      const setCrewIds = getAssuranceSetCrewIds(set);
-      const setCrewNames = getAssuranceSetCrewNames(set);
+      const setCrewIds = getSetCrewIds(set);
+      const setCrewNames = getSetCrewNames(set);
       const sharedIndex = setCrewIds.findIndex((id) => (candidate.crewIds || []).includes(id));
       if (sharedIndex >= 0) conflicts.push({ set, assetName: setCrewNames[sharedIndex] });
-    } else if (scope === 'Equipment' && candidate.equipmentId && set.equipmentId === candidate.equipmentId) {
-      conflicts.push({ set, assetName: set.equipmentName || set.equipmentId });
+    } else if (scope === 'Equipment' && candidate.equipmentId && setEquipmentId === candidate.equipmentId) {
+      conflicts.push({ set, assetName: getSetEquipmentName(set) || setEquipmentId });
     }
   });
   return conflicts;
@@ -68,7 +81,7 @@ export function findOverlappingAssuranceSets(
 export function formatOverlapError(conflicts: ContractPeriodConflict[]): string {
   if (conflicts.length === 0) return '';
   const [{ set, assetName }] = conflicts;
-  const period = `${formatMaritimeDate(set.charterWindowStart)} – ${formatMaritimeDate(set.charterWindowEnd)}`;
+  const period = `${formatMaritimeDate(getSetStartDate(set))} – ${formatMaritimeDate(getSetEndDate(set))}`;
   const more = conflicts.length > 1 ? ` and ${conflicts.length - 1} more` : '';
   return `Contract period overlaps ${set.id} (${period}) for ${assetName}${more}.`;
 }
@@ -129,18 +142,22 @@ export function getDefaultNonConflictingContractPeriod(
   const relevantSets = sets.filter((set) => {
     if (set.id === candidate?.id) return false;
     if (set.visibility === 'draft') return false;
-    if (!set.charterWindowStart || !set.charterWindowEnd) return false;
+    const setStart = getSetStartDate(set);
+    const setEnd = getSetEndDate(set);
+    if (!setStart || !setEnd) return false;
     if (candidate?.scope && getAssuranceSetScopes(set)[0] !== candidate.scope) {
       return false;
     }
-    if (candidate?.scope === 'Vessel' && candidate.vesselId && set.vesselId !== candidate.vesselId) {
+    const setVesselId = getSetVesselId(set);
+    const setEquipmentId = getSetEquipmentId(set);
+    if (candidate?.scope === 'Vessel' && candidate.vesselId && setVesselId !== candidate.vesselId) {
       return false;
     }
     if (candidate?.scope === 'Crew' && candidate.crewIds?.length) {
-      const setCrewIds = getAssuranceSetCrewIds(set);
+      const setCrewIds = getSetCrewIds(set);
       if (!candidate.crewIds.some((id) => setCrewIds.includes(id))) return false;
     }
-    if (candidate?.scope === 'Equipment' && candidate.equipmentId && set.equipmentId !== candidate.equipmentId) {
+    if (candidate?.scope === 'Equipment' && candidate.equipmentId && setEquipmentId !== candidate.equipmentId) {
       return false;
     }
     return true;
@@ -153,8 +170,9 @@ export function getDefaultNonConflictingContractPeriod(
 
   let latestEnd = '2027-12-31';
   relevantSets.forEach((s) => {
-    if (s.charterWindowEnd && s.charterWindowEnd > latestEnd) {
-      latestEnd = s.charterWindowEnd;
+    const sEnd = getSetEndDate(s);
+    if (sEnd && sEnd > latestEnd) {
+      latestEnd = sEnd;
     }
   });
 

@@ -19,6 +19,15 @@ import {
   SIDEBAR_HIDDEN_DUPLICATES,
 } from '../utils/rbacHelpers';
 import { getDemoSessionContext, getSessionUserForPersona } from '../utils/userRoleHelpers';
+import { getSetOrganizations, getRequestingParty, getRespondingParty } from '../utils/setParties';
+import {
+  getSetAssignedSubmitter,
+  getSetAssignedVerifier,
+  getSetAssignedInspector,
+  getSetAssignedApprover,
+  getSetCreatedBy,
+} from '../utils/setStakeholders';
+import { getSetVesselId, getSetVesselName } from '../utils/setObjects';
 
 const matrix = buildBrdRolePermissionDefaults();
 
@@ -75,29 +84,32 @@ function isAwaitingApprovalSet(set: AssuranceSet): boolean {
 function orgMatchesSetForAdmin(set: AssuranceSet, organization: string): boolean {
   const org = organization.trim().toLowerCase();
   const fields = [
-    set.serviceProviderOrg,
-    set.initiatorOrg,
-    set.assignedSubmitter,
+    getRespondingParty(set),
+    getRequestingParty(set),
+    getSetAssignedSubmitter(set),
     set.stakeholders?.submitterOrg,
-    set.assignedStakeholders?.submitterOrg,
+    ...getSetOrganizations(set),
   ];
   const orgMatches = fields.some((f) => Boolean(f) && f!.toLowerCase().includes(org));
+  const vesselId = getSetVesselId(set);
+  const vesselName = getSetVesselName(set);
   const isOwnerVessel =
     (org.includes('northwind') || org.includes('pacific')) &&
-    (set.vesselId === 'VESSEL-005' || Boolean(set.vesselName?.toLowerCase().includes('atlantic ocean')));
+    (vesselId === 'VESSEL-005' || Boolean(vesselName?.toLowerCase().includes('atlantic ocean')));
   const isMadeByThisOrgAdmin =
-    set.createdByPersona === 'Administrator' &&
-    [set.initiatorOrg, set.serviceProviderOrg].some((f) => Boolean(f) && f!.toLowerCase().includes(org));
+    getSetCreatedBy(set).persona === 'Administrator' &&
+    [getRequestingParty(set), getRespondingParty(set)].some(
+      (f) => Boolean(f) && f!.toLowerCase().includes(org),
+    );
   return orgMatches || isOwnerVessel || isMadeByThisOrgAdmin;
 }
 
 function orgMatchesSetForClientAdmin(set: AssuranceSet, organization: string): boolean {
   const org = organization.trim().toLowerCase();
   const fields = [
-    set.clientOrg,
-    set.charterer,
-    set.initiatorOrg,
-    set.serviceProviderOrg,
+    getRequestingParty(set),
+    getRespondingParty(set),
+    ...getSetOrganizations(set),
     set.stakeholders?.submitterOrg,
     set.stakeholders?.verifierOrg,
     set.stakeholders?.inspectorOrg,
@@ -200,31 +212,31 @@ describe('role access check across organizations', () => {
 
         visibleSets.forEach((set) => {
           if (persona === 'Submitter') {
-            expect(assigneeMatchesUser(set.assignedSubmitter, sessionUser)).toBe(true);
+            expect(assigneeMatchesUser(getSetAssignedSubmitter(set), sessionUser)).toBe(true);
           } else if (persona === 'Verifier') {
-            expect(assigneeMatchesUser(set.assignedVerifier, sessionUser)).toBe(true);
+            expect(assigneeMatchesUser(getSetAssignedVerifier(set), sessionUser)).toBe(true);
           } else if (persona === 'Inspector') {
-            expect(assigneeMatchesUser(set.assignedInspector, sessionUser)).toBe(true);
+            expect(assigneeMatchesUser(getSetAssignedInspector(set), sessionUser)).toBe(true);
             expect(set.mandatoryInspectionRequired).toBe(true);
           } else if (persona === 'Approver') {
-            expect(assigneeMatchesUser(set.assignedApprover, sessionUser)).toBe(true);
+            expect(assigneeMatchesUser(getSetAssignedApprover(set), sessionUser)).toBe(true);
             expect(isAwaitingApprovalSet(set)).toBe(true);
           }
         });
 
         MOCK_ASSURANCE_SETS.forEach((set) => {
-          if (persona === 'Submitter' && !assigneeMatchesUser(set.assignedSubmitter, sessionUser)) {
+          if (persona === 'Submitter' && !assigneeMatchesUser(getSetAssignedSubmitter(set), sessionUser)) {
             expect(isAssuranceSetAssignedToPersona(set, persona, org, sessionUser)).toBe(false);
-          } else if (persona === 'Verifier' && !assigneeMatchesUser(set.assignedVerifier, sessionUser)) {
+          } else if (persona === 'Verifier' && !assigneeMatchesUser(getSetAssignedVerifier(set), sessionUser)) {
             expect(isAssuranceSetAssignedToPersona(set, persona, org, sessionUser)).toBe(false);
           } else if (
             persona === 'Inspector' &&
-            (!assigneeMatchesUser(set.assignedInspector, sessionUser) || !set.mandatoryInspectionRequired)
+            (!assigneeMatchesUser(getSetAssignedInspector(set), sessionUser) || !set.mandatoryInspectionRequired)
           ) {
             expect(isAssuranceSetAssignedToPersona(set, persona, org, sessionUser)).toBe(false);
           } else if (
             persona === 'Approver' &&
-            (!assigneeMatchesUser(set.assignedApprover, sessionUser) || !isAwaitingApprovalSet(set))
+            (!assigneeMatchesUser(getSetAssignedApprover(set), sessionUser) || !isAwaitingApprovalSet(set))
           ) {
             expect(isAssuranceSetAssignedToPersona(set, persona, org, sessionUser)).toBe(false);
           }

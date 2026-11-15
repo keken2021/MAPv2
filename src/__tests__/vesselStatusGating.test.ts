@@ -88,25 +88,21 @@ describe('vessel status assurance gating', () => {
     const unapprovedSet: AssuranceSet = {
       id: 'AS-TEST-01',
       title: 'In-Progress Assurance',
-      vesselId: mockVessel.id,
-      vesselName: mockVessel.name,
-      imoNumber: mockVessel.imoNumber,
-      initiatorOrg: 'Test Org',
-      initiatorRole: 'C Admin · Client Created',
-      charterWindowStart: '2026-10-01',
-      complianceDeadline: '2026-10-01',
-      charterWindowEnd: '2027-10-01',
+      assuranceObjects: [{ id: mockVessel.id, type: 'vessel', name: mockVessel.name, identifier: mockVessel.imoNumber, ownerOrganization: 'Test Org' }],
+      parties: [
+        { organization: 'Test Org', role: 'Requesting party' },
+        { organization: 'Test Org', role: 'Responding party' },
+      ],
+      startDate: '2026-10-01',
+      deadline: '2026-10-01',
+      endDate: '2027-10-01',
+      dateHistory: [],
+      createdBy: { userId: 'USR-101', name: 'User', persona: 'C Admin' },
       stage: 'Validation',
       readinessScore: 40,
       mandatoryInspectionRequired: false,
       inspectionCompleted: false,
-      assignedSubmitter: 'Tester',
-      assignedVerifier: 'Verifier',
-      assignedApprover: 'Approver',
       requirements: [],
-      stakeholders: undefined,
-      assignedStakeholders: undefined,
-      createdByPersona: ''
     };
 
     expect(isVesselAssuranceApproved(mockVessel, [unapprovedSet], emptyDocs)).toBe(false);
@@ -119,25 +115,21 @@ describe('vessel status assurance gating', () => {
     const approvedSet: AssuranceSet = {
       id: 'AS-TEST-02',
       title: 'Approved Assurance Campaign',
-      vesselId: mockVessel.id,
-      vesselName: mockVessel.name,
-      imoNumber: mockVessel.imoNumber,
-      initiatorOrg: 'Woodside Energy Ltd',
-      initiatorRole: 'C Admin · Client Created',
-      charterWindowStart: '2026-10-01',
-      complianceDeadline: '2026-10-01',
-      charterWindowEnd: '2027-10-01',
+      assuranceObjects: [{ id: mockVessel.id, type: 'vessel', name: mockVessel.name, identifier: mockVessel.imoNumber, ownerOrganization: 'Woodside Energy Ltd' }],
+      parties: [
+        { organization: 'Woodside Energy Ltd', role: 'Requesting party' },
+        { organization: 'Woodside Energy Ltd', role: 'Responding party' },
+      ],
+      startDate: '2026-10-01',
+      deadline: '2026-10-01',
+      endDate: '2027-10-01',
+      dateHistory: [],
+      createdBy: { userId: 'USR-101', name: 'User', persona: 'C Admin' },
       stage: 'Approved',
       readinessScore: 100,
       mandatoryInspectionRequired: false,
       inspectionCompleted: true,
-      assignedSubmitter: 'Tester',
-      assignedVerifier: 'Verifier',
-      assignedApprover: 'Approver',
       requirements: [],
-      stakeholders: undefined,
-      assignedStakeholders: undefined,
-      createdByPersona: ''
     };
 
     expect(isVesselAssuranceApproved(mockVessel, [approvedSet], emptyDocs)).toBe(true);
@@ -150,25 +142,21 @@ describe('vessel status assurance gating', () => {
     const readySet: AssuranceSet = {
       id: 'AS-TEST-03',
       title: '100% Ready Assurance Campaign',
-      vesselId: mockVessel.id,
-      vesselName: mockVessel.name,
-      imoNumber: mockVessel.imoNumber,
-      initiatorOrg: 'Woodside Energy Ltd',
-      initiatorRole: 'C Admin · Client Created',
-      charterWindowStart: '2026-10-01',
-      complianceDeadline: '2026-10-01',
-      charterWindowEnd: '2027-10-01',
+      assuranceObjects: [{ id: mockVessel.id, type: 'vessel', name: mockVessel.name, identifier: mockVessel.imoNumber, ownerOrganization: 'Woodside Energy Ltd' }],
+      parties: [
+        { organization: 'Woodside Energy Ltd', role: 'Requesting party' },
+        { organization: 'Woodside Energy Ltd', role: 'Responding party' },
+      ],
+      startDate: '2026-10-01',
+      deadline: '2026-10-01',
+      endDate: '2027-10-01',
+      dateHistory: [],
+      createdBy: { userId: 'USR-101', name: 'User', persona: 'C Admin' },
       stage: 'Approval',
       readinessScore: 100,
       mandatoryInspectionRequired: false,
       inspectionCompleted: true,
-      assignedSubmitter: 'Tester',
-      assignedVerifier: 'Verifier',
-      assignedApprover: 'Approver',
       requirements: [],
-      stakeholders: undefined,
-      assignedStakeholders: undefined,
-      createdByPersona: ''
     };
 
     /* readiness is not approval: only the client's approval of the set assures the vessel */
@@ -182,25 +170,21 @@ describe('vessel status assurance gating', () => {
     const endedSet: AssuranceSet = {
       id: 'AS-TEST-04',
       title: 'Approved, Period Ended',
-      vesselId: mockVessel.id,
-      vesselName: mockVessel.name,
-      imoNumber: mockVessel.imoNumber,
-      initiatorOrg: 'Woodside Energy Ltd',
-      initiatorRole: 'C Admin · Client Created',
-      charterWindowStart: '2025-01-01',
-      charterWindowEnd: '2025-12-31',
-      complianceDeadline: '2025-12-31',
+      assuranceObjects: [{ id: mockVessel.id, type: 'vessel', name: mockVessel.name, identifier: mockVessel.imoNumber, ownerOrganization: 'Woodside Energy Ltd' }],
+      parties: [
+        { organization: 'Woodside Energy Ltd', role: 'Requesting party' },
+        { organization: 'Woodside Energy Ltd', role: 'Responding party' },
+      ],
+      startDate: '2025-01-01',
+      endDate: '2025-12-31',
+      deadline: '2025-12-31',
+      dateHistory: [],
+      createdBy: { userId: 'USR-101', name: 'User', persona: 'C Admin' },
       stage: 'Approved',
       readinessScore: 100,
       mandatoryInspectionRequired: false,
       inspectionCompleted: true,
-      assignedSubmitter: 'Tester',
-      assignedVerifier: 'Verifier',
-      assignedApprover: 'Approver',
       requirements: [],
-      stakeholders: undefined,
-      assignedStakeholders: undefined,
-      createdByPersona: ''
     };
 
     expect(isVesselAssuranceApproved(mockVessel, [endedSet], emptyDocs, new Date('2026-10-23'))).toBe(false);

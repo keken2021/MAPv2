@@ -35,6 +35,8 @@ import { TablePagination } from "../components/common/TablePagination";
 import { ProjectAssuranceStatusTable } from "../components/tables/ProjectAssuranceStatusTable";
 import { ProjectTasksTable } from "../components/tables/ProjectTasksTable";
 import { ProjectOverviewTab } from "../components/projects/ProjectOverviewTab";
+import { isProjectClient, getRequestingParty, getRespondingParty } from "../utils/setParties";
+import { getSetVessel, getSetCrew, getSetEquipment } from "../utils/setObjects";
 
 interface ProjectDetailViewProps {
   projectId: string;
@@ -152,6 +154,10 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     orgFieldMatches(projectOwnerOrganization, viewingOrganization);
   const canManage =
     (activePersona === "Administrator" || activePersona === "C Admin") && isProjectOwnerOrganization;
+  const isClient = isProjectClient(sessionUser, project);
+  const canAccessProjectRosterControls =
+    (activePersona === "Administrator" || activePersona === "C Admin") &&
+    isOrganizationIncludedInProject(project, viewingOrganization);
   const canRequestAssuranceSet =
     (activePersona === "Administrator" || activePersona === "C Admin") &&
     isOrganizationIncludedInProject(project, viewingOrganization);
@@ -327,27 +333,31 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
           `${project.charterWindowStart} → ${project.charterWindowEnd}`,
         ].filter(Boolean)}
         mainAction={
-          canManage || canRequestAssuranceSet || canCreateFromRequest ? (
+          canManage || canRequestAssuranceSet || canCreateFromRequest || canAccessProjectRosterControls ? (
             <div className="d-flex flex-wrap gap-2">
+              {canAccessProjectRosterControls && (
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1.5"
+                  disabled={!isClient}
+                  title={!isClient ? "Only the project's client organization may add roster assets." : undefined}
+                  onClick={() => {
+                    if (isClient) setIsAddAssetModalOpen(true);
+                  }}
+                >
+                  <Plus size={15} />
+                  <span>Add Asset</span>
+                </button>
+              )}
               {canManage && (
-                <>
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1.5"
-                    onClick={() => setIsAddAssetModalOpen(true)}
-                  >
-                    <Plus size={15} />
-                    <span>Add Asset</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1.5"
-                    onClick={openCreateAssuranceSet}
-                  >
-                    <FolderPlus size={15} />
-                    <span>Create Assurance Set</span>
-                  </button>
-                </>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1.5"
+                  onClick={openCreateAssuranceSet}
+                >
+                  <FolderPlus size={15} />
+                  <span>Create Assurance Set</span>
+                </button>
               )}
               {canRequestAssuranceSet && (
                 <button
@@ -663,7 +673,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                             >
                               <Eye size={16} />
                             </button>
-                            {canManage && (
+                            {canManage && isClient && (
                               <button
                                 type="button"
                                 className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-0"
@@ -816,27 +826,26 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
 
           updateAssuranceSet({
             ...selected,
-            charterWindowStart: charterStart,
-            charterWindowEnd: charterEnd,
+            startDate: charterStart,
+            endDate: charterEnd,
             projectId: project.id,
-            projectName: project.name,
-            charterer: project.clientOperator || project.requestingOrganization,
           });
+
+          const coveredObj =
+            getSetVessel(selected) ||
+            getSetCrew(selected)[0] ||
+            getSetEquipment(selected)[0];
+          const assetId = coveredObj?.id || selected.id;
+          const assetName =
+            (coveredObj && ('fullName' in coveredObj ? (coveredObj as any).fullName : coveredObj.name)) ||
+            selected.title;
 
           const result = addAssetToProject(project.id, {
             assetType,
-            assetId:
-              selected.vesselId ||
-              selected.crewId ||
-              selected.equipmentId ||
-              selected.id,
-            assetName:
-              selected.vesselName ||
-              selected.crewName ||
-              selected.equipmentName ||
-              selected.title,
+            assetId,
+            assetName,
             providerOrganization:
-              selected.initiatorOrg || selected.serviceProviderOrg || "",
+              getRespondingParty(selected) || getRequestingParty(selected) || "",
             assuranceSetId: selected.id,
             roleInProject: roleInProject || "Attached standalone set",
             notes: notes || undefined,

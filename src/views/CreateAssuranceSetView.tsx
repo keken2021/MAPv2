@@ -22,9 +22,11 @@ import {
   AssuranceSetGroupRef,
   TaskSection,
   TenantCustomSection,
+  OrganizationParty,
 } from '../types/assurance';
 import { UserProfile } from '../types/user';
 import { CrewMember } from '../types/crew';
+import type { Vessel } from '../types/vessel';
 import { DATE_PERMISSION_DEFAULT_DAYS } from '../config/thresholds';
 import {
   filterCAdminAvailableToCharter,
@@ -114,8 +116,11 @@ import {
   setOrganizationParties,
   setProviders,
   taskProvider,
-  withProjectVessels,
 } from '../utils/projectHelpers';
+import { getSetObjectPool, getSetVessel, getSetCrew, getSetEquipment } from '../utils/setObjects';
+import { getSetStartDate, getSetEndDate, getSetDeadline } from '../utils/setDates';
+import { getSetAssignedVerifier, getSetAssignedApprover } from '../utils/setStakeholders';
+import { getRequestingParty, getRespondingParty } from '../utils/setParties';
 import { AssuranceContractPeriodFields } from '../components/wizards/AssuranceContractPeriodFields';
 import {
   canOpenAssuranceRequestWizard,
@@ -468,14 +473,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   const [validityCheckRequired, setValidityCheckRequired] = useState<boolean>(true);
   const [suitabilityCheckRequired, setSuitabilityCheckRequired] = useState<boolean>(true);
 
-  /* a project set can use the project's vessels even when those vessels already have another set */
-  const vesselChoices = withProjectVessels(
-    availableVessels,
-    vessels,
-    projects.find((project) => project.id === (selectedProjectId || lockedProjectId)),
-  );
-  /* An assurance set has one Vendor organization and one Client.
-     The first assurance object chosen sets the Vendor; removing the last object frees the Vendor again. */
+  const selectedProject = projects.find((project) => project.id === (selectedProjectId || lockedProjectId));
   const selectedVendorOrg =
     selectedAssuranceObjects.length > 0 ? selectedAssuranceObjects[0].ownerOrganization : undefined;
   const isDefaultPlaceholderVessel =
@@ -485,64 +483,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     selectedAssuranceObjects[0].type === 'vessel' &&
     selectedAssuranceObjects[0].id === initialVesselId;
   const effectiveVendorFilter = isDefaultPlaceholderVessel ? undefined : selectedVendorOrg;
-
-  const availableObjectsForType = useMemo<AssuranceObject[]>(() => {
-    let list: AssuranceObject[] = [];
-    switch (newObjectType) {
-      case 'vessel':
-        list = vesselChoices.map(vesselToAssuranceObject);
-        break;
-      case 'person':
-        list = [
-          ...crew.map(crewToAssuranceObject),
-          ...storeAssuranceObjects.filter((o) => o.type === 'person'),
-        ];
-        break;
-      case 'equipment':
-        list = equipment.map(equipmentToAssuranceObject);
-        break;
-      case 'activity':
-        list = [
-          ...storeAssuranceObjects.filter((o) => o.type === 'activity'),
-          ...SEEDED_OPERATIONAL_OBJECTS.filter((o) => o.type === 'activity'),
-        ];
-        break;
-      default:
-        list = [];
-    }
-    const unique = Array.from(new Map(list.map((o) => [o.id, o])).values());
-    if (selectedVendorOrg) {
-      return unique.filter((o) => sameOrganization(o.ownerOrganization, selectedVendorOrg));
-    }
-    return unique;
-  }, [newObjectType, vesselChoices, crew, equipment, storeAssuranceObjects, selectedVendorOrg]);
-
-  const selectedVesselForScope = vesselChoices.find((v) => v.id === vesselId) || vesselChoices[0];
-
-  /* the provider is the owner of the first object that is not the client's own */
-  const assetProviderOrg =
-    objectOwnerOrganizations(selectedAssuranceObjects).find((owner) => !sameOrganization(owner, setClientOrg)) ||
-    setClientOrg;
-
-  /* a request from another organization makes that requester the service provider, so the submitter is theirs */
-  const serviceProviderOrg = resolveRequestedServiceProviderOrg(
-    requestContext,
-    setClientOrg,
-    selectedVendorOrg || assetProviderOrg,
-  );
-  const effectiveVendorOrg = selectedVendorOrg || serviceProviderOrg;
-  const appointedProviderOrg = effectiveVendorOrg;
-  const isInternalDeployment = true;
-
-  /* every organization on the set; the client stays first and cannot be removed */
-  const [organizations, setOrganizationList] = useState<string[]>(() =>
-    addObjectOwners([setClientOrg].filter(Boolean), [
-      ...selectedAssuranceObjects,
-      { ownerOrganization: serviceProviderOrg },
-      ...(requestContext?.requestingParty ? [{ ownerOrganization: requestContext.requestingParty }] : []),
-      ...(requestContext?.respondingParty ? [{ ownerOrganization: requestContext.respondingParty }] : []),
-    ]),
-  );
 
   const [orgPartyRoles, setOrgPartyRoles] = useState<Record<string, string>>(() => {
     const roles: Record<string, string> = {};
@@ -558,12 +498,141 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     if (defaultRequesting && !Object.values(roles).includes('Requesting party')) {
       roles[defaultRequesting] = 'Requesting party';
     }
-    const defaultResponding = requestContext?.respondingParty || effectiveVendorOrg;
+    const defaultResponding =
+      requestContext?.respondingParty ||
+      selectedVendorOrg ||
+      (selectedProject ? '' : (activeDemoOrganization || clientOrg || ''));
     if (defaultResponding && defaultResponding !== defaultRequesting && !Object.values(roles).includes('Responding party')) {
       roles[defaultResponding] = 'Responding party';
     }
     return roles;
   });
+
+  const effectiveRequestingParty =
+    Object.keys(orgPartyRoles).find((org) => orgPartyRoles[org] === 'Requesting party') ||
+    requestContext?.requestingParty ||
+    setClientOrg ||
+    clientOrg ||
+    '';
+
+  const effectiveRespondingParty =
+    Object.keys(orgPartyRoles).find((org) => orgPartyRoles[org] === 'Responding party') ||
+    requestContext?.respondingParty ||
+    selectedVendorOrg ||
+    (selectedProject ? '' : (activeDemoOrganization || clientOrg || ''));
+
+  const objectPoolDraft = useMemo(() => ({
+    id: editingDraftId || undefined,
+    parties: [
+      { organization: effectiveRequestingParty, role: 'Requesting party' as const },
+      { organization: effectiveVendorFilter || effectiveRespondingParty, role: 'Responding party' as const },
+    ],
+    startDate,
+    endDate,
+  }), [effectiveRequestingParty, effectiveVendorFilter, effectiveRespondingParty, startDate, endDate, editingDraftId]);
+
+  const objectPool = useMemo(() => {
+    return getSetObjectPool(
+      objectPoolDraft,
+      selectedProject,
+      {
+        vessels,
+        crew,
+        equipment,
+        storeAssuranceObjects,
+        assuranceSets,
+      },
+    );
+  }, [objectPoolDraft, selectedProject, vessels, crew, equipment, storeAssuranceObjects, assuranceSets]);
+
+  const vesselChoices = useMemo(() => {
+    const list = objectPool.filter((o) => o.type === 'vessel');
+    if (list.length === 0 && availableVessels.length > 0 && !selectedProject) {
+      return availableVessels;
+    }
+    return list.map((o) => {
+      const existing = vessels.find((v) => v.id === o.id);
+      if (existing) return existing;
+      return {
+        id: o.id,
+        name: o.name,
+        imoNumber: o.identifier || '',
+        status: o.disabled ? 'Under Charter' : 'Available for Charter',
+        owner: o.ownerOrganization,
+      } as unknown as Vessel;
+    });
+  }, [objectPool, availableVessels, selectedProject, vessels]);
+
+  const availableObjectsForType = useMemo<AssuranceObject[]>(() => {
+    if (selectedProject) {
+      return objectPool.filter((o) => o.type === newObjectType);
+    }
+    if (effectiveVendorFilter) {
+      return objectPool.filter((o) => o.type === newObjectType);
+    }
+    let storeList: AssuranceObject[] = [];
+    switch (newObjectType) {
+      case 'vessel':
+        storeList = vessels.map(vesselToAssuranceObject);
+        break;
+      case 'person':
+        storeList = [
+          ...crew.map(crewToAssuranceObject),
+          ...storeAssuranceObjects.filter((o) => o.type === 'person'),
+        ];
+        break;
+      case 'equipment':
+        storeList = [
+          ...equipment.map(equipmentToAssuranceObject),
+          ...storeAssuranceObjects.filter((o) => o.type === 'equipment'),
+        ];
+        break;
+      case 'activity':
+        storeList = [
+          ...SEEDED_OPERATIONAL_OBJECTS,
+          ...storeAssuranceObjects.filter((o) => o.type === 'activity'),
+        ];
+        break;
+      default:
+        storeList = [];
+    }
+    const seen = new Set<string>();
+    const combined: AssuranceObject[] = [];
+    for (const item of [...objectPool.filter((o) => o.type === newObjectType), ...storeList]) {
+      if (!seen.has(item.id)) {
+        seen.add(item.id);
+        combined.push(item);
+      }
+    }
+    return combined;
+  }, [newObjectType, objectPool, selectedProject, effectiveVendorFilter, vessels, crew, equipment, storeAssuranceObjects]);
+
+  const selectedVesselForScope = vesselChoices.find((v) => v.id === vesselId) || vesselChoices[0];
+
+  /* the provider is the owner of the first object that is not the client's own */
+  const assetProviderOrg =
+    objectOwnerOrganizations(selectedAssuranceObjects).find((owner) => !sameOrganization(owner, effectiveRequestingParty)) ||
+    effectiveRespondingParty ||
+    effectiveRequestingParty;
+
+  const serviceProviderOrg = effectiveRespondingParty || selectedVendorOrg || assetProviderOrg;
+  const effectiveVendorOrg = serviceProviderOrg;
+  const appointedProviderOrg = effectiveRespondingParty || effectiveVendorOrg;
+  const isInternalDeployment = Boolean(
+    effectiveRequestingParty &&
+    effectiveRespondingParty &&
+    sameOrganization(effectiveRequestingParty, effectiveRespondingParty),
+  );
+
+  /* every organization on the set; the requesting party stays first and cannot be removed */
+  const [organizations, setOrganizationList] = useState<string[]>(() =>
+    addObjectOwners([effectiveRequestingParty, effectiveRespondingParty].filter(Boolean), [
+      ...selectedAssuranceObjects,
+      { ownerOrganization: serviceProviderOrg },
+      ...(requestContext?.requestingParty ? [{ ownerOrganization: requestContext.requestingParty }] : []),
+      ...(requestContext?.respondingParty ? [{ ownerOrganization: requestContext.respondingParty }] : []),
+    ]),
+  );
 
   const handlePartyRoleChange = (organization: string, role: string) => {
     setOrgPartyRoles((prev) => {
@@ -597,37 +666,13 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     return prefilled;
   });
 
-  const effectiveRequestingParty =
-    Object.keys(orgPartyRoles).find((org) => orgPartyRoles[org] === 'Requesting party') ||
-    requestContext?.requestingParty ||
-    setClientOrg ||
-    clientOrg;
-
-  const effectiveRespondingParty =
-    Object.keys(orgPartyRoles).find((org) => orgPartyRoles[org] === 'Responding party') ||
-    requestContext?.respondingParty ||
-    effectiveVendorOrg;
-
   /* objects of the selected provider (the Responding party), shown as suggestions before the user searches */
-  const recommendedProviderOrg =
-    selectedVendorOrg ||
-    Object.keys(orgPartyRoles).find((org) => orgPartyRoles[org] === 'Responding party') ||
-    requestContext?.respondingParty ||
-    '';
+  const recommendedProviderOrg = effectiveRespondingParty;
   const recommendedObjects = useMemo<AssuranceObject[]>(() => {
-    if (!recommendedProviderOrg) return [];
-    const pool: AssuranceObject[] = [
-      ...vesselChoices.map(vesselToAssuranceObject),
-      ...crew.map(crewToAssuranceObject),
-      ...equipment.map(equipmentToAssuranceObject),
-      ...storeAssuranceObjects.filter((o) => o.type === 'activity'),
-    ];
-    const unique = Array.from(new Map(pool.map((o) => [o.id, o])).values());
-    return unique
-      .filter((o) => sameOrganization(o.ownerOrganization, recommendedProviderOrg))
+    return objectPool
       .filter((o) => !selectedAssuranceObjects.some((picked) => picked.id === o.id))
       .slice(0, 8);
-  }, [recommendedProviderOrg, vesselChoices, crew, equipment, storeAssuranceObjects, selectedAssuranceObjects, orgPartyRoles, requestContext]);
+  }, [objectPool, selectedAssuranceObjects]);
 
   const [addedOwners, setAddedOwners] = useState<string[]>([]);
 
@@ -773,7 +818,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
   /* label of an asset already contracted in the chosen period, with the dates of the set that holds it */
   const formatBookedLabel = (conflict: ContractPeriodConflict) =>
-    `Booked by ${conflict.set.id} (${formatMaritimeDate(conflict.set.charterWindowStart)} – ${formatMaritimeDate(conflict.set.charterWindowEnd)})`;
+    `Booked by ${conflict.set.id} (${formatMaritimeDate(getSetStartDate(conflict.set))} – ${formatMaritimeDate(getSetEndDate(conflict.set))})`;
 
   /* objects of listed organizations show first; every other object is found by searching */
   const objectPickerOptions = availableObjectsForType.map((o) => {
@@ -832,6 +877,18 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     }
     if (!selectedAssuranceObjects.some((o) => o.id === found.id)) {
       setSelectedAssuranceObjects((prev) => [...prev, found]);
+      if (found.ownerOrganization) {
+        setOrgPartyRoles((prev) => {
+          const u = { ...prev };
+          if (u[found.ownerOrganization] !== 'Requesting party') {
+            for (const [org, r] of Object.entries(u)) {
+              if (r === 'Responding party') delete u[org];
+            }
+            u[found.ownerOrganization] = 'Responding party';
+          }
+          return u;
+        });
+      }
       setFieldErrors((prev) => {
         const u = { ...prev };
         delete u.objects;
@@ -1096,29 +1153,35 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   /* Handle global existing assurance set template selection */
   const applyGlobalTemplateData = (targetSet: AssuranceSet) => {
     /* a template filed under a scope that is no longer offered leaves the objects as they are */
+    const targetVessel = getSetVessel(targetSet);
+    const targetCrew = getSetCrew(targetSet);
+    const targetEquipment = getSetEquipment(targetSet);
     const templateScope =
       orderAssuranceScopes(targetSet.assuranceType ? [targetSet.assuranceType] : [])[0] ||
-      (targetSet.vesselId && !targetSet.assuranceType ? 'Vessel' : undefined);
+      (targetVessel && !targetSet.assuranceType ? 'Vessel' : undefined);
     if (canTemplateReplaceObjects && templateScope) {
       const preferredId =
-        templateScope === 'Vessel' ? targetSet.vesselId : templateScope === 'Crew' ? targetSet.crewId : targetSet.equipmentId;
+        templateScope === 'Vessel' ? targetVessel?.id : templateScope === 'Crew' ? targetCrew[0]?.id : targetEquipment[0]?.id;
       const templateObjects = getTemplateObjects(templateScope, preferredId);
       if (templateObjects.length > 0) setSelectedAssuranceObjects(templateObjects);
     }
-    if (targetSet.charterWindowStart) setStartDate(targetSet.charterWindowStart);
-    if (targetSet.charterWindowEnd) setEndDate(targetSet.charterWindowEnd);
-    setComplianceDeadline(targetSet.complianceDeadline || targetSet.charterWindowStart || '');
+    const tStart = getSetStartDate(targetSet);
+    const tEnd = getSetEndDate(targetSet);
+    const tDeadline = getSetDeadline(targetSet);
+    if (tStart) setStartDate(tStart);
+    if (tEnd) setEndDate(tEnd);
+    setComplianceDeadline(tDeadline || tStart || '');
     if (targetSet.plannedCharterDate) setPlannedCharterDate(targetSet.plannedCharterDate);
-    setVerificationRequired(targetSet.verificationRequired !== undefined ? targetSet.verificationRequired : Boolean(targetSet.assignedVerifier));
+    setVerificationRequired(targetSet.verificationRequired !== undefined ? targetSet.verificationRequired : Boolean(getSetAssignedVerifier(targetSet)));
     setInspectionRequired(targetSet.mandatoryInspectionRequired);
-    setApprovalRequired(targetSet.formalApprovalRequired !== undefined ? targetSet.formalApprovalRequired : Boolean(targetSet.assignedApprover));
+    setApprovalRequired(targetSet.formalApprovalRequired !== undefined ? targetSet.formalApprovalRequired : Boolean(getSetAssignedApprover(targetSet)));
 
     const templateCharterer = defaultCharterer;
 
     const targetVesselObj = lockedVessel
-      || vesselChoices.find((v) => v.id === targetSet.vesselId)
+      || (targetVessel ? vesselChoices.find((v) => v.id === targetVessel.id) : undefined)
       || vesselChoices[0];
-    const vesselDisplayName = targetSet.vesselName || targetVesselObj?.name || 'Vessel';
+    const vesselDisplayName = targetVessel?.name || targetVesselObj?.name || 'Vessel';
 
     const baseSubject = targetSet.title
       .replace(new RegExp(`^${templateCharterer}\\s*[-–:]*\\s*`, 'i'), '')
@@ -1205,7 +1268,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           // Resume draft editing in-place
           setEditingDraftId(target.id);
           setTitle(target.title);
-          setPppTags(((target.tags || target.pppTags || []) as ThreePillarsCategory[]));
+          setPppTags(((target.tags || []) as ThreePillarsCategory[]));
           /* the draft's own object rows; an older draft gets them from its single-asset fields */
           if (canTemplateReplaceObjects) {
             const restoredObjects = getAssuranceSetObjects(target);
@@ -1220,9 +1283,12 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           } else {
             setTemplatePrivacy('organization');
           }
-          if (target.charterWindowStart) setStartDate(target.charterWindowStart);
-          if (target.charterWindowEnd) setEndDate(target.charterWindowEnd);
-          setComplianceDeadline(target.complianceDeadline || target.charterWindowStart || '');
+          const draftStart = getSetStartDate(target);
+          const draftEnd = getSetEndDate(target);
+          const draftDeadline = getSetDeadline(target);
+          if (draftStart) setStartDate(draftStart);
+          if (draftEnd) setEndDate(draftEnd);
+          setComplianceDeadline(draftDeadline || draftStart || '');
           if (target.plannedCharterDate) setPlannedCharterDate(target.plannedCharterDate);
           setVerificationRequired(target.verificationRequired ?? true);
           setInspectionRequired(target.mandatoryInspectionRequired);
@@ -1333,8 +1399,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     tomorrow.setDate(tomorrow.getDate() + 1);
     return toIsoLocalDate(tomorrow);
   }, []);
-
-  const selectedProject = selectedProjectId ? projects.find((p) => p.id === selectedProjectId) : undefined;
 
   const projectBounds = useMemo(() => {
     return getProjectDateBounds(selectedProject, tomorrowDateStr);
@@ -1601,10 +1665,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       selectedAssuranceObjects.forEach((obj) => {
         const scope = getAssuranceObjectScope(obj.type);
         if (!scope) return;
-        if (obj.type === 'vessel' && !vesselChoices.some((v) => v.id === obj.id)) {
-          newErrors[`object_${obj.id}`] = 'Select a vessel from another organization.';
-          return;
-        }
         if (datesValid) {
           const overlap = formatOverlapError(getAssetPeriodConflicts(scope, obj.id, startDate, endDate, assuranceSets, editingDraftId || undefined));
           if (overlap) newErrors[`object_${obj.id}`] = overlap;
@@ -1770,7 +1830,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   );
 
   /* providers submit: each object owner submits for its own objects, the service provider submits for the rest */
-  const providers = setProviders(selectedAssuranceObjects, setClientOrg, serviceProviderOrg);
+  const providers = setProviders(selectedAssuranceObjects, effectiveRequestingParty, effectiveRespondingParty);
   const providerSubmitters = providers.map((organization) => ({
     organization,
     person: selectedAssuranceObjects
@@ -2145,7 +2205,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     const newSet: AssuranceSet = {
       id: targetSetId,
       title: title.trim(),
-      assuranceType,
       scopeType: getAssuranceSetScopeType(
         {
           assuranceType,
@@ -2160,33 +2219,19 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
         equipment,
       ),
       projectId: selectedProject?.id,
-      projectName: selectedProject?.name,
-      crewId: selectedScopes.includes('Crew') ? selectedCrewId : undefined,
-      crewName: selectedScopes.includes('Crew') ? (selectedCrew?.fullName || selectedCrewId) : undefined,
-      crewIds: selectedScopes.includes('Crew') ? selectedCrewIds : undefined,
-      crewNames: selectedScopes.includes('Crew') ? selectedCrewMembers.map((c) => c.fullName) : undefined,
-      equipmentId: selectedScopes.includes('Equipment') ? selectedEquipmentId : undefined,
-      equipmentName: selectedScopes.includes('Equipment') ? (selectedEquipment?.name || selectedEquipmentId) : undefined,
       subtypes: activeSubtypes,
-      subtypeStakeholders: {
-        Vessel: subtypeStakeholder,
-        Crew: subtypeStakeholder,
-        Equipment: subtypeStakeholder,
-      },
       visibility: 'organization',
       templateSource: isPublicTemplateRequested ? 'public' : 'organization',
       appliedTemplates: selectedSubtypeTemplates,
-      vesselId: selectedVessel?.id || '',
-      vesselName: effectiveAssetName,
-      imoNumber: effectiveImo,
-      initiatorOrg,
-      initiatorRole: creatorPersona === 'C Admin' ? 'C Admin · Client Created' : 'Vessel Provider Admin',
-      charterer: effectiveCharterer,
       plannedCharterDate: plannedCharterDate || undefined,
-      charterWindowStart: startDate,
-      charterWindowEnd: endDate,
-      complianceDeadline,
-      targetDate: complianceDeadline,
+      startDate,
+      endDate,
+      deadline: complianceDeadline,
+      createdBy: {
+        userId: activeSessionUserId,
+        name: creatorName,
+        persona: creatorPersona,
+      },
       datePermissionGrants: activeSessionUserId
         ? [
           {
@@ -2200,7 +2245,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           },
         ]
         : [],
-      targetDateHistory: [
+      dateHistory: [
         {
           id: `TDC-${Date.now()}-0`,
           setId: uniqueSetId,
@@ -2218,56 +2263,34 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       mandatoryInspectionRequired: inspectionRequired,
       formalApprovalRequired: approvalRequired,
       inspectionCompleted: false,
-      assignedSubmitter: submitterLabel,
-      assignedVerifier: reqAssignedVerifier,
-      assignedInspector: reqAssignedInspector,
-      assignedApprover: reqAssignedApprover,
       approverDecision: approvalRequired ? 'Pending' : undefined,
       validityCheckRequired,
       suitabilityCheckRequired,
-      serviceProviderOrg: effectiveVendorOrg,
-      clientOrg: ownerOrg,
-      requestingParty:
-        Object.keys(orgPartyRoles).find((org) => orgPartyRoles[org] === 'Requesting party') ||
-        requestContext?.requestingParty ||
-        ownerOrg,
-      respondingParty:
-        Object.keys(orgPartyRoles).find((org) => orgPartyRoles[org] === 'Responding party') ||
-        requestContext?.respondingParty ||
-        effectiveVendorOrg,
-      partyRoles: orgPartyRoles,
-      parties: organizations.map((org) => {
-        const existingParty = setOrganizationParties({
-          clientOrg: ownerOrg,
-          charterer: effectiveCharterer,
-          serviceProviderOrg: effectiveVendorOrg,
-        }).find((p) => sameOrganization(p.organization, org));
-        const group =
-          existingParty?.group ||
-          (sameOrganization(org, ownerOrg)
-            ? 'Client'
-            : sameOrganization(org, effectiveVendorOrg)
-              ? 'Vendor'
-              : 'Third party');
-        return {
-          organization: org,
-          group,
-          partyRole: orgPartyRoles[org] || (org === requestContext?.requestingParty ? 'Requesting party' : org === requestContext?.respondingParty ? 'Responding party' : undefined),
-        };
-      }),
-      organizations,
+      parties: (() => {
+        const req = (effectiveRequestingParty || ownerOrg).trim();
+        const resp = (effectiveRespondingParty || effectiveVendorOrg).trim();
+        const res: OrganizationParty[] = [];
+        if (req && resp && sameOrganization(req, resp)) {
+          res.push({ organization: req, group: 'Client', role: 'Requesting party', partyRole: 'Requesting party' });
+          res.push({ organization: resp, group: 'Vendor', role: 'Responding party', partyRole: 'Responding party' });
+        } else {
+          if (req) res.push({ organization: req, group: 'Client', role: 'Requesting party', partyRole: 'Requesting party' });
+          if (resp) res.push({ organization: resp, group: 'Vendor', role: 'Responding party', partyRole: 'Responding party' });
+        }
+        for (const org of organizations) {
+          if (!res.some((p) => sameOrganization(p.organization, org))) {
+            res.push({ organization: org, group: 'Third party', role: 'Third party', partyRole: 'Third party' });
+          }
+        }
+        return res;
+      })(),
       submitters,
       requirements: effectiveRequirements,
       sections: validSections,
       stakeholders: stakeholderOrganizations,
-      assignedStakeholders: undefined,
-      createdByPersona: creatorPersona,
-      createdByUserId: creatorUserId,
-      createdByName: creatorName,
       clientWorkflowStage: 'draft',
       assuranceObjects: selectedAssuranceObjects,
       tags: pppTags.length > 0 ? pppTags : undefined,
-      pppTags: pppTags.length > 0 ? pppTags : undefined,
       crewGroups: selectedCrewGroups.length > 0 ? selectedCrewGroups.map((g) => ({
         groupId: g.groupId,
         groupName: g.groupName,
@@ -2335,7 +2358,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       const attachResult = attachAssuranceSetToProject(newSet.id, newSet.projectId);
       if (!attachResult.success) {
         /* keep both sides consistent: a set the project roster rejected stays orphaned */
-        updateAssuranceSet({ ...newSet, projectId: undefined, projectName: undefined });
+        updateAssuranceSet({ ...newSet, projectId: undefined });
       }
     }
 
@@ -2482,65 +2505,60 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     const draftSet: AssuranceSet = {
       id: targetSetId,
       title: title.trim() || `${titleOrg} - Draft Assurance Set`,
-      assuranceType,
+      scopeType: getAssuranceSetScopeType(
+        {
+          assuranceType,
+          subtypes: activeSubtypes,
+          vesselId: selectedVessel?.id,
+          crewId: selectedScopes.includes('Crew') ? selectedCrewId : undefined,
+          equipmentId: selectedScopes.includes('Equipment') ? selectedEquipmentId : undefined,
+          title,
+        },
+        vessels,
+        crew,
+        equipment,
+      ),
       projectId: selectedProject?.id,
-      projectName: selectedProject?.name,
-      crewId: selectedScopes.includes('Crew') ? selectedCrewId : undefined,
-      crewName: selectedScopes.includes('Crew') ? (selectedCrew?.fullName || selectedCrewId) : undefined,
-      crewIds: selectedScopes.includes('Crew') ? selectedCrewIds : undefined,
-      crewNames: selectedScopes.includes('Crew') ? selectedCrewMembers.map((c) => c.fullName) : undefined,
-      equipmentId: selectedScopes.includes('Equipment') ? selectedEquipmentId : undefined,
-      equipmentName: selectedScopes.includes('Equipment') ? (selectedEquipment?.name || selectedEquipmentId) : undefined,
       subtypes: activeSubtypes,
-      subtypeStakeholders: {
-        Vessel: subtypeStakeholder,
-        Crew: subtypeStakeholder,
-        Equipment: subtypeStakeholder,
-      },
       visibility: 'draft',
       templateSource: templatePrivacy,
       appliedTemplates: selectedSubtypeTemplates,
-      vesselId: selectedVessel?.id || '',
-      vesselName: effectiveAssetName,
-      imoNumber: effectiveImo,
-      initiatorOrg,
-      initiatorRole: creatorPersona === 'C Admin' ? 'C Admin · Client Created' : 'Vessel Provider Admin',
-      charterer: effectiveCharterer,
       plannedCharterDate: plannedCharterDate || undefined,
-      charterWindowStart: startDate || initialPeriod.start,
-      charterWindowEnd: endDate || initialPeriod.end,
-      complianceDeadline: complianceDeadline || startDate || initialPeriod.start,
-      targetDate: complianceDeadline || startDate || initialPeriod.start,
+      startDate: startDate || initialPeriod.start,
+      endDate: endDate || initialPeriod.end,
+      deadline: complianceDeadline || startDate || initialPeriod.start,
+      createdBy: {
+        userId: activeSessionUserId,
+        name: creatorName,
+        persona: creatorPersona,
+      },
       stage: 'Initiated',
       readinessScore: 0,
       verificationRequired,
       mandatoryInspectionRequired: inspectionRequired,
       formalApprovalRequired: approvalRequired,
       inspectionCompleted: false,
-      assignedSubmitter: submitterLabel,
-      assignedVerifier: reqAssignedVerifier,
-      assignedInspector: reqAssignedInspector,
-      assignedApprover: reqAssignedApprover,
       approverDecision: approvalRequired ? 'Pending' : undefined,
       validityCheckRequired,
       suitabilityCheckRequired,
-      serviceProviderOrg: effectiveVendorOrg,
-      clientOrg: ownerOrg,
-      requestingParty:
-        Object.keys(orgPartyRoles).find((org) => orgPartyRoles[org] === 'Requesting party') ||
-        requestContext?.requestingParty ||
-        ownerOrg,
-      respondingParty:
-        Object.keys(orgPartyRoles).find((org) => orgPartyRoles[org] === 'Responding party') ||
-        requestContext?.respondingParty ||
-        effectiveVendorOrg,
-      partyRoles: orgPartyRoles,
-      parties: setOrganizationParties({
-        clientOrg: ownerOrg,
-        charterer: effectiveCharterer,
-        serviceProviderOrg: effectiveVendorOrg,
-      }),
-      organizations,
+      parties: (() => {
+        const req = (effectiveRequestingParty || ownerOrg).trim();
+        const resp = (effectiveRespondingParty || effectiveVendorOrg).trim();
+        const res: OrganizationParty[] = [];
+        if (req && resp && sameOrganization(req, resp)) {
+          res.push({ organization: req, group: 'Client', role: 'Requesting party', partyRole: 'Requesting party' });
+          res.push({ organization: resp, group: 'Vendor', role: 'Responding party', partyRole: 'Responding party' });
+        } else {
+          if (req) res.push({ organization: req, group: 'Client', role: 'Requesting party', partyRole: 'Requesting party' });
+          if (resp) res.push({ organization: resp, group: 'Vendor', role: 'Responding party', partyRole: 'Responding party' });
+        }
+        for (const org of organizations) {
+          if (!res.some((p) => sameOrganization(p.organization, org))) {
+            res.push({ organization: org, group: 'Third party', role: 'Third party', partyRole: 'Third party' });
+          }
+        }
+        return res;
+      })(),
       submitters,
       requirements: effectiveRequirements,
       sections: (() => {
@@ -2588,15 +2606,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
         return draftSections.filter((s) => Boolean(s.id?.trim()) && Boolean(s.name?.trim()));
       })(),
       stakeholders: stakeholderOrganizations,
-      assignedStakeholders: undefined,
-      createdByPersona: creatorPersona,
-      createdByUserId: creatorUserId,
-      createdByName: creatorName,
       clientWorkflowStage: 'draft',
-      internalDeployment: isInternalDeployment,
       assuranceObjects: selectedAssuranceObjects,
       tags: pppTags.length > 0 ? pppTags : undefined,
-      pppTags: pppTags.length > 0 ? pppTags : undefined,
       crewGroups: selectedCrewGroups.length > 0 ? selectedCrewGroups.map((g) => ({
         groupId: g.groupId,
         groupName: g.groupName,
@@ -2687,7 +2699,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
         <AlertCircle className="text-danger flex-shrink-0 mt-0.5" style={{ width: '18px', height: '18px' }} />
         <div className="small text-danger flex-grow-1">
           <strong>Asset Collision:</strong> {assetName} is already contracted under{' '}
-          <span className="font-mono-code fw-semibold">{primaryConflict.set.id}</span> ({formatMaritimeDate(primaryConflict.set.charterWindowStart)} &ndash; {formatMaritimeDate(primaryConflict.set.charterWindowEnd)}). Pick another {scope === 'Crew' ? 'crew member' : scope.toLowerCase()} or move the contract period.
+          <span className="font-mono-code fw-semibold">{primaryConflict.set.id}</span> ({formatMaritimeDate(getSetStartDate(primaryConflict.set))} &ndash; {formatMaritimeDate(getSetEndDate(primaryConflict.set))}). Pick another {scope === 'Crew' ? 'crew member' : scope.toLowerCase()} or move the contract period.
           <div className="mt-2">
             <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => applyNextFreeDates(scope, assetId)}>
               Use next free dates

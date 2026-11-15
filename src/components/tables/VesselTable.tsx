@@ -33,6 +33,7 @@ import {
 } from '../../utils/rbacHelpers';
 import type { FleetRegistryTab } from '../../utils/rbacHelpers';
 import { canPerform } from '../../utils/permissionHelpers';
+import { getSetVessel, getSetImoNumber } from '../../utils/setObjects';
 import { calculateVesselReadiness } from '../../utils/readinessHelpers';
 import { usePagination } from '../../utils/usePagination';
 import { useDeferredFilters } from '../../utils/useDeferredFilters';
@@ -244,13 +245,16 @@ export const VesselTable: React.FC<VesselTableProps> = ({
       statusFilter === 'ALL' || v.status === statusFilter;
     const matchesAssuranceSet =
       assuranceSetFilter === 'ALL' ||
-      availableAssuranceSets.some(
-        (set) =>
-          set.id === assuranceSetFilter &&
-          (set.vesselId === v.id ||
-            (set.vesselName && v.name && set.vesselName.toLowerCase() === v.name.toLowerCase()) ||
-            (set.imoNumber && v.imoNumber && set.imoNumber === v.imoNumber))
-      );
+      availableAssuranceSets.some((set) => {
+        if (set.id !== assuranceSetFilter) return false;
+        const setVessel = getSetVessel(set);
+        const setImo = getSetImoNumber(set);
+        return (
+          setVessel?.id === v.id ||
+          (setVessel?.name && v.name && setVessel.name.toLowerCase() === v.name.toLowerCase()) ||
+          Boolean(setImo && v.imoNumber && setImo === v.imoNumber)
+        );
+      });
 
     return matchesSearch && matchesFlag && matchesClass && matchesStatus && matchesAssuranceSet;
   });

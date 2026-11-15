@@ -102,21 +102,30 @@ describe('Chartered Asset Document Auto-Attachment', () => {
     const newSet: AssuranceSet = {
       id: uniqueId,
       title: `Auto Attach Vetting Test - ${vessel.name}`,
-      assuranceType: 'Vessel',
-      vesselId: vessel.id,
-      vesselName: vessel.name,
-      imoNumber: vessel.imoNumber,
-      initiatorOrg: 'Northwind Marine Pty Ltd',
-      initiatorRole: 'Vessel Provider Admin',
-      charterWindowStart: '2026-11-01',
-      complianceDeadline: '2026-11-01',
-      charterWindowEnd: '2027-11-01',
+      parties: [
+        { organization: 'Southern Basin Energy', role: 'Requesting party' },
+        { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      ],
+      assuranceObjects: [
+        {
+          id: vessel.id,
+          type: 'vessel',
+          name: vessel.name,
+          identifier: vessel.imoNumber,
+          ownerOrganization: vessel.registeredOwner || 'Northwind Marine Pty Ltd',
+        },
+      ],
+      startDate: '2026-11-01',
+      deadline: '2026-11-01',
+      endDate: '2027-11-01',
+      dateHistory: [],
       stage: 'Initiated',
       readinessScore: 10,
       verificationRequired: true,
       mandatoryInspectionRequired: false,
       formalApprovalRequired: true,
       inspectionCompleted: false,
+      createdBy: { userId: 'USR-101', name: 'K. Osei', persona: 'Administrator' },
       requirements: SUBTYPE_STANDARD_DOCS.Vessel.map((doc, idx) => ({
         id: generateUniqueRequirementId(uniqueId, idx),
         docTypeId: doc.id,
@@ -128,7 +137,6 @@ describe('Chartered Asset Document Auto-Attachment', () => {
         ocrConfidence: 0,
         verifierStatus: 'Pending',
       })),
-      createdByPersona: 'Administrator',
     };
 
     store.addAssuranceSet(newSet);

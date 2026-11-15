@@ -21,6 +21,7 @@ import { buildBrdRolePermissionDefaults } from '../utils/permissionDefaults';
 import { MOCK_ASSURANCE_SETS } from '../store/mockData';
 import { AssuranceSet } from '../types/assurance';
 import { UserRolePersona } from '../types/audit';
+import { getSetVesselId } from '../utils/setObjects';
 
 const matrix = buildBrdRolePermissionDefaults();
 
@@ -100,27 +101,35 @@ describe('assurance set role actions', () => {
 
   const assignedSet: AssuranceSet = {
     ...baseSet,
-    initiatorOrg: 'Northwind Marine Pty Ltd',
-    initiatorRole: 'Vessel Provider Admin',
-    createdByPersona: 'Administrator',
-    createdByUserId: 'USR-101',
-    createdByName: 'K. Osei',
-    assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
-    assignedVerifier: 'A. Fontaine (Southern Basin Energy Pty Ltd)',
-    assignedInspector: 'N. Technical (Southern Basin Energy Pty Ltd)',
-    assignedApprover: 'P. Nardelli (Southern Basin Energy Pty Ltd)',
+    createdBy: {
+      userId: 'USR-101',
+      name: 'K. Osei',
+      persona: 'Administrator',
+    },
+    submitters: [
+      { organization: 'Northwind Marine Pty Ltd', assignee: 'M. Chen (Northwind Marine Pty Ltd)' },
+    ],
+    stakeholders: {
+      verifierName: 'A. Fontaine (Southern Basin Energy Pty Ltd)',
+      inspectorName: 'N. Technical (Southern Basin Energy Pty Ltd)',
+      approverName: 'P. Nardelli (Southern Basin Energy Pty Ltd)',
+    },
     mandatoryInspectionRequired: true,
     stage: 'Approval',
   };
   const unassignedSet: AssuranceSet = {
     ...baseSet,
-    initiatorOrg: 'Meridian Marine Services Pty Ltd',
-    createdByUserId: 'USR-MERIDIAN-ADMIN',
-    createdByName: 'Meridian Admin',
-    assignedSubmitter: undefined,
-    assignedVerifier: undefined,
-    assignedInspector: undefined,
-    assignedApprover: undefined,
+    parties: [
+      { organization: 'Meridian Marine Services Pty Ltd', role: 'Requesting party' },
+      { organization: 'Meridian Marine Services Pty Ltd', role: 'Responding party' },
+    ],
+    createdBy: {
+      userId: 'USR-MERIDIAN-ADMIN',
+      name: 'Meridian Admin',
+      persona: 'Administrator',
+    },
+    submitters: [],
+    stakeholders: undefined,
   };
 
   it('grants each workflow role only its own action on an assigned set', () => {
@@ -160,11 +169,15 @@ describe('assurance set role actions', () => {
     expect(getAssuranceSetRoleActions(assignedSet, 'Administrator', adminUser.organization, adminUser).canManage).toBe(true);
     const clientManagedSet: AssuranceSet = {
       ...assignedSet,
-      initiatorOrg: 'Southern Basin Energy Pty Ltd',
-      initiatorRole: 'C Admin · Client Created',
-      createdByPersona: 'C Admin',
-      createdByUserId: 'USR-201',
-      createdByName: 'S. Basin',
+      parties: [
+        { organization: 'Southern Basin Energy Pty Ltd', role: 'Requesting party' },
+        { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      ],
+      createdBy: {
+        userId: 'USR-201',
+        name: 'S. Basin',
+        persona: 'C Admin',
+      },
     };
     expect(getAssuranceSetRoleActions(clientManagedSet, 'C Admin', cAdminUser.organization, cAdminUser).canManage).toBe(true);
   });
@@ -172,11 +185,15 @@ describe('assurance set role actions', () => {
   it('lets c admin verify, and never upload, on a set a c admin created', () => {
     const clientSet: AssuranceSet = {
       ...assignedSet,
-      initiatorOrg: 'Southern Basin Energy Pty Ltd',
-      initiatorRole: 'C Admin · Client Created',
-      createdByPersona: 'C Admin',
-      createdByUserId: 'USR-201',
-      createdByName: 'S. Basin',
+      parties: [
+        { organization: 'Southern Basin Energy Pty Ltd', role: 'Requesting party' },
+        { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      ],
+      createdBy: {
+        userId: 'USR-201',
+        name: 'S. Basin',
+        persona: 'C Admin',
+      },
     };
     expect(isAssuranceSetCreatedByCAdmin(clientSet)).toBe(true);
     expect(getAssuranceSetRoleActions(clientSet, 'C Admin', cAdminUser.organization, cAdminUser)).toEqual({
@@ -185,11 +202,15 @@ describe('assurance set role actions', () => {
 
     const providerSet: AssuranceSet = {
       ...clientSet,
-      initiatorOrg: 'Northwind Marine Pty Ltd',
-      initiatorRole: 'Vessel Provider Admin',
-      createdByPersona: 'Administrator',
-      createdByUserId: 'USR-101',
-      createdByName: 'K. Osei',
+      parties: [
+        { organization: 'Southern Basin Energy Pty Ltd', role: 'Requesting party' },
+        { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      ],
+      createdBy: {
+        userId: 'USR-101',
+        name: 'K. Osei',
+        persona: 'Administrator',
+      },
     };
     expect(isAssuranceSetCreatedByCAdmin(providerSet)).toBe(false);
     expect(getAssuranceSetRoleActions(providerSet, 'C Admin', cAdminUser.organization, cAdminUser).canVerify).toBe(false);
@@ -255,11 +276,15 @@ describe('assurance set role actions', () => {
     };
     const editableClientSet: AssuranceSet = {
       ...editableProviderSet,
-      initiatorOrg: 'Chevron Australia Pty Ltd',
-      initiatorRole: 'C Admin · Client Created',
-      createdByPersona: 'C Admin',
-      createdByUserId: 'USR-221',
-      createdByName: 'C. Henderson',
+      parties: [
+        { organization: 'Chevron Australia Pty Ltd', role: 'Requesting party' },
+        { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      ],
+      createdBy: {
+        userId: 'USR-221',
+        name: 'C. Henderson',
+        persona: 'C Admin',
+      },
     };
     const chevronCAdmin = {
       id: 'USR-221',
@@ -335,14 +360,18 @@ describe('assurance set role actions', () => {
     const setForVerifier1: AssuranceSet = {
       ...baseSet,
       id: 'SET-VER-1',
-      assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
-      stakeholders: { verifierOrg: 'Bureau Veritas Inspectorate' },
+      stakeholders: {
+        verifierName: 'A. Fontaine (Bureau Veritas Inspectorate)',
+        verifierOrg: 'Bureau Veritas Inspectorate',
+      },
     };
     const setForVerifier2: AssuranceSet = {
       ...baseSet,
       id: 'SET-VER-2',
-      assignedVerifier: 'J. Dupont (Bureau Veritas Inspectorate)',
-      stakeholders: { verifierOrg: 'Bureau Veritas Inspectorate' },
+      stakeholders: {
+        verifierName: 'J. Dupont (Bureau Veritas Inspectorate)',
+        verifierOrg: 'Bureau Veritas Inspectorate',
+      },
     };
     const testSets = [setForVerifier1, setForVerifier2];
 
@@ -382,16 +411,14 @@ describe('assurance set role actions', () => {
     const setForChen: AssuranceSet = {
       ...baseSet,
       id: 'SET-SUB-1',
-      vesselId: 'VESSEL-001',
-      vesselName: 'MV Northwind Alpha',
-      assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
+      assuranceObjects: [{ id: 'VESSEL-001', type: 'vessel', name: 'MV Northwind Alpha', ownerOrganization: 'Northwind Marine Pty Ltd' }],
+      submitters: [{ organization: 'Northwind Marine Pty Ltd', assignee: 'M. Chen (Northwind Marine Pty Ltd)' }],
     };
     const setForRamirez: AssuranceSet = {
       ...baseSet,
       id: 'SET-SUB-2',
-      vesselId: 'VESSEL-002',
-      vesselName: 'MV Northwind Beta',
-      assignedSubmitter: 'E. Ramirez (Northwind Marine Pty Ltd)',
+      assuranceObjects: [{ id: 'VESSEL-002', type: 'vessel', name: 'MV Northwind Beta', ownerOrganization: 'Northwind Marine Pty Ltd' }],
+      submitters: [{ organization: 'Northwind Marine Pty Ltd', assignee: 'E. Ramirez (Northwind Marine Pty Ltd)' }],
     };
     const vessels = [vesselA, vesselB];
     const sets = [setForChen, setForRamirez];
@@ -412,7 +439,7 @@ describe('assurance set role actions', () => {
     const chenAssignedSetVesselIds = new Set(
       MOCK_ASSURANCE_SETS
         .filter((s) => isAssuranceSetAssignedToPersona(s, 'Submitter', submitterChen.organization, submitterChen))
-        .map((s) => s.vesselId)
+        .map((s) => getSetVesselId(s))
         .filter(Boolean),
     );
     expect(mockChenVessels.length).toBeGreaterThan(0);

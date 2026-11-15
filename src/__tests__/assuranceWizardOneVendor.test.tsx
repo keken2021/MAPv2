@@ -2,6 +2,7 @@ import React from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { useMapStore } from '../store/useMapStore';
+import { getRequestingParty, getRespondingParty } from '../utils/setParties';
 import { CreateAssuranceSetView } from '../views/CreateAssuranceSetView';
 import {
   clickNext,
@@ -197,10 +198,9 @@ describe('Assurance wizard - One vendor and one client per set (Task 5332)', () 
       .getState()
       .assuranceSets.find((s) => s.title === 'Single Vendor and Client Set');
     expect(createdSet).toBeDefined();
-    expect(createdSet?.serviceProviderOrg).toBe(VENDOR_NORTHWIND);
-    expect(createdSet?.requestingParty).toBe('Marine Assurance Platform');
-    expect(createdSet?.respondingParty).toBe(VENDOR_NORTHWIND);
-    expect(createdSet?.parties?.some((p) => p.group === 'Vendor' && p.organization === VENDOR_NORTHWIND)).toBe(true);
-    expect(createdSet?.parties?.some((p) => p.group === 'Client')).toBe(true);
+    expect(getRespondingParty(createdSet)).toBe(VENDOR_NORTHWIND);
+    expect(getRequestingParty(createdSet)).toBe('Marine Assurance Platform');
+    expect(createdSet?.parties?.some((p) => (p.role === 'Responding party' || p.group === 'Vendor') && p.organization === VENDOR_NORTHWIND)).toBe(true);
+    expect(createdSet?.parties?.some((p) => p.role === 'Requesting party' || p.group === 'Client')).toBe(true);
   });
 });

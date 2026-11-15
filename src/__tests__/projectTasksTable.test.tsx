@@ -28,21 +28,29 @@ function createSet(id: string, title: string, overrides: Partial<AssuranceSet> =
   return {
     id,
     title,
-    vesselId: `V-${id}`,
-    vesselName: `MV Pacific Supporter`,
-    imoNumber: '9456789',
-    initiatorOrg: 'Chevron Australia',
-    initiatorRole: 'Client Admin',
-    clientOrg: 'Chevron Australia',
-    serviceProviderOrg: 'Northwind Marine',
-    charterWindowStart: '2026-01-01',
-    charterWindowEnd: '2026-12-31',
-    complianceDeadline: '2026-11-30',
+    parties: [
+      { organization: 'Chevron Australia', role: 'Requesting party' },
+      { organization: 'Northwind Marine', role: 'Responding party' },
+    ],
+    assuranceObjects: [
+      {
+        id: `V-${id}`,
+        type: 'vessel',
+        name: `MV Pacific Supporter`,
+        identifier: '9456789',
+        ownerOrganization: 'Northwind Marine',
+      },
+    ],
+    startDate: '2026-01-01',
+    endDate: '2026-12-31',
+    deadline: '2026-11-30',
+    dateHistory: [],
     stage: 'Verification',
     readinessScore: 60,
     requirements: [createRequirement()],
     mandatoryInspectionRequired: false,
     inspectionCompleted: false,
+    createdBy: { userId: 'USR-101', name: 'K. Osei', persona: 'Administrator' },
     ...overrides,
   } as AssuranceSet;
 }
@@ -73,8 +81,15 @@ describe('ProjectTasksTable', () => {
     const onOpenSet = vi.fn();
     const onOpenRequirement = vi.fn();
     const set = createSet('AS-101', 'Offshore Supply Vetting', {
-      vesselName: 'MV Deep Venture',
-      imoNumber: '9123456',
+      assuranceObjects: [
+        {
+          id: 'V-AS-101',
+          type: 'vessel',
+          name: 'MV Deep Venture',
+          identifier: '9123456',
+          ownerOrganization: 'Northwind Marine',
+        },
+      ],
       requirements: [
         createRequirement({
           id: 'REQ-NAV',

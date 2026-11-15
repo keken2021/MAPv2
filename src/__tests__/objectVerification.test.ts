@@ -14,16 +14,16 @@ const baseSet = (overrides: Partial<AssuranceSet>): AssuranceSet =>
   ({
     id: 'AS-OBJ-1',
     title: 'Object verification',
-    vesselId: 'VESSEL-OBJ',
-    vesselName: 'Test Vessel',
-    imoNumber: '1000001',
-    initiatorOrg: 'Oil Company',
-    initiatorRole: 'C Admin · Client Created',
-    clientOrg: 'Oil Company',
-    charterer: 'Oil Company',
-    charterWindowStart: '2026-11-01',
-    complianceDeadline: '2026-11-01',
-    charterWindowEnd: '2027-06-01',
+    assuranceObjects: [{ id: 'VESSEL-OBJ', type: 'vessel', name: 'Test Vessel', identifier: '1000001' }],
+    parties: [
+      { organization: 'Oil Company', role: 'Requesting party' },
+      { organization: 'Oil Company', role: 'Responding party' },
+    ],
+    startDate: '2026-11-01',
+    deadline: '2026-11-01',
+    endDate: '2027-06-01',
+    dateHistory: [],
+    createdBy: { userId: 'USR-221', name: 'User', persona: 'C Admin' },
     stage: 'Verification',
     readinessScore: 10,
     mandatoryInspectionRequired: false,
@@ -61,7 +61,7 @@ describe('object verification status', () => {
       [
         baseSet({
           reviewMode: 'internal',
-          assignedVerifier: 'A. Okonkwo (Oil Company)',
+          stakeholders: { verifierName: 'A. Okonkwo (Oil Company)', verifierOrg: 'Oil Company' },
           sentForReviewAt: '2026-11-02T00:00:00.000Z',
           requirements: [
             {
@@ -89,7 +89,7 @@ describe('object verification status', () => {
       [
         baseSet({
           reviewMode: 'third_party',
-          assignedVerifier: 'L. Ferreira (XY Marine Assurance)',
+          stakeholders: { verifierName: 'L. Ferreira (XY Marine Assurance)', verifierOrg: 'XY Marine Assurance' },
           requirements: [
             {
               id: 'REQ-OBJ-1',
@@ -114,7 +114,7 @@ describe('object verification status', () => {
   it('marks several entities and hides the other client documents', () => {
     const oil = baseSet({
       reviewMode: 'third_party',
-      assignedVerifier: 'L. Ferreira (XY Marine Assurance)',
+      stakeholders: { verifierName: 'L. Ferreira (XY Marine Assurance)', verifierOrg: 'XY Marine Assurance' },
       requirements: [
         {
           id: 'REQ-OBJ-1',
@@ -130,12 +130,12 @@ describe('object verification status', () => {
     });
     const shell = baseSet({
       id: 'AS-OBJ-2',
-      clientOrg: 'Shell Australia Pty Ltd',
-      charterer: 'Shell Australia Pty Ltd',
-      initiatorOrg: 'Shell Australia Pty Ltd',
+      parties: [
+        { organization: 'Shell Australia Pty Ltd', role: 'Requesting party' },
+        { organization: 'Gulf Security Services Pty Ltd', role: 'Responding party' },
+      ],
       reviewMode: 'internal',
-      assignedVerifier: 'T. Marlowe (Shell Australia Pty Ltd)',
-      serviceProviderOrg: 'Gulf Security Services Pty Ltd',
+      stakeholders: { verifierName: 'T. Marlowe (Shell Australia Pty Ltd)', verifierOrg: 'Shell Australia Pty Ltd' },
       requirements: [
         {
           id: 'REQ-OBJ-2',

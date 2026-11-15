@@ -44,21 +44,28 @@ describe('Central Reminder and Risk Thresholds (Task 5524 / A17)', () => {
     const baseSet: AssuranceSet = {
       id: 'AS-RISK-01',
       title: 'Risk Test Set',
-      vesselName: 'Test Vessel',
-      clientOrg: 'OilCo',
-      serviceProviderOrg: 'Test Provider',
+      parties: [
+        { organization: 'OilCo', role: 'Requesting party' },
+        { organization: 'Test Provider', role: 'Responding party' },
+      ],
+      assuranceObjects: [
+        {
+          id: 'VESSEL-1',
+          type: 'vessel',
+          name: 'Test Vessel',
+          identifier: '9123456',
+          ownerOrganization: 'Test Provider',
+        },
+      ],
+      startDate: '2026-11-01',
+      endDate: '2026-11-30',
+      deadline: '2026-11-20',
+      dateHistory: [],
       stage: 'Verification',
-      initiatorOrg: 'OilCo',
-      initiatorRole: 'C Admin · Client Created',
-      vesselId: 'VESSEL-1',
-      imoNumber: '9123456',
-      charterWindowStart: '2026-11-01',
-      charterWindowEnd: '2026-11-30',
-      complianceDeadline: '2026-11-20',
-      targetDate: '2026-11-20', // 9 days out from 2026-11-11
       readinessScore: 50,
       mandatoryInspectionRequired: false,
       inspectionCompleted: false,
+      createdBy: { userId: 'USR-101', name: 'K. Osei', persona: 'Administrator' },
       requirements: [
         {
           id: 'REQ-1',
@@ -77,7 +84,7 @@ describe('Central Reminder and Risk Thresholds (Task 5524 / A17)', () => {
     });
 
     it('returns false when target date is more than 14 days away', () => {
-      const farSet = { ...baseSet, targetDate: '2026-11-30' }; // 19 days away
+      const farSet = { ...baseSet, deadline: '2026-11-30' }; // 19 days away
       expect(isAssuranceSetAtRisk(farSet, '2026-11-11')).toBe(false);
     });
 
@@ -124,14 +131,14 @@ describe('Central Reminder and Risk Thresholds (Task 5524 / A17)', () => {
     });
 
     it('returns false when target date is in the past (overdue rather than at risk)', () => {
-      const pastSet = { ...baseSet, targetDate: '2026-11-05' }; // 6 days overdue
+      const pastSet = { ...baseSet, deadline: '2026-11-05' }; // 6 days overdue
       expect(isAssuranceSetAtRisk(pastSet, '2026-11-11')).toBe(false);
     });
 
-    it('falls back to complianceDeadline when targetDate is not set', () => {
+    it('falls back to complianceDeadline when deadline is not set', () => {
       const deadlineSet = {
         ...baseSet,
-        targetDate: undefined,
+        deadline: undefined,
         complianceDeadline: '2026-11-20',
       };
       expect(isAssuranceSetAtRisk(deadlineSet, '2026-11-11')).toBe(true);

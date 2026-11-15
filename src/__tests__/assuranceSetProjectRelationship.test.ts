@@ -23,6 +23,7 @@ import {
   getAssuranceSetCreator,
   isAssuranceSetOwnedOrInitiatedByOrganization,
 } from '../utils/rbacHelpers';
+import { getSetStartDate, getSetEndDate, getSetDeadline } from '../utils/setDates';
 import { AssuranceSet } from '../types/assurance';
 
 const initialState = useMapStore.getState();
@@ -33,14 +34,23 @@ const buildOrphanSet = (id: string, vesselId: string, vesselName: string): Assur
   title: `${vesselName} — Relationship Test Vetting ${id}`,
   assuranceType: 'Vessel',
   subtypes: ['Vessel'],
-  vesselId,
-  vesselName,
-  imoNumber: '9000001',
-  initiatorOrg: 'Northwind Marine Pty Ltd',
-  initiatorRole: 'Vessel Provider Admin',
-  charterWindowStart: '2026-11-01',
-  complianceDeadline: '2026-11-01',
-  charterWindowEnd: '2027-02-01',
+  assuranceObjects: [
+    {
+      id: vesselId,
+      type: 'vessel',
+      name: vesselName,
+      ownerOrganization: 'Northwind Marine Pty Ltd',
+      identifier: '9000001',
+    },
+  ],
+  parties: [
+    { organization: 'Northwind Marine Pty Ltd', role: 'Requesting party' },
+    { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+  ],
+  createdBy: { persona: 'Administrator' },
+  startDate: '2026-11-01',
+  deadline: '2026-11-01',
+  endDate: '2027-02-01',
   stage: 'Validation',
   readinessScore: 10,
   mandatoryInspectionRequired: false,
@@ -234,8 +244,7 @@ describe('project to assurance set relationship', () => {
           buildOrphanSet('AS-REL-ROSTERABLE', 'VESSEL-002', 'Rosterable Orphan'),
           {
             ...buildOrphanSet('AS-REL-NO-ASSET', 'VESSEL-MISSING', 'No Asset Orphan'),
-            vesselId: '',
-            vesselName: '',
+            assuranceObjects: [],
           },
         ],
       }));
@@ -275,13 +284,13 @@ describe('project to assurance set relationship', () => {
         ...prev.assuranceSets,
         {
           ...buildOrphanSet('AS-REL-IN-WINDOW', 'VESSEL-002', 'In Window Orphan'),
-          charterWindowStart: '2026-12-01',
-          charterWindowEnd: '2027-01-15',
+          startDate: '2026-12-01',
+          endDate: '2027-01-15',
         },
         {
           ...buildOrphanSet('AS-REL-OUT-WINDOW', 'VESSEL-003', 'Out Window Orphan'),
-          charterWindowStart: '2026-10-01',
-          charterWindowEnd: '2027-06-01',
+          startDate: '2026-10-01',
+          endDate: '2027-06-01',
         },
       ],
     }));
@@ -349,7 +358,7 @@ describe('assurance set created-by label', () => {
   const northwindSet = buildOrphanSet('AS-REL-010', 'VESSEL-002', 'Relationship Test Vessel G');
 
   it('uses the stored creator name when present', () => {
-    expect(getAssuranceSetCreator({ ...northwindSet, createdByName: 'K. Osei' }, MOCK_USERS).name).toBe('K. Osei');
+    expect(getAssuranceSetCreator({ ...northwindSet, createdBy: { name: 'K. Osei' } }, MOCK_USERS).name).toBe('K. Osei');
   });
 
   it('resolves the creator from the creating role inside the initiating organization', () => {
@@ -368,7 +377,14 @@ describe('assurance set created-by label', () => {
   });
 
   it('falls back to the organization when the creator is unknown', () => {
-    const unknown = { ...northwindSet, initiatorOrg: 'Unknown Maritime Agency Ltd' };
+    const unknown: AssuranceSet = {
+      ...northwindSet,
+      parties: [
+        { organization: 'Unknown Maritime Agency Ltd', role: 'Requesting party' },
+        { organization: 'Unknown Maritime Agency Ltd', role: 'Responding party' },
+      ],
+      createdBy: {},
+    };
     expect(getAssuranceSetCreator(unknown, MOCK_USERS).name).toBeUndefined();
     expect(getAssuranceSetCreatedByLabel(unknown, MOCK_USERS, 'Administrator')).toBe('Unknown Maritime Agency Ltd');
   });
@@ -382,12 +398,24 @@ describe('organization tab ownership', () => {
   });
 
   it('includes sets owned by the organization as client', () => {
-    const owned = { ...base, initiatorOrg: 'Northwind Marine Pty Ltd', clientOrg: 'Southern Basin Energy Pty Ltd' };
+    const owned: AssuranceSet = {
+      ...base,
+      parties: [
+        { organization: 'Southern Basin Energy Pty Ltd', role: 'Requesting party' },
+        { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      ],
+    };
     expect(isAssuranceSetOwnedOrInitiatedByOrganization(owned, 'Southern Basin Energy Pty Ltd')).toBe(true);
   });
 
   it('excludes sets that another organization owns and initiated', () => {
-    const foreign = { ...base, initiatorOrg: 'Woodside Energy Ltd', clientOrg: 'Woodside Energy Ltd' };
+    const foreign: AssuranceSet = {
+      ...base,
+      parties: [
+        { organization: 'Woodside Energy Ltd', role: 'Requesting party' },
+        { organization: 'Woodside Energy Ltd', role: 'Responding party' },
+      ],
+    };
     expect(isAssuranceSetOwnedOrInitiatedByOrganization(foreign, 'Northwind Marine Pty Ltd')).toBe(false);
   });
 
@@ -400,7 +428,10 @@ describe('assurance set client', () => {
   it('seed sets never record a charterer that differs from the client', () => {
     const mismatched = useMapStore
       .getState()
-      .assuranceSets.filter((s) => s.clientOrg && s.charterer && s.clientOrg !== s.charterer)
+      .assuranceSets.filter((s) => {
+        const raw = s as any;
+        return raw.clientOrg && raw.charterer && raw.clientOrg !== raw.charterer;
+      })
       .map((s) => s.id);
     expect(mismatched).toEqual([]);
   });
@@ -473,13 +504,14 @@ describe('project date bounds and contract period gating', () => {
     });
   });
 
-  describe('attachAssuranceSetToProject date refusal', () => {
-    it('refuses to attach a set whose contract period falls outside the project window', () => {
+  describe('attachAssuranceSetToProject date adjustment', () => {
+    it('adjusts dates into project window when attaching an out-of-window set', () => {
       const project = MOCK_PROJECTS[0]; // window: 2026-11-01 to 2027-02-28
       const outOfWindowSet: AssuranceSet = {
         ...buildOrphanSet('AS-REL-OUT-DATE', 'VESSEL-002', 'Out of Date Window Vessel'),
-        charterWindowStart: '2026-10-01',
-        charterWindowEnd: '2027-04-01',
+        startDate: '2026-10-01',
+        endDate: '2027-04-01',
+        deadline: '2026-10-01',
       };
 
       useMapStore.setState((state) => ({
@@ -487,21 +519,22 @@ describe('project date bounds and contract period gating', () => {
       }));
 
       const result = useMapStore.getState().attachAssuranceSetToProject('AS-REL-OUT-DATE', project.id);
-      expect(result.success).toBe(false);
-      expect(result.message).toBe(
-        `Contract Period must be inside the project window (${project.charterWindowStart} to ${project.charterWindowEnd}).`,
-      );
+      expect(result.success).toBe(true);
 
       const state = useMapStore.getState();
-      expect(state.assuranceSets.find((s) => s.id === 'AS-REL-OUT-DATE')?.projectId).toBeUndefined();
+      const attached = state.assuranceSets.find((s) => s.id === 'AS-REL-OUT-DATE')!;
+      expect(attached.projectId).toBe(project.id);
+      expect(getSetStartDate(attached)).toBe(project.charterWindowStart);
+      expect(getSetEndDate(attached)).toBe(project.charterWindowEnd);
+      expect(getSetDeadline(attached) <= getSetStartDate(attached)).toBe(true);
     });
 
     it('attaches a set successfully when its contract period lies inside the project window', () => {
       const project = MOCK_PROJECTS[0]; // window: 2026-11-01 to 2027-02-28
       const inWindowSet: AssuranceSet = {
         ...buildOrphanSet('AS-REL-IN-DATE', 'VESSEL-002', 'In Date Window Vessel'),
-        charterWindowStart: '2026-11-15',
-        charterWindowEnd: '2027-02-15',
+        startDate: '2026-11-15',
+        endDate: '2027-02-15',
       };
 
       useMapStore.setState((state) => ({

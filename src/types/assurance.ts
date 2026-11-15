@@ -100,9 +100,17 @@ export type ReviewChannel = 'internal' | 'third_party' | 'issuing_authority';
 /** group of an organization on a project or a set. Labels are not confirmed as final names. */
 export type OrganizationGroup = 'Client' | 'Vendor' | 'Third party';
 
+export type AssurancePartyRole = 'Requesting party' | 'Responding party' | 'Third party';
+
+export interface AssuranceParty {
+  organization: string;
+  role: AssurancePartyRole;
+}
+
 export interface OrganizationParty {
   organization: string;
-  group: OrganizationGroup;
+  group?: OrganizationGroup;
+  role?: AssurancePartyRole;
   partyRole?: 'Requesting party' | 'Responding party' | (string & {});
 }
 export type AuthorityValidationMethod = 'api' | 'direct_link' | 'manual';
@@ -360,102 +368,72 @@ export interface SubtypeStakeholderMapping {
 }
 
 export interface AssuranceSet {
-  stakeholders?: AssuranceStakeholderMapping | null;
-  assignedStakeholders?: AssuranceStakeholderMapping | null;
-  subtypeStakeholders?: Partial<Record<AssuranceSubtype, SubtypeStakeholderMapping>>;
-  categoryStakeholders?: Record<string, SubtypeStakeholderMapping>;
-  createdByPersona?: string;
-  /** user id of the user who created the set */
-  createdByUserId?: string;
-  /** display name of the user who created the set */
-  createdByName?: string;
   id: string; // e.g. AS-2026-001
   title: string; // e.g. Chevron Gorgon Charter Vetting
   assuranceType?: AssuranceScopeType;
   /** specific asset or operational category, e.g. Tanker, Barge, Captain */
   scopeType?: string;
-  /** nullable foreign key: a set belongs to at most one project; a project has zero or many sets */
-  projectId?: string;
-  projectName?: string;
-  /** first crew member of a crew set; kept for single-member readers */
-  crewId?: string;
-  crewName?: string;
-  /** every crew member a crew set covers, in selection order; crewIds[0] equals crewId (ADR 0023) */
-  crewIds?: string[];
-  crewNames?: string[];
-  equipmentId?: string;
-  equipmentName?: string;
   subtypes?: AssuranceSubtype[];
+  tags?: ThreePillarsCategory[];
   visibility?: 'public' | 'organization' | 'draft';
   templateSource?: 'public' | 'organization' | 'custom' | 'none';
   appliedTemplates?: Record<string, string>;
-  vesselId: string;
-  vesselName: string;
-  imoNumber: string;
-  initiatorOrg: string;
-  initiatorRole: InitiatingRoleType;
-  charterer?: string; /* charterer organization or entity assigned to the campaign set */
   plannedCharterDate?: string; /* iso date - optional planned charter commencement date (A64) */
-  charterWindowStart: string; /* iso date - contractual hire window (on-hire delivery to off-hire redelivery) */
-  charterWindowEnd: string; /* iso date - contractual hire window */
-  complianceDeadline: string; /* iso date - the set must be complete on or before the contract start */
-  projectWindowStart?: string; /* iso date - active offshore field operations window */
-  projectWindowEnd?: string; /* iso date - active offshore field operations window */
-  stage: AssuranceStage;
-  readinessScore: number; // 0 - 100%
-  requirements: AssuranceRequirement[];
-  /** ordered task groups; a task points at one of these with sectionId */
-  sections?: TaskSection[];
-  verificationRequired?: boolean;
-  mandatoryInspectionRequired: boolean;
-  formalApprovalRequired?: boolean;
-  inspectionCompleted: boolean;
-  /** ISO timestamp when an inspection was recorded as Failed (cleared on Pass) */
-  inspectionFailedAt?: string;
-  assignedSubmitter?: string;
-  assignedVerifier?: string;
-  assignedInspector?: string;
-  assignedApprover?: string;
-  approverDecision?: 'Approved' | 'Returned for Correction' | 'Rejected' | 'Pending';
-  approverNotes?: string;
-  /** review channel governance (MVP 1.5): internal, third party, issuing authority, or mixed */
-  reviewMode?: ReviewMode;
-  reviewChannels?: ReviewChannel[];
-  validityCheckRequired?: boolean;
-  suitabilityCheckRequired?: boolean;
-  authorityValidationMethod?: AuthorityValidationMethod;
-  /** organization providing the primary asset or service for the assurance set: its Vessel, Crew, or Equipment Provider (cannot verify/approve own documents; ADR 0029) */
-  serviceProviderOrg?: string;
-  /** initiating client organization that owns the assurance set */
-  clientOrg?: string;
-  /** every organization on this set; objects and stakeholders refer only to these */
-  organizations?: string[];
-  /** organizations on this set, each placed as Client, Vendor, or Third party */
+
+  /** nullable foreign key: a set belongs to at most one project; project name, window, and client are read from the project */
+  projectId?: string;
+
+  /** organizations on this set, each placed as Requesting party, Responding party, or Third party */
   parties?: OrganizationParty[];
-  requestingParty?: string;
-  respondingParty?: string;
-  partyRoles?: Record<string, string>;
-  /** one submitter per provider; assignedSubmitter mirrors the first */
-  submitters?: SetSubmitter[];
-  /** true when C Admin runs assurance on their own fleet (internal deployment, not third-party charter) */
-  internalDeployment?: boolean;
-  /** C Admin workflow: draft until sent for review; client owns final approval */
-  clientWorkflowStage?: ClientWorkflowStage;
-  sentForReviewAt?: string;
-  /** iso date-time the set was approved and its document versions locked */
-  lockedAt?: string;
+
   /** assurance objects covered by this set across multiple types (ADR 0029) */
   assuranceObjects?: AssuranceObject[];
   /** crew groups referenced by this set (ADR 0023 / BRD V4.2) */
   crewGroups?: AssuranceSetGroupRef[];
   /** members excluded from this set with mandatory justification */
   memberExclusions?: SetMemberExclusion[];
-  /** target date for the set (aligned with complianceDeadline; BRD V4.2 change 6) */
-  targetDate?: string;
+
+  startDate?: string;
+  endDate?: string;
+  deadline?: string;
+  dateHistory?: TargetDateChangeRecord[];
   /** short-term date change permission grants to named client users (BRD V4.2 change 6) */
   datePermissionGrants?: DatePermissionGrant[];
-  /** audit history ledger of target date changes on this set and its tasks (BRD V4.2 change 6) */
-  targetDateHistory?: TargetDateChangeRecord[];
+
+  stage: AssuranceStage;
+  readinessScore: number; // 0 - 100%
+  requirements: AssuranceRequirement[];
+  /** ordered task groups; a task points at one of these with sectionId */
+  sections?: TaskSection[];
+
+  verificationRequired?: boolean;
+  mandatoryInspectionRequired: boolean;
+  formalApprovalRequired?: boolean;
+  validityCheckRequired?: boolean;
+  suitabilityCheckRequired?: boolean;
+  /** review channel governance (MVP 1.5): internal, third party, issuing authority, or mixed */
+  reviewMode?: ReviewMode;
+  reviewChannels?: ReviewChannel[];
+  authorityValidationMethod?: AuthorityValidationMethod;
+
+  /** one submitter per provider; assignedSubmitter mirrors the first */
+  submitters?: SetSubmitter[];
+  stakeholders?: AssuranceStakeholderMapping | null;
+  subtypeStakeholders?: Partial<Record<AssuranceSubtype, SubtypeStakeholderMapping>>;
+
+  inspectionCompleted: boolean;
+  /** ISO timestamp when an inspection was recorded as Failed (cleared on Pass) */
+  inspectionFailedAt?: string;
+  approverDecision?: 'Approved' | 'Returned for Correction' | 'Rejected' | 'Pending';
+  approverNotes?: string;
+
+  createdBy?: { userId?: string; name?: string; persona?: string };
+
+  /** C Admin workflow: draft until sent for review; client owns final approval */
+  clientWorkflowStage?: ClientWorkflowStage;
+  sentForReviewAt?: string;
+  /** iso date-time the set was approved and its document versions locked */
+  lockedAt?: string;
   /** closure mode: full (default when approved) or partial (BRD V4.2 change 7) */
   closureType?: 'full' | 'partial';
   /** revised completion date when overdue (BRD V4.2 change 7) */
@@ -466,8 +444,6 @@ export interface AssuranceSet {
   cancelledAt?: string;
   /** reason why the set was cancelled */
   cancellationReason?: string;
-  tags?: ThreePillarsCategory[];
-  pppTags?: ThreePillarsCategory[];
   /** live datasheet snapshots captured at sign-off (verify, inspection, approve) */
   datasheetSnapshots?: DatasheetSnapshot[];
 }

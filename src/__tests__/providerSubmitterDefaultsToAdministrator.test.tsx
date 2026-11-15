@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { fireEvent, screen } from '@testing-library/react';
 import { useMapStore } from '../store/useMapStore';
 import { defaultProviderSubmitter, PENDING_ASSIGNMENT, userHasRole } from '../utils/userRoleHelpers';
+import { getSetAssignedSubmitter } from '../utils/setStakeholders';
 import { UserProfile } from '../types/user';
 import {
   clickNext,
@@ -76,7 +77,7 @@ describe('Assurance wizard - Provider with no Submitter', () => {
     const created = useMapStore.getState().assuranceSets.find((set) => set.title === 'Admin Submitter Vetting')!;
     const provider = created.submitters?.find((s) => s.organization === VESSEL_OWNER);
     expect(provider?.assignee).toBe(`D. Vance (${VESSEL_OWNER})`);
-    expect(created.assignedSubmitter).not.toBe(PENDING_ASSIGNMENT);
+    expect(getSetAssignedSubmitter(created)).not.toBe(PENDING_ASSIGNMENT);
     expect(created.requirements.some((r) => r.assignedSubmitter === PENDING_ASSIGNMENT)).toBe(false);
   });
 });

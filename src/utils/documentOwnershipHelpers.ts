@@ -12,6 +12,7 @@ import type { VesselInformation } from '../types/vessel';
 import type { UserProfile } from '../types/user';
 import { orgFieldMatches } from './rbacHelpers';
 import { isOwnUpload } from './uploadOwnership';
+import { getRequestingParty, getRespondingParty, type SetPartiesInput } from './setParties';
 
 export const EVIDENCE_NOT_OWNED_EDIT =
   'You can only edit or replace evidence owned by your organization.';
@@ -124,14 +125,14 @@ export function canEditOwnedEvidence(
   with what file: src/utils/documentOwnershipHelpers.ts used for A16 library reuse.
 */
 export function isViewerVendorOnSet(
-  set: Pick<AssuranceSet, 'serviceProviderOrg' | 'respondingParty' | 'parties'>,
+  set: SetPartiesInput,
   viewerOrganization: string | undefined,
 ): boolean {
   if (!viewerOrganization?.trim()) return false;
-  if (orgFieldMatches(viewerOrganization, set.serviceProviderOrg || '')) return true;
-  if (orgFieldMatches(viewerOrganization, set.respondingParty || '')) return true;
+  const responding = getRespondingParty(set);
+  if (responding && orgFieldMatches(viewerOrganization, responding)) return true;
   return (set.parties ?? []).some(
-    (p) => p.group === 'Vendor' && orgFieldMatches(viewerOrganization, p.organization),
+    (p) => p.role === 'Responding party' && orgFieldMatches(viewerOrganization, p.organization),
   );
 }
 
@@ -141,7 +142,7 @@ export function isViewerVendorOnSet(
   with what file: src/utils/documentOwnershipHelpers.ts.
 */
 export function canOfferEvidenceReuse(
-  set: Pick<AssuranceSet, 'serviceProviderOrg' | 'respondingParty' | 'parties' | 'clientOrg' | 'charterer'> | undefined,
+  set: Pick<AssuranceSet, 'parties'> | undefined,
   viewerOrganization: string | undefined,
 ): boolean {
   if (!set) return true;
@@ -155,21 +156,22 @@ export function canOfferEvidenceReuse(
 */
 export function isReusableLibraryDocument(
   document: Pick<MasterDocument, 'ownerOrganization' | 'vesselId' | 'versions' | 'issuingAuthority'>,
-  set: Pick<AssuranceSet, 'clientOrg' | 'charterer' | 'serviceProviderOrg' | 'respondingParty' | 'parties'>,
+  set: SetPartiesInput,
   vessels: Pick<VesselInformation, 'id' | 'registeredOwner' | 'technicalManager' | 'ismCompany'>[] = [],
   users: Pick<UserProfile, 'name' | 'id' | 'organization'>[] = [],
 ): boolean {
   const owner = getDocumentOwnerOrganization(document, vessels, users);
   if (!owner) return false;
 
-  const client = (set.clientOrg || set.charterer || '').trim();
+  const client = (getRequestingParty(set) || '').trim();
   const viewerIsVendor = isViewerVendorOnSet(set, owner);
   if (client && orgFieldMatches(owner, client) && !viewerIsVendor) return false;
 
   const thirdPartyMatch = (set.parties ?? []).some(
-    (p: OrganizationParty) => p.group === 'Third party' && orgFieldMatches(owner, p.organization),
+    (p: any) => (p.role === 'Third party' || p.group === 'Third party') && orgFieldMatches(owner, p.organization),
   );
   if (thirdPartyMatch) return false;
 
-  return viewerIsVendor || orgFieldMatches(owner, set.serviceProviderOrg || set.respondingParty || '');
+  const responding = getRespondingParty(set);
+  return viewerIsVendor || (Boolean(responding) && orgFieldMatches(owner, responding!));
 }

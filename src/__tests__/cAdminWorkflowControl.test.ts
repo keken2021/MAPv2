@@ -26,7 +26,18 @@ describe('C Admin exclusive workflow control (Req 5)', () => {
         users: [...initialState.users, inpexCAdmin],
         assuranceSets: initialState.assuranceSets.map((s) =>
           s.id === 'AS-2026-003'
-            ? { ...s, createdByUserId: inpexCAdmin.id, createdByName: inpexCAdmin.name }
+            ? {
+              ...s,
+              parties: [
+                { organization: 'Inpex Operations Australia', role: 'Requesting party' },
+                { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+              ],
+              createdBy: {
+                userId: inpexCAdmin.id,
+                name: inpexCAdmin.name,
+                persona: 'C Admin',
+              },
+            }
             : s,
         ),
         activePersona: 'C Admin',
@@ -52,7 +63,7 @@ describe('C Admin exclusive workflow control (Req 5)', () => {
     const store = useMapStore.getState();
     const setId = 'AS-2026-003';
     const target = store.assuranceSets.find((s) => s.id === setId);
-    expect(target?.initiatorRole).toBe('C Admin · Client Created');
+    expect(target?.createdBy?.persona).toBe('C Admin');
     expect(target?.stage).toBe('Initiated');
 
     store.sendAssuranceForReview(setId);

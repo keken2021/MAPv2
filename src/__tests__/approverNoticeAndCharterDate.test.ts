@@ -3,6 +3,7 @@ import { useMapStore } from '../store/useMapStore';
 import { AssuranceSet } from '../types/assurance';
 import { filterNotificationsForUser, resolveNotificationRecipient } from '../utils/notificationHelpers';
 import { generateUniqueAssuranceSetId } from '../utils/validation';
+import { getSetAssignedApprover } from '../utils/setStakeholders';
 
 const initialState = useMapStore.getState();
 
@@ -19,10 +20,10 @@ describe('Task 5530 (A64): Approver sent-back notice and optional charter date',
     it('notifies the approver when a task is sent back for correction by verifier', () => {
       const { assuranceSets, users } = useMapStore.getState();
       const targetSet = assuranceSets.find(
-        (s) => s.requirements.length > 0 && resolveNotificationRecipient(s.assignedApprover, users),
+        (s) => s.requirements.length > 0 && resolveNotificationRecipient(getSetAssignedApprover(s), users),
       );
       expect(targetSet).toBeDefined();
-      const approver = resolveNotificationRecipient(targetSet!.assignedApprover, users)!;
+      const approver = resolveNotificationRecipient(getSetAssignedApprover(targetSet!), users)!;
       const req = targetSet!.requirements[0];
 
       useMapStore.setState({
@@ -45,10 +46,10 @@ describe('Task 5530 (A64): Approver sent-back notice and optional charter date',
     it('notifies the approver when a task is denied by reviewer with notes', () => {
       const { assuranceSets, users } = useMapStore.getState();
       const targetSet = assuranceSets.find(
-        (s) => s.requirements.length > 0 && resolveNotificationRecipient(s.assignedApprover, users),
+        (s) => s.requirements.length > 0 && resolveNotificationRecipient(getSetAssignedApprover(s), users),
       );
       expect(targetSet).toBeDefined();
-      const approver = resolveNotificationRecipient(targetSet!.assignedApprover, users)!;
+      const approver = resolveNotificationRecipient(getSetAssignedApprover(targetSet!), users)!;
       const req = targetSet!.requirements[0];
 
       useMapStore.setState({
@@ -82,18 +83,24 @@ describe('Task 5530 (A64): Approver sent-back notice and optional charter date',
       const setWithoutCharterDate: AssuranceSet = {
         id: uniqueId,
         title: 'Assurance Set Without Planned Charter Date',
-        vesselId: 'VESSEL-001',
-        vesselName: 'MV Northern Endeavour',
-        imoNumber: '9123453',
-        initiatorOrg: 'Chevron Australia Pty Ltd',
-        initiatorRole: 'C Admin · Client Created',
-        charterer: 'Chevron Australia Pty Ltd',
-        createdByUserId: 'USR-221',
-        createdByName: 'C. Henderson',
-        createdByPersona: 'C Admin',
-        charterWindowStart: '2026-11-01',
-        charterWindowEnd: '2027-11-01',
-        complianceDeadline: '2026-11-01',
+        parties: [
+          { organization: 'Chevron Australia Pty Ltd', role: 'Requesting party' },
+          { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+        ],
+        assuranceObjects: [
+          {
+            id: 'VESSEL-001',
+            type: 'vessel',
+            name: 'MV Northern Endeavour',
+            identifier: '9123453',
+            ownerOrganization: 'Northwind Marine Pty Ltd',
+          },
+        ],
+        createdBy: { userId: 'USR-221', name: 'C. Henderson', persona: 'C Admin' },
+        startDate: '2026-11-01',
+        endDate: '2027-11-01',
+        deadline: '2026-11-01',
+        dateHistory: [],
         stage: 'Initiated',
         readinessScore: 0,
         mandatoryInspectionRequired: false,
@@ -120,19 +127,25 @@ describe('Task 5530 (A64): Approver sent-back notice and optional charter date',
       const setWithCharterDate: AssuranceSet = {
         id: uniqueId,
         title: 'Assurance Set With Planned Charter Date',
-        vesselId: 'VESSEL-001',
-        vesselName: 'MV Northern Endeavour',
-        imoNumber: '9123453',
-        initiatorOrg: 'Chevron Australia Pty Ltd',
-        initiatorRole: 'C Admin · Client Created',
-        charterer: 'Chevron Australia Pty Ltd',
-        createdByUserId: 'USR-221',
-        createdByName: 'C. Henderson',
-        createdByPersona: 'C Admin',
-        charterWindowStart: '2026-11-01',
-        charterWindowEnd: '2027-11-01',
+        parties: [
+          { organization: 'Chevron Australia Pty Ltd', role: 'Requesting party' },
+          { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+        ],
+        assuranceObjects: [
+          {
+            id: 'VESSEL-001',
+            type: 'vessel',
+            name: 'MV Northern Endeavour',
+            identifier: '9123453',
+            ownerOrganization: 'Northwind Marine Pty Ltd',
+          },
+        ],
+        createdBy: { userId: 'USR-221', name: 'C. Henderson', persona: 'C Admin' },
+        startDate: '2026-11-01',
+        endDate: '2027-11-01',
+        deadline: '2026-11-01',
         plannedCharterDate: '2026-11-15',
-        complianceDeadline: '2026-11-01',
+        dateHistory: [],
         stage: 'Initiated',
         readinessScore: 0,
         mandatoryInspectionRequired: false,

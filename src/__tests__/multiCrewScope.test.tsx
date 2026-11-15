@@ -27,18 +27,33 @@ const crewSet = (overrides: Partial<AssuranceSet> = {}): AssuranceSet => ({
   title: 'Multi Crew Vetting Test',
   assuranceType: 'Crew',
   subtypes: ['Crew'],
-  crewId: 'CREW-101',
-  crewName: 'Capt. Alexander Wright',
-  crewIds: ['CREW-101', 'CREW-105'],
-  crewNames: ['Capt. Alexander Wright', "Second Eng. Liam O'Connor"],
-  vesselId: 'VESSEL-001',
-  vesselName: 'MV Pacific Endeavour',
-  imoNumber: '9123453',
-  initiatorOrg: 'Chevron Australia Pty Ltd',
-  initiatorRole: 'C Admin · Client Created',
-  charterWindowStart: '2028-01-01',
-  complianceDeadline: '2028-01-01',
-  charterWindowEnd: '2028-06-01',
+  assuranceObjects: [
+    {
+      id: 'CREW-101',
+      type: 'crew',
+      name: 'Capt. Alexander Wright',
+      ownerOrganization: 'Northwind Marine Pty Ltd',
+    },
+    {
+      id: 'CREW-105',
+      type: 'crew',
+      name: "Second Eng. Liam O'Connor",
+      ownerOrganization: 'Northwind Marine Pty Ltd',
+    },
+  ],
+  parties: [
+    { organization: 'Chevron Australia Pty Ltd', role: 'Requesting party' },
+    { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+  ],
+  createdBy: {
+    persona: 'C Admin',
+    userId: 'USR-221',
+    name: 'C Admin',
+  },
+  startDate: '2028-01-01',
+  deadline: '2028-01-01',
+  endDate: '2028-06-01',
+  dateHistory: [],
   stage: 'Initiated',
   readinessScore: 0,
   requirements: [],
@@ -58,24 +73,43 @@ describe('multi-crew assurance sets', () => {
     expect(getAssuranceSetCrewNames(set)).toEqual(['Capt. Alexander Wright', "Second Eng. Liam O'Connor"]);
     expect(getAssuranceSetAssets(set).map((a) => a.id)).toEqual(['CREW-101', 'CREW-105']);
 
-    const single = crewSet({ crewIds: undefined, crewNames: undefined });
+    const single = crewSet({
+      assuranceObjects: [
+        {
+          id: 'CREW-101',
+          type: 'crew',
+          name: 'Capt. Alexander Wright',
+          ownerOrganization: 'Northwind Marine Pty Ltd',
+        },
+      ],
+    });
     expect(getAssuranceSetCrewIds(single)).toEqual(['CREW-101']);
     expect(getAssuranceSetAssets(single)).toEqual([{ type: 'Crew', id: 'CREW-101', name: 'Capt. Alexander Wright' }]);
   });
 
   it('keeps the crew list on a crew set and drops it on a set filed under another scope', () => {
-    expect(toSingleAssetSet(crewSet()).crewIds).toEqual(['CREW-101', 'CREW-105']);
-    const vesselSet = toSingleAssetSet(crewSet({ assuranceType: 'Vessel', subtypes: ['Vessel'] }));
-    expect(vesselSet.crewIds).toBeUndefined();
-    expect(vesselSet.crewId).toBeUndefined();
+    expect(getAssuranceSetCrewIds(toSingleAssetSet(crewSet()))).toEqual(['CREW-101', 'CREW-105']);
+    const vesselSet = toSingleAssetSet(crewSet({
+      assuranceType: 'Vessel',
+      subtypes: ['Vessel'],
+      assuranceObjects: [
+        {
+          id: 'VESSEL-001',
+          type: 'vessel',
+          name: 'MV Pacific Endeavour',
+          ownerOrganization: 'Northwind Marine Pty Ltd',
+        },
+      ],
+    }));
+    expect(getAssuranceSetCrewIds(vesselSet)).toEqual([]);
   });
 
   it('saves every crew member of a new set, with the first one as crewId', () => {
     useMapStore.getState().setActivePersona('Administrator');
     useMapStore.getState().addAssuranceSet(crewSet());
     const saved = useMapStore.getState().assuranceSets.find((s) => s.title === 'Multi Crew Vetting Test');
-    expect(saved?.crewIds).toEqual(['CREW-101', 'CREW-105']);
-    expect(saved?.crewId).toBe('CREW-101');
+    expect(getAssuranceSetCrewIds(saved!)).toEqual(['CREW-101', 'CREW-105']);
+    expect(getAssuranceSetCrewIds(saved!)[0]).toBe('CREW-101');
   });
 
   it('treats each crew member as contracted for the set period', () => {

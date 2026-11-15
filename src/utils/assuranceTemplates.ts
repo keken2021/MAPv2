@@ -4,25 +4,34 @@
   role in system: consumed by CreateAssuranceSetView.tsx during assurance set initiation; an assurance set supports multiple assurance objects across types (ADR 0029, reversing ADR 0004 single-asset scope).
 */
 
-import { AssuranceSet, AssuranceRequirement, AssuranceSubtype, AssuranceRequirementCategory, ThreePillarsCategory, AssuranceObject, AssuranceObjectType, ObjectAssignment, TaskSection } from '../types/assurance';
+import { AssuranceSet, AssuranceScopeType, AssuranceRequirement, AssuranceSubtype, AssuranceRequirementCategory, ThreePillarsCategory, AssuranceObject, AssuranceObjectType, ObjectAssignment, TaskSection } from '../types/assurance';
 import { CrewVesselAssignment } from '../types/crew';
 import { VesselPersonLink } from '../types/vessel';
+import { getRespondingParty } from './setParties';
+import {
+  getSetVessel,
+  getSetCrew,
+  getSetEquipment,
+  getSetCrewIds,
+  getSetCrewNames,
+  type SetObjectsInput,
+} from './setObjects';
 
-/* every scope the data model knows, in display order */
-const ALL_ASSURANCE_SCOPES: AssuranceSubtype[] = ['Vessel', 'Crew', 'Equipment'];
+import {
+  ALL_ASSURANCE_SCOPES,
+  DISABLED_ASSURANCE_SCOPES,
+  ASSURANCE_SCOPE_OPTIONS,
+  orderAssuranceScopes,
+  isAssuranceSetScopeDisabled,
+} from './assuranceScope';
 
-/* scopes switched off for now: not offered, not shown as tabs, and their demo sets are not seeded; empty this list to bring them back */
-export const DISABLED_ASSURANCE_SCOPES: AssuranceSubtype[] = [];
-
-/* scopes a set can be created or filtered with, in the order they are offered and shown as wizard tabs */
-export const ASSURANCE_SCOPE_OPTIONS: AssuranceSubtype[] = ALL_ASSURANCE_SCOPES.filter(
-  (scope) => !DISABLED_ASSURANCE_SCOPES.includes(scope),
-);
-
-/* returns the offered scopes among the given ones, without repeats, in the order of ASSURANCE_SCOPE_OPTIONS */
-export function orderAssuranceScopes(scopes: readonly AssuranceSubtype[]): AssuranceSubtype[] {
-  return ASSURANCE_SCOPE_OPTIONS.filter((scope) => scopes.includes(scope));
-}
+export {
+  ALL_ASSURANCE_SCOPES,
+  DISABLED_ASSURANCE_SCOPES,
+  ASSURANCE_SCOPE_OPTIONS,
+  orderAssuranceScopes,
+  isAssuranceSetScopeDisabled,
+};
 
 /* the one scope a set is filed under (its assuranceType): the first offered scope among the given ones; Vessel when none is given */
 export function getPrimaryAssuranceScope(scopes: readonly AssuranceSubtype[]): AssuranceSubtype {
@@ -51,7 +60,11 @@ export function getAssuranceSetScope(set: Pick<AssuranceSet, 'assuranceType' | '
  * Uses set.scopeType when explicitly assigned, falling back to asset records or title heuristics.
  */
 export function getAssuranceSetScopeType(
-  set: Pick<AssuranceSet, 'scopeType' | 'assuranceType' | 'subtypes' | 'crewId' | 'equipmentId' | 'vesselId' | 'title'>,
+  set: Pick<AssuranceSet, 'title'> & Partial<Pick<AssuranceSet, 'scopeType' | 'assuranceType' | 'subtypes' | 'assuranceObjects'>> & {
+    crewId?: string;
+    equipmentId?: string;
+    vesselId?: string;
+  },
   vessels?: { id: string; vesselType?: string; subtype?: string }[],
   crew?: { id: string; rank?: string }[],
   equipment?: { id: string; type?: string }[],
@@ -61,8 +74,9 @@ export function getAssuranceSetScopeType(
   const scope = getAssuranceSetScope(set);
 
   if (scope === 'Crew') {
-    if (set.crewId && crew) {
-      const member = crew.find((c) => c.id === set.crewId);
+    const crewId = set.crewId || set.assuranceObjects?.find((o) => o.type === 'person')?.id;
+    if (crewId && crew) {
+      const member = crew.find((c) => c.id === crewId);
       if (member?.rank) return member.rank;
     }
     const t = set.title.toLowerCase();
@@ -74,8 +88,9 @@ export function getAssuranceSetScopeType(
   }
 
   if (scope === 'Equipment') {
-    if (set.equipmentId && equipment) {
-      const eq = equipment.find((e) => e.id === set.equipmentId);
+    const equipmentId = set.equipmentId || set.assuranceObjects?.find((o) => o.type === 'equipment')?.id;
+    if (equipmentId && equipment) {
+      const eq = equipment.find((e) => e.id === equipmentId);
       if (eq?.type) return eq.type;
     }
     const t = set.title.toLowerCase();
@@ -86,8 +101,9 @@ export function getAssuranceSetScopeType(
   }
 
   if (scope === 'Vessel') {
-    if (set.vesselId && vessels) {
-      const vessel = vessels.find((v) => v.id === set.vesselId);
+    const vesselId = set.vesselId || set.assuranceObjects?.find((o) => o.type === 'vessel')?.id;
+    if (vesselId && vessels) {
+      const vessel = vessels.find((v) => v.id === vesselId);
       if (vessel?.vesselType) return vessel.vesselType;
       if (vessel?.subtype) return vessel.subtype;
     }
@@ -214,33 +230,34 @@ export { SEEDED_OPERATIONAL_OBJECTS } from '../store/assuranceObjectMockData';
 
 /** returns all assurance objects for a set, synthesizing from legacy fields if unpopulated (ADR 0029) */
 export function getAssuranceSetObjects(
-  set: Pick<
-    AssuranceSet,
-    | 'assuranceObjects'
-    | 'assuranceType'
-    | 'subtypes'
-    | 'vesselId'
-    | 'vesselName'
-    | 'imoNumber'
-    | 'crewId'
-    | 'crewName'
-    | 'crewIds'
-    | 'crewNames'
-    | 'equipmentId'
-    | 'equipmentName'
-    | 'serviceProviderOrg'
-  >,
+  set: {
+    assuranceObjects?: AssuranceObject[];
+    assuranceType?: string;
+    subtypes?: AssuranceSubtype[];
+    vesselId?: string;
+    vesselName?: string;
+    imoNumber?: string;
+    crewId?: string;
+    crewName?: string;
+    crewIds?: string[];
+    crewNames?: string[];
+    equipmentId?: string;
+    equipmentName?: string;
+    serviceProviderOrg?: string;
+    parties?: { organization: string; role?: string; partyRole?: string; group?: string }[];
+  },
 ): AssuranceObject[] {
   if (set.assuranceObjects && set.assuranceObjects.length > 0) {
     return set.assuranceObjects;
   }
+  const provider = getRespondingParty(set) || set.serviceProviderOrg || '';
   const objects: AssuranceObject[] = [];
   if (set.vesselId) {
     objects.push({
       id: set.vesselId,
       type: 'vessel',
       name: set.vesselName || set.vesselId,
-      ownerOrganization: set.serviceProviderOrg || 'Vessel Provider',
+      ownerOrganization: provider || 'Vessel Provider',
       identifier: set.imoNumber ? 'IMO: ' + set.imoNumber : undefined,
     });
   }
@@ -251,7 +268,7 @@ export function getAssuranceSetObjects(
       id,
       type: 'person',
       name,
-      ownerOrganization: set.serviceProviderOrg || 'Crew Provider',
+      ownerOrganization: provider || 'Crew Provider',
     });
   });
   if (set.equipmentId) {
@@ -259,7 +276,7 @@ export function getAssuranceSetObjects(
       id: set.equipmentId,
       type: 'equipment',
       name: set.equipmentName || set.equipmentId,
-      ownerOrganization: set.serviceProviderOrg || 'Equipment Provider',
+      ownerOrganization: provider || 'Equipment Provider',
     });
   }
   return objects;
@@ -273,54 +290,50 @@ export interface AssuranceSetAsset {
 
 /* legacy primary asset helper for single-asset views and backwards compatibility (ADR 0029 multi-object sets may hold multiple objects); on a crew or equipment set the vessel fields name the host vessel only */
 export function getAssuranceSetAsset(
-  set: Pick<
-    AssuranceSet,
-    'assuranceType' | 'subtypes' | 'vesselId' | 'vesselName' | 'crewId' | 'crewName' | 'equipmentId' | 'equipmentName'
-  >,
+  set: SetObjectsInput & { assuranceType?: AssuranceScopeType; subtypes?: AssuranceSubtype[] },
 ): AssuranceSetAsset {
   const type = getAssuranceSetScopes(set)[0];
-  if (type === 'Crew' && set.crewId) {
-    return { type, id: set.crewId, name: set.crewName || set.crewId };
+  if (type === 'Crew') {
+    const crewMembers = getSetCrew(set);
+    if (crewMembers.length > 0) {
+      const c = crewMembers[0];
+      const name = 'fullName' in c ? c.fullName : c.name;
+      return { type, id: c.id, name };
+    }
   }
-  if (type === 'Equipment' && set.equipmentId) {
-    return { type, id: set.equipmentId, name: set.equipmentName || set.equipmentId };
+  if (type === 'Equipment') {
+    const eq = getSetEquipment(set);
+    if (eq.length > 0) {
+      return { type, id: eq[0].id, name: eq[0].name };
+    }
   }
-  return { type, id: set.vesselId, name: set.vesselName || set.vesselId };
+  const vessel = getSetVessel(set);
+  if (vessel) {
+    return { type, id: vessel.id, name: vessel.name };
+  }
+  return { type, id: '', name: '' };
 }
 
 /* every crew member id a set covers: crewIds when saved, else its single crewId; empty for a set with no crew (ADR 0023) */
-export function getAssuranceSetCrewIds(set: Pick<AssuranceSet, 'crewId' | 'crewIds'>): string[] {
-  if (set.crewIds && set.crewIds.length > 0) return set.crewIds;
-  return set.crewId ? [set.crewId] : [];
+export function getAssuranceSetCrewIds(set: SetObjectsInput): string[] {
+  return getSetCrewIds(set);
 }
 
 /* every crew member name a set covers, in the order of getAssuranceSetCrewIds */
-export function getAssuranceSetCrewNames(set: Pick<AssuranceSet, 'crewId' | 'crewIds' | 'crewName' | 'crewNames'>): string[] {
-  return getAssuranceSetCrewIds(set).map((id, i) => set.crewNames?.[i] || (i === 0 ? set.crewName : undefined) || id);
+export function getAssuranceSetCrewNames(set: SetObjectsInput): string[] {
+  return getSetCrewNames(set);
 }
 
 /* every asset a set covers: one vessel or equipment item, or one or more crew members on a crew set (ADR 0023) */
 export function getAssuranceSetAssets(
-  set: Pick<
-    AssuranceSet,
-    | 'assuranceType'
-    | 'subtypes'
-    | 'vesselId'
-    | 'vesselName'
-    | 'crewId'
-    | 'crewName'
-    | 'crewIds'
-    | 'crewNames'
-    | 'equipmentId'
-    | 'equipmentName'
-  >,
+  set: SetObjectsInput & { assuranceType?: AssuranceScopeType; subtypes?: AssuranceSubtype[] },
 ): AssuranceSetAsset[] {
   const first = getAssuranceSetAsset(set);
   if (first.type !== 'Crew') return [first];
   const ids = getAssuranceSetCrewIds(set);
   if (ids.length === 0) return [first];
   const names = getAssuranceSetCrewNames(set);
-  return ids.map((id, i) => ({ type: 'Crew' as AssuranceSubtype, id, name: names[i] }));
+  return ids.map((id, i) => ({ type: 'Crew' as AssuranceSubtype, id, name: names[i] || id }));
 }
 
 /**
@@ -330,41 +343,32 @@ export function getAssuranceSetAssets(
 */
 /** normalizes set assets and assurance objects (ADR 0029: multi-object sets preserve all objects) */
 export function toSingleAssetSet<T extends AssuranceSet>(set: T): T {
-  // If the set specifies explicit assuranceObjects (ADR 0029 multi-object model), preserve all of them
+  const scope = getAssuranceSetScopes(set)[0];
+  // If the set specifies explicit assuranceObjects (ADR 0029 multi-object model)
   if (set.assuranceObjects && set.assuranceObjects.length > 0) {
-    const hasCrew = set.assuranceObjects.some((o) => o.type === 'person');
-    const hasEquipment = set.assuranceObjects.some((o) => o.type === 'equipment');
+    const objectTypes = new Set(set.assuranceObjects.map((o) => o.type));
+    const hasMultipleObjectTypes = objectTypes.size > 1;
+    if (!hasMultipleObjectTypes && set.subtypes && set.subtypes.length > 1) {
+      return {
+        ...set,
+        assuranceType: scope,
+        subtypes: [scope],
+        requirements: (set.requirements || []).filter((r) => !r.subtype || r.subtype === scope),
+      };
+    }
     return {
       ...set,
       assuranceObjects: set.assuranceObjects,
-      crewId: hasCrew ? (set.crewIds?.[0] ?? set.crewId) : undefined,
-      crewName: hasCrew ? (set.crewNames?.[0] ?? set.crewName) : undefined,
-      crewIds: hasCrew ? set.crewIds : undefined,
-      crewNames: hasCrew ? set.crewNames : undefined,
-      equipmentId: hasEquipment ? set.equipmentId : undefined,
-      equipmentName: hasEquipment ? set.equipmentName : undefined,
     };
   }
   // Legacy single-asset clamping (ADR 0004 compatibility when assuranceObjects is not set)
-  const scope = getAssuranceSetScopes(set)[0];
   return {
     ...set,
     assuranceType: scope,
     subtypes: [scope],
     assuranceObjects: getAssuranceSetObjects({ ...set, assuranceType: scope, subtypes: [scope] }),
-    crewId: scope === 'Crew' ? (set.crewIds?.[0] ?? set.crewId) : undefined,
-    crewName: scope === 'Crew' ? (set.crewNames?.[0] ?? set.crewName) : undefined,
-    crewIds: scope === 'Crew' && set.crewIds && set.crewIds.length > 0 ? set.crewIds : undefined,
-    crewNames: scope === 'Crew' && set.crewIds && set.crewIds.length > 0 ? set.crewNames : undefined,
-    equipmentId: scope === 'Equipment' ? set.equipmentId : undefined,
-    equipmentName: scope === 'Equipment' ? set.equipmentName : undefined,
     requirements: (set.requirements || []).filter((r) => !r.subtype || r.subtype === scope),
   };
-}
-
-/* true when a set is filed under a scope that is switched off */
-export function isAssuranceSetScopeDisabled(set: Pick<AssuranceSet, 'assuranceType'>): boolean {
-  return Boolean(set.assuranceType && DISABLED_ASSURANCE_SCOPES.includes(set.assuranceType));
 }
 
 export interface AssuranceWizardStep {

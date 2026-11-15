@@ -78,19 +78,23 @@ describe('AssuranceTable and VesselTable per-person session filtering', () => {
     title: 'Fontaine Inspection Campaign',
     visibility: 'public',
     stage: 'Verification',
-    initiatorOrg: 'Northwind Marine Pty Ltd',
-    initiatorRole: 'Vessel Provider Admin',
-    createdByUserId: 'USR-101',
-    createdByName: 'K. Osei',
-    createdByPersona: 'Administrator',
-    serviceProviderOrg: 'Northwind Marine Pty Ltd',
-    clientOrg: 'Bureau Veritas Inspectorate',
-    assignedSubmitter: undefined,
-    assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
-    vesselId: 'VESSEL-001',
-    vesselName: 'MV Northwind Alpha',
+    parties: [
+      { organization: 'Bureau Veritas Inspectorate', role: 'Requesting party' },
+      { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      { organization: 'Bureau Veritas Inspectorate', role: 'Third party' },
+    ],
+    assuranceObjects: [
+      { id: 'VESSEL-001', type: 'vessel', name: 'MV Northwind Alpha', ownerOrganization: 'Northwind Marine Pty Ltd' },
+    ],
+    submitters: [],
     stakeholders: {
+      verifierName: 'A. Fontaine',
       verifierOrg: 'Bureau Veritas Inspectorate',
+    },
+    createdBy: {
+      userId: 'USR-101',
+      name: 'K. Osei',
+      persona: 'Administrator',
     },
   };
 
@@ -100,19 +104,23 @@ describe('AssuranceTable and VesselTable per-person session filtering', () => {
     title: 'Dupont Verification Campaign',
     visibility: 'public',
     stage: 'Verification',
-    initiatorOrg: 'Northwind Marine Pty Ltd',
-    initiatorRole: 'Vessel Provider Admin',
-    createdByUserId: 'USR-101',
-    createdByName: 'K. Osei',
-    createdByPersona: 'Administrator',
-    serviceProviderOrg: 'Northwind Marine Pty Ltd',
-    clientOrg: 'Bureau Veritas Inspectorate',
-    assignedSubmitter: undefined,
-    assignedVerifier: 'J. Dupont (Bureau Veritas Inspectorate)',
-    vesselId: 'VESSEL-002',
-    vesselName: 'MV Northwind Beta',
+    parties: [
+      { organization: 'Bureau Veritas Inspectorate', role: 'Requesting party' },
+      { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      { organization: 'Bureau Veritas Inspectorate', role: 'Third party' },
+    ],
+    assuranceObjects: [
+      { id: 'VESSEL-002', type: 'vessel', name: 'MV Northwind Beta', ownerOrganization: 'Northwind Marine Pty Ltd' },
+    ],
+    submitters: [],
     stakeholders: {
+      verifierName: 'J. Dupont',
       verifierOrg: 'Bureau Veritas Inspectorate',
+    },
+    createdBy: {
+      userId: 'USR-101',
+      name: 'K. Osei',
+      persona: 'Administrator',
     },
   };
 
@@ -122,11 +130,20 @@ describe('AssuranceTable and VesselTable per-person session filtering', () => {
     title: 'Chen Submitter Campaign',
     visibility: 'public',
     stage: 'Verification',
-    serviceProviderOrg: 'Northwind Marine Pty Ltd',
-    assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
-    assignedVerifier: undefined,
-    vesselId: 'VESSEL-001',
-    vesselName: 'MV Northwind Alpha',
+    parties: [
+      { organization: 'Northwind Marine Pty Ltd', role: 'Requesting party' },
+      { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+    ],
+    assuranceObjects: [
+      { id: 'VESSEL-001', type: 'vessel', name: 'MV Northwind Alpha', ownerOrganization: 'Northwind Marine Pty Ltd' },
+    ],
+    submitters: [
+      { organization: 'Northwind Marine Pty Ltd', assignee: 'M. Chen (Northwind Marine Pty Ltd)' },
+    ],
+    stakeholders: {
+      submitterName: 'M. Chen',
+      submitterOrg: 'Northwind Marine Pty Ltd',
+    },
   };
 
   const setRamirez: AssuranceSet = {
@@ -135,11 +152,20 @@ describe('AssuranceTable and VesselTable per-person session filtering', () => {
     title: 'Ramirez Submitter Campaign',
     visibility: 'public',
     stage: 'Verification',
-    serviceProviderOrg: 'Northwind Marine Pty Ltd',
-    assignedSubmitter: 'E. Ramirez (Northwind Marine Pty Ltd)',
-    assignedVerifier: undefined,
-    vesselId: 'VESSEL-002',
-    vesselName: 'MV Northwind Beta',
+    parties: [
+      { organization: 'Northwind Marine Pty Ltd', role: 'Requesting party' },
+      { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+    ],
+    assuranceObjects: [
+      { id: 'VESSEL-002', type: 'vessel', name: 'MV Northwind Beta', ownerOrganization: 'Northwind Marine Pty Ltd' },
+    ],
+    submitters: [
+      { organization: 'Northwind Marine Pty Ltd', assignee: 'E. Ramirez (Northwind Marine Pty Ltd)' },
+    ],
+    stakeholders: {
+      submitterName: 'E. Ramirez',
+      submitterOrg: 'Northwind Marine Pty Ltd',
+    },
   };
 
   const vessel1: VesselInformation = {

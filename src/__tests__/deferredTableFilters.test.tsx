@@ -160,15 +160,28 @@ function makeVessel(overrides: Partial<VesselInformation> & Pick<VesselInformati
 
 function makeSet(overrides: Partial<AssuranceSet> & Pick<AssuranceSet, 'id' | 'title'>): AssuranceSet {
   return {
-    vesselId: 'VESSEL-1',
-    vesselName: 'MV Pacific Horn',
-    imoNumber: '9123453',
-    initiatorOrg: 'Northwind Marine Pty Ltd',
-    initiatorRole: 'Vessel Provider',
-    serviceProviderOrg: 'Northwind Marine Pty Ltd',
-    charterWindowStart: '2026-11-01',
-    charterWindowEnd: '2026-12-01',
-    complianceDeadline: '2026-11-15',
+    assuranceObjects: [
+      {
+        id: 'VESSEL-1',
+        type: 'vessel',
+        name: 'MV Pacific Horn',
+        ownerOrganization: 'Northwind Marine Pty Ltd',
+        identifier: '9123453',
+      },
+    ],
+    parties: [
+      { organization: 'Northwind Marine Pty Ltd', role: 'Requesting party' },
+      { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+    ],
+    createdBy: {
+      userId: 'USR-101',
+      name: 'K. Osei',
+      persona: 'Administrator',
+    },
+    startDate: '2026-11-01',
+    endDate: '2026-12-01',
+    deadline: '2026-11-15',
+    dateHistory: [],
     stage: 'Verification',
     readinessScore: 80,
     requirements: [],
@@ -638,20 +651,26 @@ describe('Deferred FilterModal across all 14 table components and list views', (
         makeSet({
           id: 'AS-CAPA-1',
           title: 'Pacific Horn Set',
-          vesselId: 'VESSEL-1',
-          vesselName: 'MV Pacific Horn',
-          createdByUserId: 'USR-101',
-          createdByName: 'K. Osei',
-          createdByPersona: 'Administrator',
+          assuranceObjects: [
+            { id: 'VESSEL-1', type: 'vessel', name: 'MV Pacific Horn', ownerOrganization: 'Northwind Marine Pty Ltd' },
+          ],
+          createdBy: {
+            userId: 'USR-101',
+            name: 'K. Osei',
+            persona: 'Administrator',
+          },
         }),
         makeSet({
           id: 'AS-CAPA-2',
           title: 'Coral Star Set',
-          vesselId: 'VESSEL-2',
-          vesselName: 'MV Coral Star',
-          createdByUserId: 'USR-101',
-          createdByName: 'K. Osei',
-          createdByPersona: 'Administrator',
+          assuranceObjects: [
+            { id: 'VESSEL-2', type: 'vessel', name: 'MV Coral Star', ownerOrganization: 'Northwind Marine Pty Ltd' },
+          ],
+          createdBy: {
+            userId: 'USR-101',
+            name: 'K. Osei',
+            persona: 'Administrator',
+          },
         }),
       ],
       capaItems: capas,
@@ -967,9 +986,9 @@ describe('Deferred FilterModal across all 14 table components and list views', (
       makeSet({
         id: 'AS-2026-V2',
         title: 'Meridian Vetting',
-        vesselId: 'VESSEL-2',
-        vesselName: 'MV Meridian Explorer',
-        imoNumber: '9123454',
+        assuranceObjects: [
+          { id: 'VESSEL-2', type: 'vessel', name: 'MV Meridian Explorer', ownerOrganization: 'Northwind Marine Pty Ltd', identifier: '9123454' },
+        ],
       }),
     ];
 
@@ -1032,14 +1051,18 @@ describe('Deferred FilterModal across all 14 table components and list views', (
           title: 'Pending Approval Campaign',
           stage: 'Approval',
           approverDecision: 'Pending',
-          assignedApprover: 'P. Nardelli',
+          stakeholders: {
+            approverName: 'P. Nardelli',
+          },
         }),
         makeSet({
           id: 'AS-APPR-2',
           title: 'Completed Approval Campaign',
           stage: 'Approved',
           approverDecision: 'Approved',
-          assignedApprover: 'P. Nardelli',
+          stakeholders: {
+            approverName: 'P. Nardelli',
+          },
         }),
       ],
     });
@@ -1155,18 +1178,24 @@ describe('Deferred FilterModal across all 14 table components and list views', (
         makeSet({
           id: 'AS-2026-001',
           title: 'Fremantle Campaign',
-          vesselId: 'VESSEL-1',
-          vesselName: 'MV Pacific Horn',
-          assignedInspector: 'N. Technical',
+          assuranceObjects: [
+            { id: 'VESSEL-1', type: 'vessel', name: 'MV Pacific Horn', ownerOrganization: 'Northwind Marine Pty Ltd' },
+          ],
+          stakeholders: {
+            inspectorName: 'N. Technical',
+          },
           mandatoryInspectionRequired: true,
           inspectionCompleted: false,
         }),
         makeSet({
           id: 'AS-2026-004',
           title: 'Dampier Campaign',
-          vesselId: 'VESSEL-4',
-          vesselName: 'MV Northern Tide',
-          assignedInspector: 'N. Technical',
+          assuranceObjects: [
+            { id: 'VESSEL-4', type: 'vessel', name: 'MV Northern Tide', ownerOrganization: 'Northwind Marine Pty Ltd' },
+          ],
+          stakeholders: {
+            inspectorName: 'N. Technical',
+          },
           mandatoryInspectionRequired: true,
           inspectionCompleted: false,
         }),
@@ -1219,11 +1248,12 @@ describe('Deferred FilterModal across all 14 table components and list views', (
         makeSet({
           id: 'AS-MKT-LOCK',
           title: 'Contracted Vessel Window',
-          vesselId: 'VESSEL-008',
-          vesselName: 'MV Meridian Pioneer',
+          assuranceObjects: [
+            { id: 'VESSEL-008', type: 'vessel', name: 'MV Meridian Pioneer', ownerOrganization: 'Meridian Marine Services Pty Ltd' },
+          ],
           assuranceType: 'Vessel',
-          charterWindowStart: '2099-06-01',
-          charterWindowEnd: '2099-07-01',
+          startDate: '2099-06-01',
+          endDate: '2099-07-01',
           visibility: 'organization',
         }),
       ],
@@ -1423,7 +1453,9 @@ describe('Deferred FilterModal across all 14 table components and list views', (
         makeSet({
           id: 'AS-VER-1',
           title: 'Verification Set 1',
-          assignedVerifier: 'A. Fontaine',
+          stakeholders: {
+            verifierName: 'A. Fontaine',
+          },
           stage: 'Verification',
           requirements: [
             {

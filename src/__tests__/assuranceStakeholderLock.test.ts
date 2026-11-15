@@ -109,9 +109,11 @@ describe('assurance set stakeholder assignment lock', () => {
     const woodside = MOCK_ASSURANCE_SETS.find((s) => s.id === 'AS-2026-004')!;
     const inpex: AssuranceSet = {
       ...MOCK_ASSURANCE_SETS.find((s) => s.id === 'AS-2026-003')!,
-      createdByUserId: inpexCAdmin.id,
-      createdByName: inpexCAdmin.name,
-      createdByPersona: 'C Admin',
+      createdBy: {
+        userId: inpexCAdmin.id,
+        name: inpexCAdmin.name,
+        persona: 'C Admin',
+      },
     };
     const chevron = MOCK_ASSURANCE_SETS.find((s) => s.id === 'AS-2026-001')!;
 
@@ -140,11 +142,17 @@ describe('assurance set stakeholder assignment lock', () => {
         assuranceSets: initialState.assuranceSets.map((s) =>
           s.id === editable.id
             ? {
-                ...s,
-                createdByUserId: inpexCAdmin.id,
-                createdByName: inpexCAdmin.name,
-                createdByPersona: 'C Admin',
-              }
+              ...s,
+              parties: [
+                { organization: 'Inpex Operations Australia', role: 'Requesting party' },
+                { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+              ],
+              createdBy: {
+                userId: inpexCAdmin.id,
+                name: inpexCAdmin.name,
+                persona: 'C Admin',
+              },
+            }
             : s,
         ),
         activePersona: 'Administrator',

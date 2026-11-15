@@ -15,6 +15,8 @@ import {
 } from '../utils/rbacHelpers';
 import { buildBrdRolePermissionDefaults } from '../utils/permissionDefaults';
 import { getRoleScopeFlags } from '../utils/permissionHelpers';
+import { getRequestingParty } from '../utils/setParties';
+import { getSetCreatedBy } from '../utils/setStakeholders';
 
 const cAdminUser = MOCK_USERS.find((u) => u.id === 'USR-221')!;
 
@@ -40,14 +42,13 @@ describe('c admin dashboard and sidepanel rbac suite', () => {
 
     expect(cAdminSets.length).toBeGreaterThan(0);
     cAdminSets.forEach((set) => {
+      const clientParty = getRequestingParty(set);
       const isClientCreated =
-        set.initiatorRole === 'C Admin · Client Created' ||
-        set.createdByPersona === 'C Admin' ||
-        set.charterer === 'Chevron Australia Pty Ltd' ||
-        set.initiatorOrg === 'Southern Basin Energy Pty Ltd' ||
-        set.charterer === 'Southern Basin Energy Pty Ltd' ||
-        set.charterer === 'Woodside Energy Ltd' ||
-        set.charterer === 'Inpex Operations Australia';
+        getSetCreatedBy(set)?.persona === 'C Admin' ||
+        clientParty === 'Chevron Australia Pty Ltd' ||
+        clientParty === 'Southern Basin Energy Pty Ltd' ||
+        clientParty === 'Woodside Energy Ltd' ||
+        clientParty === 'Inpex Operations Australia';
 
       expect(isClientCreated).toBe(true);
     });

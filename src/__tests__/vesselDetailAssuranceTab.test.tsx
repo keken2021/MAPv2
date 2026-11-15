@@ -10,6 +10,7 @@ import { VesselDetailView } from '../views/VesselDetailView';
 import { useMapStore } from '../store/useMapStore';
 import { MOCK_ASSURANCE_SETS, MOCK_USERS, MOCK_VESSELS } from '../store/mockData';
 import { filterAssuranceSetsForSession } from '../utils/rbacHelpers';
+import { getSetVessel } from '../utils/setObjects';
 
 const initialState = useMapStore.getState();
 
@@ -39,10 +40,10 @@ describe('vessel detail assurance tab', () => {
       sessionUser,
     );
     const vessel =
-      MOCK_VESSELS.find((v) => accessible.some((s) => s.vesselId === v.id)) || MOCK_VESSELS[0];
-    const linked = accessible.filter((s) => s.vesselId === vessel.id);
+      MOCK_VESSELS.find((v) => accessible.some((s) => getSetVessel(s)?.id === v.id)) || MOCK_VESSELS[0];
+    const linked = accessible.filter((s) => getSetVessel(s)?.id === vessel.id);
     const other = MOCK_ASSURANCE_SETS.find(
-      (s) => (s.vesselId && s.vesselId !== vessel.id) || !linked.some((l) => l.id === s.id),
+      (s) => (getSetVessel(s) && getSetVessel(s)?.id !== vessel.id) || !linked.some((l) => l.id === s.id),
     );
 
     render(<VesselDetailView vesselId={vessel.id} />);

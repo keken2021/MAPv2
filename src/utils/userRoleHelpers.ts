@@ -4,7 +4,7 @@
   role in system: consumed by UserManagement modals, UserTable, and CreateAssuranceSetView.
 */
 
-import { AssuranceObject, SetSubmitter } from '../types/assurance';
+import { AssuranceObject, AssuranceStakeholderMapping, SetSubmitter } from '../types/assurance';
 import { UserRolePersona } from '../types/audit';
 import { MasterDocument } from '../types/document';
 import { RoleName } from '../types/permissions';
@@ -13,6 +13,7 @@ import { MOCK_PERSONA_SESSION_USER_IDS } from '../store/mockData';
 import { pickSessionUserForOrgPersona } from './demoSessionHelpers';
 import { sameOrganization } from './organizationMatch';
 import { isOwnUpload } from './uploadOwnership';
+import { getRequestingParty, getRespondingParty, isInternalDeployment, type SetPartiesInput } from './setParties';
 export { pickSessionUserForOrgPersona };
 
 export const OPERATIONAL_ROLE_OPTIONS: { role: UserRolePersona; label: string }[] = [
@@ -700,7 +701,7 @@ export const PENDING_ASSIGNMENT = 'Pending Assignment';
 
 export type StakeholderRole = 'Submitter' | 'Verifier' | 'Inspector' | 'Approver';
 
-export interface StakeholderOrganizationFields {
+export interface StakeholderOrganizationFields extends SetPartiesInput {
   serviceProviderOrg?: string;
   clientOrg?: string;
   charterer?: string;
@@ -708,12 +709,7 @@ export interface StakeholderOrganizationFields {
   assignedVerifier?: string;
   assignedInspector?: string;
   assignedApprover?: string;
-  stakeholders?: {
-    submitterOrg?: string;
-    verifierOrg?: string;
-    inspectorOrg?: string;
-    approverOrg?: string;
-  } | null;
+  stakeholders?: AssuranceStakeholderMapping | null;
   submitters?: SetSubmitter[];
 }
 
@@ -724,7 +720,7 @@ export function getStakeholderRoleOrganization(
   if (role === 'Submitter') {
     return (
       set.stakeholders?.submitterOrg ||
-      set.serviceProviderOrg ||
+      getRespondingParty(set) ||
       parseAssigneeOrganization(set.assignedSubmitter || '')
     );
   }
@@ -744,8 +740,7 @@ export function getStakeholderRoleOrganization(
     return (
       set.stakeholders?.approverOrg ||
       parseAssigneeOrganization(set.assignedApprover || '') ||
-      set.clientOrg ||
-      set.charterer
+      getRequestingParty(set)
     );
   }
   return undefined;
@@ -753,6 +748,10 @@ export function getStakeholderRoleOrganization(
 
 export function setSubmitters(set: StakeholderOrganizationFields): SetSubmitter[] {
   if (set.submitters?.length) return set.submitters;
+  if (set.assignedSubmitter) {
+    const organization = getStakeholderRoleOrganization(set, 'Submitter') || '';
+    return [{ organization, assignee: set.assignedSubmitter }];
+  }
   const organization = getStakeholderRoleOrganization(set, 'Submitter');
   if (!organization && !set.assignedSubmitter) return [];
   return [{ organization: organization || '', assignee: set.assignedSubmitter || PENDING_ASSIGNMENT }];
@@ -793,7 +792,7 @@ export function validateStakeholderAssignmentForSet(
     return { ok: false, message: 'Please select an assignee.' };
   }
 
-  const providerOrg = assuranceSet.serviceProviderOrg;
+  const providerOrg = getRespondingParty(assuranceSet);
   const assigneeOrg = parseAssigneeOrganization(assigneeName);
   const assigneeUser = findUserByAssigneeLabel(users, assigneeName);
 
@@ -804,10 +803,12 @@ export function validateStakeholderAssignmentForSet(
     return { ok: false, message: assigneeName + ' is not in ' + roleOrganization + '.' };
   }
 
+  const isInternal = isInternalDeployment(assuranceSet);
+
   if (
     (role === 'Verifier' || role === 'Approver') &&
     providerOrg &&
-    !assuranceSet.internalDeployment
+    !isInternal
   ) {
     if (assigneeOrg && stakeholderOrgMatches(providerOrg, assigneeOrg)) {
       return {
@@ -824,10 +825,11 @@ export function validateStakeholderAssignmentForSet(
   }
 
   /* an organization that owns an object in the set cannot review it; the client\'s own objects are internal assurance */
-  if ((role === 'Verifier' || role === 'Approver') && !assuranceSet.internalDeployment) {
+  if ((role === 'Verifier' || role === 'Approver') && !isInternal) {
     const organization = assigneeOrg || assigneeUser?.organization;
+    const clientOrg = getRequestingParty(assuranceSet);
     const isClient = Boolean(
-      organization && assuranceSet.clientOrg && stakeholderOrgMatches(assuranceSet.clientOrg, organization),
+      organization && clientOrg && stakeholderOrgMatches(clientOrg, organization),
     );
     const ownsObject = Boolean(organization) && (assuranceSet.assuranceObjects ?? []).some(
       (object) => Boolean(object.ownerOrganization && organization && stakeholderOrgMatches(object.ownerOrganization, organization)),

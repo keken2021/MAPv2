@@ -45,21 +45,17 @@ function seedClientAdminExternalSet() {
     ...baseSet,
     id: 'AS-TEST-CADMIN-EXT-OBJ',
     title: 'Northwind C Admin External Object Set',
-    initiatorOrg: ORG,
-    initiatorRole: 'C Admin · Client Created' as const,
-    createdByPersona: 'C Admin' as const,
-    createdByUserId: 'USR-235',
-    createdByName: 'T. Okada',
-    clientOrg: ORG,
-    charterer: ORG,
-    serviceProviderOrg: 'Meridian Marine Services Pty Ltd',
-    assignedSubmitter: 'Unassigned (Meridian Marine Services Pty Ltd)',
-    assignedVerifier: undefined,
-    assignedInspector: undefined,
-    assignedApprover: undefined,
+    parties: [
+      { organization: ORG, role: 'Requesting party' as const },
+      { organization: 'Meridian Marine Services Pty Ltd', role: 'Responding party' as const },
+    ],
+    createdBy: {
+      userId: 'USR-235',
+      name: 'T. Okada',
+      persona: 'C Admin' as const,
+    },
+    stakeholders: undefined,
     assuranceObjects: towActivity ? [towActivity] : [],
-    vesselId: '',
-    vesselName: '',
   };
   useMapStore.setState({ assuranceSets: [...prevSets, tempSet] });
   return () => useMapStore.setState({ assuranceSets: prevSets });

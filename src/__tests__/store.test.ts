@@ -10,6 +10,13 @@ import { UserRolePersona } from '../types/audit';
 import { isViewAccessibleToPersona, filterDocumentsForVerifierQueue } from '../utils/rbacHelpers';
 import { formatDocumentId, isValidDocumentId } from '../utils/formatters';
 import { isClosedAssuranceSet } from '../utils/documentVersionSnapshot';
+import {
+  getSetAssignedVerifier,
+  getSetAssignedSubmitter,
+  getSetAssignedInspector,
+  getSetAssignedApprover,
+} from '../utils/setStakeholders';
+import { getSetVesselId } from '../utils/setObjects';
 
 const initialState = useMapStore.getState();
 
@@ -83,7 +90,7 @@ describe('Map Store State Management', () => {
     const targetSet = store.assuranceSets.find(
       (s) =>
         !isClosedAssuranceSet(s) &&
-        s.assignedVerifier?.includes('S. Girard') &&
+        getSetAssignedVerifier(s)?.includes('S. Girard') &&
         s.requirements.some((r) => r.documentId && r.verifierStatus !== 'Verified'),
     )!;
     const req = targetSet.requirements.find((r) => r.documentId && r.verifierStatus !== 'Verified')!;
@@ -121,7 +128,7 @@ describe('Map Store State Management', () => {
     const targetSet = store.assuranceSets.find(
       (s) =>
         !isClosedAssuranceSet(s) &&
-        s.assignedVerifier?.includes('S. Girard') &&
+        getSetAssignedVerifier(s)?.includes('S. Girard') &&
         s.requirements.some((r) => r.documentId && r.verifierStatus !== 'Verified'),
     );
     expect(targetSet).toBeDefined();
@@ -152,7 +159,7 @@ describe('Map Store State Management', () => {
     });
     const store = useMapStore.getState();
     const targetSet = store.assuranceSets.find(
-      (s) => !isClosedAssuranceSet(s) && s.mandatoryInspectionRequired && s.assignedVerifier?.includes('S. Girard'),
+      (s) => !isClosedAssuranceSet(s) && s.mandatoryInspectionRequired && getSetAssignedVerifier(s)?.includes('S. Girard'),
     );
     expect(targetSet).toBeDefined();
     if (!targetSet) return;
@@ -179,7 +186,7 @@ describe('Map Store State Management', () => {
       store.assuranceSets.find(
         (s) =>
           !isClosedAssuranceSet(s) &&
-          s.assignedSubmitter?.includes('M. Chen') &&
+          getSetAssignedSubmitter(s)?.includes('M. Chen') &&
           s.requirements.some((r) => !r.documentId),
       ) ||
       store.assuranceSets.find((s) => s.id === 'AS-2026-028')!;
@@ -188,7 +195,7 @@ describe('Map Store State Management', () => {
       ...store.documents[0],
       id: 'MAP-DOC-2026-STAT-00999',
       title: targetReq.title,
-      vesselId: targetSet.vesselId,
+      vesselId: getSetVesselId(targetSet),
       ownerOrganization: 'Northwind Marine Pty Ltd',
       verificationStatus: 'Pending' as const,
     };
@@ -200,7 +207,7 @@ describe('Map Store State Management', () => {
     expect(updatedReq?.documentId).toBe('MAP-DOC-2026-STAT-00999');
     expect(updatedReq?.verifierStatus).toBe('Pending');
 
-    const verifierUser = store.users.find((u) => targetSet.assignedVerifier?.includes(u.name))!;
+    const verifierUser = store.users.find((u) => getSetAssignedVerifier(targetSet)?.includes(u.name))!;
     const scoped = filterDocumentsForVerifierQueue(
       useMapStore.getState().documents,
       useMapStore.getState().assuranceSets,
@@ -232,7 +239,7 @@ describe('Map Store State Management', () => {
     scoped.forEach((doc) => {
       const inAssignedQueue = useMapStore.getState().assuranceSets.some(
         (set) =>
-          set.assignedVerifier?.includes(verifierUser.name) &&
+          getSetAssignedVerifier(set)?.includes(verifierUser.name) &&
           set.requirements.some((req) => req.documentId === doc.id),
       );
       expect(inAssignedQueue).toBe(true);
@@ -331,7 +338,7 @@ describe('Map Store State Management', () => {
     const targetSet = store.assuranceSets.find(
       (s) =>
         !isClosedAssuranceSet(s) &&
-        s.assignedApprover?.includes('P. Nardelli') &&
+        getSetAssignedApprover(s)?.includes('P. Nardelli') &&
         (s.stage === 'Approval' || s.approverDecision === 'Pending'),
     )!;
 
@@ -409,7 +416,7 @@ describe('Map Store State Management', () => {
       id: 'MAP-VES-2026-STAT-00888',
       title: 'Supplemental Bunkering Audit Certificate',
       entityType: 'Vessel Certificate' as const,
-      vesselId: targetSet.vesselId,
+      vesselId: getSetVesselId(targetSet),
       ownerOrganization: 'Northwind Marine Pty Ltd',
       certificateNo: 'DNV-BUNK-2026-991',
       issuingAuthority: 'DNV Classification Society',
@@ -457,21 +464,19 @@ describe('Map Store State Management', () => {
       id: 'AS-STAKE-NW-01',
       title: 'Northwind Stakeholder Assignment Test',
       projectId: undefined,
-      projectName: undefined,
-      initiatorOrg: 'Northwind Marine Pty Ltd',
-      initiatorRole: 'Vessel Provider Admin',
-      serviceProviderOrg: 'Northwind Marine Pty Ltd',
-      createdByPersona: 'Administrator',
-      createdByUserId: 'USR-101',
-      createdByName: 'K. Osei',
+      parties: [
+        { organization: 'Northwind Marine Pty Ltd', role: 'Requesting party' },
+        { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      ],
+      createdBy: { userId: 'USR-101', name: 'K. Osei', persona: 'Administrator' },
       stage: 'Initiated',
       approverDecision: 'Pending',
       clientWorkflowStage: undefined,
-      assignedSubmitter: 'Pending Assignment',
-      stakeholders: { submitterOrg: 'Northwind Marine Pty Ltd' },
+      submitters: [{ organization: 'Northwind Marine Pty Ltd', assignee: 'Pending Assignment' }],
+      stakeholders: { submitterOrg: 'Northwind Marine Pty Ltd', submitterName: 'Pending Assignment' },
     });
     useMapStore.getState().updateAssuranceStakeholder('AS-STAKE-NW-01', 'Submitter', 'J. Vance (Northwind Marine Pty Ltd)');
-    expect(useMapStore.getState().assuranceSets.find((s) => s.id === 'AS-STAKE-NW-01')?.assignedSubmitter).toBe(
+    expect(getSetAssignedSubmitter(useMapStore.getState().assuranceSets.find((s) => s.id === 'AS-STAKE-NW-01'))).toBe(
       'J. Vance (Northwind Marine Pty Ltd)',
     );
 
@@ -486,30 +491,29 @@ describe('Map Store State Management', () => {
       id: 'AS-STAKE-BV-01',
       title: 'BV Stakeholder Assignment Test',
       projectId: undefined,
-      projectName: undefined,
-      initiatorOrg: 'Bureau Veritas Inspectorate',
-      initiatorRole: 'Vessel Provider Admin',
-      createdByPersona: 'Administrator',
-      createdByUserId: 'USR-202',
-      createdByName: 'A. Fontaine',
+      parties: [
+        { organization: 'Bureau Veritas Inspectorate', role: 'Requesting party' },
+        { organization: 'Bureau Veritas Inspectorate', role: 'Responding party' },
+      ],
+      createdBy: { userId: 'USR-202', name: 'A. Fontaine', persona: 'Administrator' },
       stage: 'Initiated',
       approverDecision: 'Pending',
       clientWorkflowStage: undefined,
-      assignedVerifier: 'Pending Assignment',
-      assignedInspector: 'Pending Assignment',
       stakeholders: {
+        verifierName: 'Pending Assignment',
         verifierOrg: 'Bureau Veritas Inspectorate',
+        inspectorName: 'Pending Assignment',
         inspectorOrg: 'Bureau Veritas Inspectorate',
       },
     });
     useMapStore.getState().updateAssuranceStakeholder('AS-STAKE-BV-01', 'Verifier', 'S. Girard (Bureau Veritas Inspectorate)');
     let bvSet = useMapStore.getState().assuranceSets.find((s) => s.id === 'AS-STAKE-BV-01');
-    expect(bvSet?.assignedVerifier).toBe('S. Girard (Bureau Veritas Inspectorate)');
+    expect(getSetAssignedVerifier(bvSet)).toBe('S. Girard (Bureau Veritas Inspectorate)');
     expect(bvSet?.verificationRequired).toBe(true);
 
     useMapStore.getState().updateAssuranceStakeholder('AS-STAKE-BV-01', 'Inspector', 'N. Technical (Bureau Veritas Inspectorate)');
     bvSet = useMapStore.getState().assuranceSets.find((s) => s.id === 'AS-STAKE-BV-01');
-    expect(bvSet?.assignedInspector).toBe('N. Technical (Bureau Veritas Inspectorate)');
+    expect(getSetAssignedInspector(bvSet)).toBe('N. Technical (Bureau Veritas Inspectorate)');
     expect(bvSet?.mandatoryInspectionRequired).toBe(true);
 
     // Test Approver update on Southern Basin client-created set
@@ -523,23 +527,22 @@ describe('Map Store State Management', () => {
       id: 'AS-STAKE-SB-01',
       title: 'Southern Basin Stakeholder Assignment Test',
       projectId: undefined,
-      projectName: undefined,
-      initiatorOrg: 'Southern Basin Energy Pty Ltd',
-      initiatorRole: 'C Admin · Client Created',
-      clientOrg: 'Southern Basin Energy Pty Ltd',
-      charterer: 'Southern Basin Energy Pty Ltd',
-      createdByPersona: 'C Admin',
-      createdByUserId: 'USR-201',
-      createdByName: 'S. Basin',
+      parties: [
+        { organization: 'Southern Basin Energy Pty Ltd', role: 'Requesting party' },
+        { organization: 'Southern Basin Energy Pty Ltd', role: 'Responding party' },
+      ],
+      createdBy: { userId: 'USR-201', name: 'S. Basin', persona: 'C Admin' },
       stage: 'Initiated',
       approverDecision: 'Pending',
       clientWorkflowStage: undefined,
-      assignedApprover: 'Pending Assignment',
-      stakeholders: { approverOrg: 'Southern Basin Energy Pty Ltd' },
+      stakeholders: {
+        approverName: 'Pending Assignment',
+        approverOrg: 'Southern Basin Energy Pty Ltd',
+      },
     });
     useMapStore.getState().updateAssuranceStakeholder('AS-STAKE-SB-01', 'Approver', 'Elena Gomez (Southern Basin Energy Pty Ltd)');
     const sbSet = useMapStore.getState().assuranceSets.find((s) => s.id === 'AS-STAKE-SB-01');
-    expect(sbSet?.assignedApprover).toBe('Elena Gomez (Southern Basin Energy Pty Ltd)');
+    expect(getSetAssignedApprover(sbSet)).toBe('Elena Gomez (Southern Basin Energy Pty Ltd)');
     expect(sbSet?.formalApprovalRequired).toBe(true);
 
     // Verify audit logs

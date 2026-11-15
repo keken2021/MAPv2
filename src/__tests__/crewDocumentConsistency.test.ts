@@ -8,6 +8,7 @@ import { beforeEach, describe, it, expect } from 'vitest';
 import { MOCK_CREW } from '../store/crewMockData';
 import { MOCK_DOCUMENTS, MOCK_VESSELS, MOCK_ASSURANCE_SETS } from '../store/mockData';
 import { useMapStore } from '../store/useMapStore';
+import { getSetCrewIds } from '../utils/setObjects';
 
 const initialState = useMapStore.getState();
 
@@ -74,7 +75,7 @@ describe('crew directory and document library mock data consistency', () => {
 
     /* verify the crew set's req-103 links to alexander wright master coc; the crew requirement has its own set, apart from the vessel set AS-2026-001 */
     const crewSet = MOCK_ASSURANCE_SETS.find((a) => a.id === 'AS-CRW-101-01');
-    expect(crewSet?.crewId).toBe(alexanderWright?.id);
+    expect(getSetCrewIds(crewSet)[0]).toBe(alexanderWright?.id);
     const req103 = crewSet?.requirements.find((r) => r.id === 'REQ-103');
     expect(req103).toBeDefined();
     expect(req103?.documentId).toBe('MAP-CRW-2026-STCW-00106');

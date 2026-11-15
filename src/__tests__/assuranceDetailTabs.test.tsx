@@ -179,11 +179,8 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
       ...state.assuranceSets[0],
       id: testSetId,
       title: 'Audit Set Alpha',
-      initiatorOrg: 'Northwind Marine Pty Ltd',
-      createdByUserId: 'USR-101',
-      createdByName: 'K. Osei',
-      createdByPersona: 'Administrator',
-      targetDateHistory: [
+      createdBy: { userId: 'USR-101', name: 'K. Osei', persona: 'Administrator' },
+      dateHistory: [
         {
           id: 'TDH-001',
           setId: testSetId,
@@ -255,11 +252,8 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
       ...state.assuranceSets[0],
       id: testSetId,
       title: 'Dedup Set',
-      initiatorOrg: 'Northwind Marine Pty Ltd',
-      createdByUserId: 'USR-101',
-      createdByName: 'K. Osei',
-      createdByPersona: 'Administrator',
-      targetDateHistory: [
+      createdBy: { userId: 'USR-101', name: 'K. Osei', persona: 'Administrator' },
+      dateHistory: [
         {
           id: 'TDH-DEDUP-01',
           setId: testSetId,
@@ -325,11 +319,8 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
       ...state.assuranceSets[0],
       id: emptySetId,
       title: 'Empty Audit Set',
-      initiatorOrg: 'Northwind Marine Pty Ltd',
-      createdByUserId: 'USR-101',
-      createdByName: 'K. Osei',
-      createdByPersona: 'Administrator',
-      targetDateHistory: [],
+      createdBy: { userId: 'USR-101', name: 'K. Osei', persona: 'Administrator' },
+      dateHistory: [],
     };
 
     useMapStore.setState({
@@ -356,10 +347,12 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
       ...state.assuranceSets[0],
       id: testSetId,
       title: 'Persona Test Set',
-      serviceProviderOrg: 'Northwind Marine Pty Ltd',
-      assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
-      clientOrg: 'Oil Co Global',
-      targetDateHistory: [],
+      parties: [
+        { organization: 'Oil Co Global', role: 'Requesting party' },
+        { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      ],
+      submitters: [{ organization: 'Northwind Marine Pty Ltd', assignee: 'M. Chen (Northwind Marine Pty Ltd)' }],
+      dateHistory: [],
     };
 
     // Event by Administrator USR-101
@@ -413,12 +406,14 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
       ...state.assuranceSets[0],
       id: testSetId,
       title: 'Approver Audit Set',
-      serviceProviderOrg: 'Northwind Marine Pty Ltd',
-      clientOrg: 'Southern Basin Energy Pty Ltd',
-      assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
-      assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
+      parties: [
+        { organization: 'Southern Basin Energy Pty Ltd', role: 'Requesting party' },
+        { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      ],
+      submitters: [{ organization: 'Northwind Marine Pty Ltd', assignee: 'M. Chen (Northwind Marine Pty Ltd)' }],
+      stakeholders: { approverName: 'P. Nardelli (Marine Assurance Authority)' },
       stage: 'Approval',
-      targetDateHistory: [],
+      dateHistory: [],
     };
 
     const adminEvent: AuditTrailEvent = {
@@ -565,11 +560,8 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
       ...useMapStore.getState().assuranceSets[0],
       id: testSetId,
       title: 'Ten Domains Assurance Set',
-      initiatorOrg: 'Northwind Marine Pty Ltd',
-      createdByUserId: 'USR-101',
-      createdByName: 'K. Osei',
-      createdByPersona: 'Administrator',
-      targetDateHistory: [],
+      createdBy: { userId: 'USR-101', name: 'K. Osei', persona: 'Administrator' },
+      dateHistory: [],
     };
 
     const domainEvents: AuditTrailEvent[] = [
@@ -711,11 +703,8 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
       ...useMapStore.getState().assuranceSets[0],
       id: testSetId,
       title: 'Filter Test Set',
-      initiatorOrg: 'Northwind Marine Pty Ltd',
-      createdByUserId: 'USR-101',
-      createdByName: 'K. Osei',
-      createdByPersona: 'Administrator',
-      targetDateHistory: [],
+      createdBy: { userId: 'USR-101', name: 'K. Osei', persona: 'Administrator' },
+      dateHistory: [],
     };
 
     const events: AuditTrailEvent[] = [
@@ -797,11 +786,8 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
       ...useMapStore.getState().assuranceSets[0],
       id: testSetId,
       title: 'Export Test Set',
-      initiatorOrg: 'Northwind Marine Pty Ltd',
-      createdByUserId: 'USR-101',
-      createdByName: 'K. Osei',
-      createdByPersona: 'Administrator',
-      targetDateHistory: [],
+      createdBy: { userId: 'USR-101', name: 'K. Osei', persona: 'Administrator' },
+      dateHistory: [],
     };
 
     const events: AuditTrailEvent[] = [
@@ -874,11 +860,8 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
       ...useMapStore.getState().assuranceSets[0],
       id: testSetId,
       title: 'Pagination Test Set',
-      initiatorOrg: 'Northwind Marine Pty Ltd',
-      createdByUserId: 'USR-101',
-      createdByName: 'K. Osei',
-      createdByPersona: 'Administrator',
-      targetDateHistory: [],
+      createdBy: { userId: 'USR-101', name: 'K. Osei', persona: 'Administrator' },
+      dateHistory: [],
     };
 
     // 15 events
@@ -923,11 +906,8 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
     const testSet: AssuranceSet = {
       ...state.assuranceSets[0],
       id: testSetId,
-      initiatorOrg: 'Northwind Marine Pty Ltd',
-      createdByUserId: 'USR-101',
-      createdByName: 'K. Osei',
-      createdByPersona: 'Administrator',
-      assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
+      createdBy: { userId: 'USR-101', name: 'K. Osei', persona: 'Administrator' },
+      submitters: [{ organization: 'Northwind Marine Pty Ltd', assignee: 'M. Chen (Northwind Marine Pty Ltd)' }],
     };
 
     // 1. As Administrator (creator who can manage tasks)
@@ -1029,12 +1009,9 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
       ...baseSet,
       id: testSetId,
       title: 'One Status Badge Test Set',
-      initiatorOrg: 'Northwind Marine Pty Ltd',
-      createdByUserId: 'USR-101',
-      createdByName: 'K. Osei',
-      createdByPersona: 'Administrator',
-      charterWindowStart: '2026-01-01',
-      charterWindowEnd: '2026-12-31',
+      createdBy: { userId: 'USR-101', name: 'K. Osei', persona: 'Administrator' },
+      startDate: '2026-01-01',
+      endDate: '2026-12-31',
       requirements: [
         // 1. Exemption + Attempt + Version + Added by client + Lapsed doc
         // Precedence: Exempted wins over Lapsed, and Version/Attempt/Added by client move to detail row
@@ -1172,9 +1149,8 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
       ...baseSet,
       id: testSetId,
       title: 'Persona Rows Test Set',
-      serviceProviderOrg: 'Northwind Marine Pty Ltd',
-      assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
-      assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
+      submitters: [{ organization: 'Northwind Marine Pty Ltd', assignee: 'M. Chen (Northwind Marine Pty Ltd)' }],
+      stakeholders: { verifierName: 'A. Fontaine (Bureau Veritas Inspectorate)' },
       requirements: [
         {
           ...defaultReq,
@@ -1267,17 +1243,16 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
       ...baseSet,
       id: testSetId,
       title: 'Approver Inspector Admin Test Set',
-      initiatorOrg: 'Northwind Marine Pty Ltd',
-      createdByUserId: 'USR-101',
-      createdByName: 'K. Osei',
-      createdByPersona: 'Administrator',
+      createdBy: { userId: 'USR-101', name: 'K. Osei', persona: 'Administrator' },
       mandatoryInspectionRequired: true,
-      assignedInspector: 'N. Technical (Bureau Veritas Inspectorate)',
-      assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
+      stakeholders: {
+        inspectorName: 'N. Technical (Bureau Veritas Inspectorate)',
+        approverName: 'P. Nardelli (Marine Assurance Authority)',
+      },
       stage: 'Verification',
       approverDecision: undefined,
-      charterWindowStart: '2026-01-01',
-      charterWindowEnd: '2026-12-31',
+      startDate: '2026-01-01',
+      endDate: '2026-12-31',
       cancelledAt: undefined,
       cancellationReason: undefined,
       sections: [

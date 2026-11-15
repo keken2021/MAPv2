@@ -28,6 +28,7 @@ import {
 import { calculateProjectReadiness, deriveProjectStatus } from '../utils/projectHelpers';
 import { initialComplianceHistoryNote } from '../utils/vesselStatusHistoryHelpers';
 import { AssuranceSet, AssuranceStage } from '../types/assurance';
+import { getSetVesselId, getSetVesselName, getSetImoNumber } from '../utils/setObjects';
 
 const ALL_SETS: AssuranceSet[] = [...MOCK_ASSURANCE_SETS, ...PROJECT_SEED_ASSURANCE_SETS];
 const TERMINAL_STAGES: AssuranceStage[] = ['Approved', 'Certified'];
@@ -95,16 +96,16 @@ describe('Seeded assurance sets have a calculated basis', () => {
 
   it('copies vessel and project names exactly', () => {
     ALL_SETS.forEach((set) => {
-      const vessel = MOCK_VESSELS.find((v) => v.id === set.vesselId);
-      if (set.vesselId) expect(vessel, `${set.id} vessel ${set.vesselId}`).toBeDefined();
+      const vesselId = getSetVesselId(set);
+      const vessel = MOCK_VESSELS.find((v) => v.id === vesselId);
+      if (vesselId) expect(vessel, `${set.id} vessel ${vesselId}`).toBeDefined();
       if (vessel) {
-        expect(set.vesselName, set.id).toBe(vessel.name);
-        expect(set.imoNumber, set.id).toBe(vessel.imoNumber);
+        expect(getSetVesselName(set), set.id).toBe(vessel.name);
+        expect(getSetImoNumber(set), set.id).toBe(vessel.imoNumber);
       }
       if (set.projectId) {
         const project = MOCK_PROJECTS.find((p) => p.id === set.projectId);
         expect(project, `${set.id} project ${set.projectId}`).toBeDefined();
-        if (set.projectName) expect(set.projectName, set.id).toBe(project?.name);
       }
     });
   });

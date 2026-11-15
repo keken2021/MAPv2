@@ -9,6 +9,8 @@ import { AssetStatusCard } from '../components/assets/AssetStatusCard';
 import { AccessDeniedState } from '../components/common/AccessDeniedState';
 import { DetailHeader } from '../components/common/DetailHeader';
 import { StatusBadge } from '../components/common/StatusBadge';
+import { getRequestingParty } from '../utils/setParties';
+import { getSetEquipment, getSetEquipmentId } from '../utils/setObjects';
 import { EmptyState } from '../components/common/EmptyState';
 import { Tabs } from '../components/common/Tabs';
 import { isEquipmentOwnedByOrganization } from '../utils/projectHelpers';
@@ -110,7 +112,7 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
       item && sessionUser
         ? assuranceSets.filter(
             (s) =>
-              s.equipmentId === item.id &&
+              (getSetEquipmentId(s) === item.id || getSetEquipment(s).some((e) => e.id === item.id)) &&
               isAssuranceSetAssignedToPersona(
                 s,
                 activePersona,
@@ -578,7 +580,7 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
                       <td>
                         <StatusBadge value={set.stage} />
                       </td>
-                      <td className="small">{set.initiatorOrg}</td>
+                      <td className="small">{getRequestingParty(set) || '—'}</td>
                       <td className="text-end">
                         <button
                           type="button"

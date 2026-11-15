@@ -43,6 +43,36 @@ import {
 
 import { VersionHistoryDrawer } from '../components/drawers/VersionHistoryDrawer';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
+import {
+  getRequestingParty,
+  getRespondingParty,
+  getSetOrganizations,
+  type SetPartiesInput,
+} from '../utils/setParties';
+import {
+  getSetVessel,
+  getSetVesselId,
+  getSetVesselName,
+  getSetImoNumber,
+  getSetCrewIds,
+  getSetCrewNames,
+  getSetEquipmentId,
+  getSetEquipmentName,
+} from '../utils/setObjects';
+import {
+  getSetStartDate,
+  getSetEndDate,
+  getSetDeadline,
+  getSetDateHistory,
+} from '../utils/setDates';
+import {
+  getSetAssignedSubmitter,
+  getSetAssignedVerifier,
+  getSetAssignedInspector,
+  getSetAssignedApprover,
+  getSetCreatedBy,
+  type SetStakeholdersInput,
+} from '../utils/setStakeholders';
 import { DocumentUploadModal } from '../components/modals/DocumentUploadModal';
 import { AttachAssuranceSetPreviewModal } from '../components/modals/AttachAssuranceSetPreviewModal';
 import { AssuranceTaskModal } from '../components/modals/AssuranceTaskModal';
@@ -442,19 +472,20 @@ function getRequirementResponsiblePartyOrg(
     }
   }
 
-  if (set.assignedSubmitter) {
-    const parenMatch = set.assignedSubmitter.match(/\(([^)]+)\)/);
+  const assignedSubmitter = getSetAssignedSubmitter(set);
+  if (assignedSubmitter) {
+    const parenMatch = assignedSubmitter.match(/\(([^)]+)\)/);
     if (parenMatch && parenMatch[1].trim()) {
       return parenMatch[1].trim();
     }
   }
 
-  return set.serviceProviderOrg || '';
+  return getRespondingParty(set) || '';
 }
 
 function getRequirementPartyLabel(
   req: AssuranceRequirement,
-  set: { assignedSubmitter?: string; serviceProviderOrg?: string },
+  set: SetStakeholdersInput & SetPartiesInput,
   users: Array<{ id: string; name: string; organization?: string }>,
   objects: AssuranceObject[],
 ): string {
@@ -487,11 +518,8 @@ function isRequirementDocumentVisible(
   req: AssuranceRequirement,
   isClient: boolean,
   viewerOrg: string,
-  set: {
-    assignedSubmitter?: string;
-    serviceProviderOrg?: string;
+  set: SetStakeholdersInput & SetPartiesInput & {
     stakeholders?: { verifierOrg?: string; inspectorOrg?: string; approverOrg?: string } | null;
-    assignedStakeholders?: { verifierOrg?: string; inspectorOrg?: string; approverOrg?: string } | null;
   },
   users: Array<{ id: string; name: string; organization?: string }>,
   objects: AssuranceObject[],
@@ -928,15 +956,11 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
     if (Array.isArray(assuranceSet?.tags) && assuranceSet.tags.length > 0) {
       return assuranceSet.tags;
     }
-    if (Array.isArray(assuranceSet?.pppTags) && assuranceSet.pppTags.length > 0) {
-      return assuranceSet.pppTags;
-    }
     return [];
-  }, [assuranceSet?.tags, assuranceSet?.pppTags]);
+  }, [assuranceSet?.tags]);
 
-  const clientOwnerOrg =
-    assuranceSet?.clientOrg || assuranceSet?.charterer || assuranceSet?.initiatorOrg || '';
-  const serviceProviderOrg = assuranceSet?.serviceProviderOrg;
+  const clientOwnerOrg = (assuranceSet ? getRequestingParty(assuranceSet) : '') || '';
+  const serviceProviderOrg = (assuranceSet ? getRespondingParty(assuranceSet) : '') || '';
   const organizationParties = assuranceSet ? setOrganizationParties(assuranceSet) : [];
 
   const setObjects = useMemo(() => {
@@ -970,14 +994,15 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       if (matched) return { name: matched.name, type: matched.type, identifier: matched.identifier };
       return { name: doc.crewAttributes.crewName, type: 'person' };
     }
-    if (req.category === 'Plant' || assuranceSet?.vesselId) {
-      const matched = setObjects.find((o) => o.type === 'vessel' || o.id === assuranceSet?.vesselId);
+    const setVessel = assuranceSet ? getSetVessel(assuranceSet) : undefined;
+    if (req.category === 'Plant' || setVessel) {
+      const matched = setObjects.find((o) => o.type === 'vessel' || o.id === setVessel?.id);
       if (matched) return { name: matched.name, type: matched.type, identifier: matched.identifier };
     }
     if (setObjects.length > 0) {
       return { name: setObjects[0].name, type: setObjects[0].type, identifier: setObjects[0].identifier };
     }
-    return { name: assuranceSet?.vesselName || assuranceSet?.title || 'Object' };
+    return { name: setVessel?.name || assuranceSet?.title || 'Object' };
   };
 
   const filteredObjects = useMemo(() => {
@@ -1051,7 +1076,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
 
     const linkedScopes = new Set<string>();
     if (
-      assuranceSet.vesselId ||
+      getSetVesselId(assuranceSet) ||
       assuranceSet.subtypes?.includes('Vessel') ||
       assuranceSet.assuranceType === 'Vessel' ||
       setObjects.some((o) => o.type === 'vessel') ||
@@ -1176,8 +1201,9 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
         const objB = resolveRequirementTargetObject(b).name;
         comp = objA.localeCompare(objB);
       } else if (reqSortField === 'targetDate') {
-        const dateA = a.targetDate || assuranceSet.targetDate || assuranceSet.complianceDeadline || '';
-        const dateB = b.targetDate || assuranceSet.targetDate || assuranceSet.complianceDeadline || '';
+        const setLimit = getSetDeadline(assuranceSet) || '';
+        const dateA = a.targetDate || setLimit;
+        const dateB = b.targetDate || setLimit;
         comp = dateA.localeCompare(dateB);
       } else if (reqSortField === 'version') {
         const verA = a.documentVersion || '';
@@ -1464,16 +1490,16 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       return false;
     });
 
-    const dateHistoryEvents: AuditTrailEvent[] = (assuranceSet.targetDateHistory || []).map((row) => {
+    const dateHistoryEvents: AuditTrailEvent[] = (getSetDateHistory(assuranceSet) || []).map((row) => {
       /* by id, else by "Name (Organization)": a name alone could be any of one person's memberships (ADR 0037) */
       const matchingUser =
-        users.find((u) => u.id === row.changedBy) ?? findUserByAssigneeLabel(users, row.changedBy);
+        users.find((u) => u.id === row.changedBy || u.name === row.changedBy) ?? findUserByAssigneeLabel(users, row.changedBy);
       return {
         id: row.id,
         timestampUtc: row.changedAt,
         userId: matchingUser ? matchingUser.id : row.changedBy,
         userRole: (matchingUser?.roles?.[0] as import('../types/audit').UserRolePersona) || 'Administrator',
-        organization: matchingUser?.organization || assuranceSet.clientOrg || assuranceSet.initiatorOrg || 'Client Organization',
+        organization: matchingUser?.organization || getRequestingParty(assuranceSet) || 'Client Organization',
         action: 'Changed date',
         targetAsset: `${assuranceSet.id} (${assuranceSet.title})`,
         target: {
@@ -1679,7 +1705,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   const viewerParty: 'requesting' | 'responding' | 'other' = useMemo(() => {
     if (!assuranceSet || !sessionUser || !canAccessAssuranceSet) return 'other';
     if (roleActions.canUpload) return 'responding';
-    const respondingPartyOrg = assuranceSet.respondingParty || assuranceSet.serviceProviderOrg;
+    const respondingPartyOrg = getRespondingParty(assuranceSet);
     if (
       roleActions.canManage &&
       respondingPartyOrg &&
@@ -1774,13 +1800,14 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   const shortCertificates = listCertificatesShortOfContract(
     taskSectionsSet,
     documents,
-    assuranceSet.charterWindowEnd,
+    getSetEndDate(assuranceSet),
   );
   const renderContractShortWarning = (doc?: MasterDocument, canViewDoc: boolean = true) => {
-    if (!canViewDoc || !doc || !documentExpiresBeforeContractEnd(doc, assuranceSet.charterWindowEnd)) return null;
+    const endDate = getSetEndDate(assuranceSet);
+    if (!canViewDoc || !doc || !documentExpiresBeforeContractEnd(doc, endDate)) return null;
     return (
       <div className="text-danger small mt-1">
-        Expires {formatMaritimeDate(doc.expiryDate)}, before the contract ends {formatMaritimeDate(assuranceSet.charterWindowEnd)}. Re-upload a certificate that covers the contract.
+        Expires {formatMaritimeDate(doc.expiryDate)}, before the contract ends {formatMaritimeDate(endDate)}. Re-upload a certificate that covers the contract.
       </div>
     );
   };
@@ -1793,32 +1820,40 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
     entityId?: string;
     members?: { id: string; name: string }[];
   } => {
+    const vesselId = getSetVesselId(assuranceSet);
+    const vesselName = getSetVesselName(assuranceSet);
+    const imoNumber = getSetImoNumber(assuranceSet);
+    const crewId = getSetCrewIds(assuranceSet)[0];
+    const crewName = getSetCrewNames(assuranceSet)[0];
+    const equipmentId = getSetEquipmentId(assuranceSet);
+    const equipmentName = getSetEquipmentName(assuranceSet);
+
     if (assuranceSet.assuranceType === 'Crew') {
       const members = getAssuranceSetAssets(assuranceSet).map((asset) => ({ id: asset.id, name: asset.name }));
       return {
         typeLabel: 'Crew',
-        name: assuranceSet.crewName || assuranceSet.vesselName,
-        view: assuranceSet.crewId ? 'crew' : undefined,
-        entityId: assuranceSet.crewId,
-        members: assuranceSet.crewId ? members : undefined,
+        name: crewName || vesselName,
+        view: crewId ? 'crew' : undefined,
+        entityId: crewId,
+        members: crewId ? members : undefined,
       };
     }
     if (assuranceSet.assuranceType === 'Equipment') {
       return {
         typeLabel: 'Equipment',
-        name: assuranceSet.equipmentName || assuranceSet.vesselName,
-        view: assuranceSet.equipmentId ? 'equipment' : undefined,
-        entityId: assuranceSet.equipmentId,
+        name: equipmentName || vesselName,
+        view: equipmentId ? 'equipment' : undefined,
+        entityId: equipmentId,
       };
     }
     const targetVessel = vessels.find(
-      (v) => v.id === assuranceSet.vesselId || v.name.toLowerCase() === assuranceSet.vesselName.toLowerCase(),
+      (v) => (vesselId && v.id === vesselId) || (vesselName && v.name && v.name.toLowerCase() === vesselName.toLowerCase()),
     );
     return {
       typeLabel: 'Vessel',
-      name: `${assuranceSet.vesselName} (IMO ${assuranceSet.imoNumber})`,
-      view: targetVessel || assuranceSet.vesselId ? 'vessels' : undefined,
-      entityId: targetVessel?.id || assuranceSet.vesselId,
+      name: `${vesselName || ''}${imoNumber ? ` (IMO ${imoNumber})` : ''}`,
+      view: targetVessel || vesselId ? 'vessels' : undefined,
+      entityId: targetVessel?.id || vesselId,
     };
   })();
 
@@ -1859,9 +1894,9 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       category: 'Statutory Certificate',
       description: '',
       isMandatory: true,
-      targetDate: assuranceSet.targetDate || assuranceSet.complianceDeadline || '',
-      assignedSubmitter: assuranceSet.assignedSubmitter || '',
-      assignedVerifier: assuranceSet.assignedVerifier || '',
+      targetDate: getSetDeadline(assuranceSet) || '',
+      assignedSubmitter: getSetAssignedSubmitter(assuranceSet) || '',
+      assignedVerifier: getSetAssignedVerifier(assuranceSet) || '',
       sectionId: '',
       predecessorId: '',
     });
@@ -1879,7 +1914,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       setNewTaskError('Task category is required.');
       return;
     }
-    const setLimit = assuranceSet.targetDate || assuranceSet.complianceDeadline;
+    const setLimit = getSetDeadline(assuranceSet);
     if (setLimit && newTaskDraft.targetDate && newTaskDraft.targetDate > setLimit) {
       setNewTaskError(`Target date cannot be after the set target date (${formatMaritimeDate(setLimit)}).`);
       return;
@@ -1913,9 +1948,9 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       category: req.category,
       description: req.description || '',
       isMandatory: req.isMandatory,
-      targetDate: req.targetDate || assuranceSet.targetDate || assuranceSet.complianceDeadline || '',
-      assignedSubmitter: req.assignedSubmitter || assuranceSet.assignedSubmitter || '',
-      assignedVerifier: req.assignedVerifier || assuranceSet.assignedVerifier || '',
+      targetDate: req.targetDate || getSetDeadline(assuranceSet) || '',
+      assignedSubmitter: req.assignedSubmitter || getSetAssignedSubmitter(assuranceSet) || '',
+      assignedVerifier: req.assignedVerifier || getSetAssignedVerifier(assuranceSet) || '',
       sectionId: req.sectionId || '',
       predecessorId: req.predecessorId || '',
     });
@@ -1932,7 +1967,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       setEditTaskError('Task category is required.');
       return;
     }
-    const setLimit = assuranceSet.targetDate || assuranceSet.complianceDeadline;
+    const setLimit = getSetDeadline(assuranceSet);
     if (setLimit && editTaskDraft.targetDate && editTaskDraft.targetDate > setLimit) {
       setEditTaskError(`Target date cannot be after the set target date (${formatMaritimeDate(setLimit)}).`);
       return;
@@ -1982,10 +2017,10 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       setTimeout(() => setProjectToast(null), 3500);
       return;
     }
-    setCharterStartDraft(assuranceSet.charterWindowStart || '');
-    setCharterEndDraft(assuranceSet.charterWindowEnd || '');
+    setCharterStartDraft(getSetStartDate(assuranceSet) || '');
+    setCharterEndDraft(getSetEndDate(assuranceSet) || '');
     setPlannedCharterDateDraft(assuranceSet.plannedCharterDate || '');
-    setDeadlineDraft(assuranceSet.complianceDeadline || assuranceSet.targetDate || assuranceSet.charterWindowStart || '');
+    setDeadlineDraft(getSetDeadline(assuranceSet) || getSetStartDate(assuranceSet) || '');
     setDeadlineReasonDraft('');
     setCharterWindowErrors({});
     setIsEditingCharterWindow(true);
@@ -1997,8 +2032,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   };
 
   const commitCharterWindow = () => {
-    const endChanged = charterEndDraft !== assuranceSet.charterWindowEnd;
-    const oldDeadline = assuranceSet.complianceDeadline || assuranceSet.targetDate || '';
+    const endChanged = charterEndDraft !== getSetEndDate(assuranceSet);
+    const oldDeadline = getSetDeadline(assuranceSet) || '';
     const deadlineChanged = deadlineDraft !== oldDeadline;
 
     const historyRow: TargetDateChangeRecord | undefined = deadlineChanged
@@ -2016,14 +2051,13 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
 
     updateAssuranceSet({
       ...assuranceSet,
-      charterWindowStart: charterStartDraft,
-      charterWindowEnd: charterEndDraft,
+      startDate: charterStartDraft,
+      endDate: charterEndDraft,
       plannedCharterDate: plannedCharterDateDraft || undefined,
-      complianceDeadline: deadlineDraft,
-      targetDate: deadlineDraft,
-      targetDateHistory: historyRow
-        ? [...(assuranceSet.targetDateHistory || []), historyRow]
-        : assuranceSet.targetDateHistory,
+      deadline: deadlineDraft,
+      dateHistory: historyRow
+        ? [...getSetDateHistory(assuranceSet), historyRow]
+        : getSetDateHistory(assuranceSet),
     });
     if (endChanged) {
       raiseDocumentRenewalNotifications([assuranceSet.id]);
@@ -2040,7 +2074,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       setTimeout(() => setProjectToast(null), 3500);
       return;
     }
-    const setLimit = assuranceSet.targetDate || assuranceSet.complianceDeadline || '';
+    const setLimit = getSetDeadline(assuranceSet) || '';
     setEditingTaskDate({
       reqId: req.id,
       title: req.title,
@@ -2057,7 +2091,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       setTaskDateError('A reason for changing the target date is required.');
       return;
     }
-    const setLimit = assuranceSet.targetDate || assuranceSet.complianceDeadline || '';
+    const setLimit = getSetDeadline(assuranceSet) || '';
     const err = validateTaskTargetDate(taskDateDraft, setLimit);
     if (err) {
       setTaskDateError(err);
@@ -2218,9 +2252,9 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
           {
             id: assuranceSet.id,
             scope: getAssuranceSetScopes(assuranceSet)[0],
-            vesselId: assuranceSet.vesselId,
-            crewIds: getAssuranceSetCrewIds(assuranceSet),
-            equipmentId: assuranceSet.equipmentId,
+            vesselId: getSetVesselId(assuranceSet),
+            crewIds: getSetCrewIds(assuranceSet),
+            equipmentId: getSetEquipmentId(assuranceSet),
             start: charterStartDraft,
             end: charterEndDraft,
           },
@@ -2233,7 +2267,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
     if (errors.start || errors.end || errors.deadline) return;
 
     const shortOfNewEnd = listCertificatesShortOfContract(assuranceSet, documents, charterEndDraft);
-    if (charterEndDraft !== assuranceSet.charterWindowEnd && shortOfNewEnd.length > 0) {
+    if (charterEndDraft !== getSetEndDate(assuranceSet) && shortOfNewEnd.length > 0) {
       setShortCertificateConfirm(shortOfNewEnd);
       return;
     }
@@ -2265,11 +2299,9 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
     if (!attachTargetProject) return;
     updateAssuranceSet({
       ...assuranceSet,
-      charterWindowStart,
-      charterWindowEnd,
+      startDate: charterWindowStart,
+      endDate: charterWindowEnd,
       projectId: attachTargetProject.id,
-      projectName: attachTargetProject.name,
-      charterer: attachTargetProject.clientOperator || attachTargetProject.requestingOrganization,
     });
     const result = attachAssuranceSetToProject(assuranceSet.id, attachTargetProject.id);
     if (!result.success) {
@@ -2561,17 +2593,15 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
               }
             : undefined
         }
-        metaItems={[
+        metaItems={([
           clientOwnerOrg,
-          assuranceSet.complianceDeadline || assuranceSet.targetDate
-            ? formatMaritimeDate(assuranceSet.complianceDeadline || assuranceSet.targetDate || '')
+          getSetDeadline(assuranceSet)
+            ? formatMaritimeDate(getSetDeadline(assuranceSet) || '')
             : '',
-          assuranceSet.requestingParty ? `Requesting party: ${assuranceSet.requestingParty}` : '',
-          assuranceSet.respondingParty ? `Responding party: ${assuranceSet.respondingParty}` : '',
           outdatedVersionCount > 0
             ? `${outdatedVersionCount} newer version${outdatedVersionCount > 1 ? 's' : ''} available`
             : '',
-        ].filter(Boolean)}
+        ].filter(Boolean) as string[])}
         mainAction={detailHeaderActions}
         onExportCsv={handleExportCsv}
         onExportPdf={handleExportPdf}
@@ -2654,7 +2684,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                       if (activePersona === 'Submitter' || activePersona === 'Approver') {
                         handleTabChange('tasks');
                       } else {
-                        setCurrentHashView('capa', assuranceSet.vesselName || assuranceSet.vesselId);
+                        setCurrentHashView('capa', getSetVesselName(assuranceSet) || getSetVesselId(assuranceSet));
                       }
                     }}
                   >
@@ -2720,12 +2750,12 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                     </div>
                     <div className="map-detail-row border-bottom pb-2" data-testid="detail-requesting-party">
                       <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Requesting party:</div>
-                      <div className="fw-bold text-dark">{assuranceSet.requestingParty || clientOwnerOrg}</div>
+                      <div className="fw-bold text-dark">{getRequestingParty(assuranceSet) || clientOwnerOrg}</div>
                     </div>
-                    {(assuranceSet.respondingParty || assuranceSet.serviceProviderOrg) && (
+                    {getRespondingParty(assuranceSet) && (
                       <div className="map-detail-row border-bottom pb-2" data-testid="detail-responding-party">
                         <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Responding party:</div>
-                        <div className="fw-bold text-dark">{assuranceSet.respondingParty || assuranceSet.serviceProviderOrg}</div>
+                        <div className="fw-bold text-dark">{getRespondingParty(assuranceSet)}</div>
                       </div>
                     )}
                     {assuranceSetTags.length > 0 && (
@@ -2745,14 +2775,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                         <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Organizations</div>
                         <ul className="list-unstyled mb-0 mt-1" data-testid="assurance-set-organizations">
                           {organizations.map((organization) => {
-                            const partyRow =
-                              assuranceSet.parties?.find((p) => p.organization === organization) ||
-                              organizationParties.find((p) => p.organization === organization);
-                            const partyRole =
-                              assuranceSet.partyRoles?.[organization] ||
-                              (assuranceSet.requestingParty === organization ? 'Requesting party' : undefined) ||
-                              (assuranceSet.respondingParty === organization ? 'Responding party' : undefined) ||
-                              partyRow?.partyRole;
+                            const partyRow = assuranceSet.parties?.find((p) => p.organization === organization);
+                            const partyRole = partyRow?.role;
                             return (
                               <li key={organization} className="fw-bold text-dark py-1">
                                 <div className="d-flex align-items-center justify-content-between gap-2 flex-wrap">
@@ -2900,14 +2924,14 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                         </div>
                       ) : (
                         <div>
-                          <div className="fw-bold text-dark">{formatMaritimeDate(assuranceSet.charterWindowStart)} - {formatMaritimeDate(assuranceSet.charterWindowEnd)}</div>
+                          <div className="fw-bold text-dark">{formatMaritimeDate(getSetStartDate(assuranceSet))} - {formatMaritimeDate(getSetEndDate(assuranceSet))}</div>
                           {assuranceSet.plannedCharterDate && (
                             <div className="text-secondary mt-1" style={{ fontSize: '0.75rem' }} data-testid="detail-planned-charter-date">
                               <span>Planned charter: {formatMaritimeDate(assuranceSet.plannedCharterDate)}</span>
                             </div>
                           )}
                           <div className="text-secondary mt-1 d-flex align-items-center gap-2 flex-wrap" style={{ fontSize: '0.75rem' }}>
-                            <span>Compliance deadline: {formatMaritimeDate(assuranceSet.complianceDeadline || assuranceSet.targetDate || '')}</span>
+                            <span>Compliance deadline: {formatMaritimeDate(getSetDeadline(assuranceSet) || '')}</span>
                           </div>
                           <div className="d-flex align-items-center gap-2 mt-2">
                             {(activeDateGrantsCount > 0 || (roleActions.canManage && activePersona === 'C Admin')) && (
@@ -2943,7 +2967,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                     className="btn btn-sm btn-outline-danger py-0 px-2"
                                     style={{ fontSize: '0.72rem' }}
                                     onClick={() => {
-                                      setRevisedDateDraft(assuranceSet.revisedCompletionDate || assuranceSet.complianceDeadline || assuranceSet.targetDate || '');
+                                      setRevisedDateDraft(assuranceSet.revisedCompletionDate || getSetDeadline(assuranceSet) || '');
                                       setRevisedDateReason('');
                                       setRevisedDateError(null);
                                       setIsReviseDeadlineModalOpen(true);
@@ -3091,7 +3115,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                           <select
                             className="form-select form-select-sm"
                             style={{ fontSize: '0.75rem' }}
-                            value={assuranceSet.assignedVerifier || ''}
+                            value={getSetAssignedVerifier(assuranceSet) || ''}
                             onChange={(e) => {
                               if (e.target.value) assignStakeholder('Verifier', e.target.value);
                             }}
@@ -3114,8 +3138,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                         </div>
                       ) : (
                         <div className="fw-bold text-dark">
-                          {assuranceSet.assignedVerifier
-                            ? stakeholderLabel('Verifier', assuranceSet.assignedVerifier)
+                          {getSetAssignedVerifier(assuranceSet)
+                            ? stakeholderLabel('Verifier', getSetAssignedVerifier(assuranceSet))
                             : stakeholderLabel('Verifier', 'A. Fontaine (Bureau Veritas Inspector)')}
                         </div>
                       )}
@@ -3141,7 +3165,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                           <select
                             className="form-select form-select-sm"
                             style={{ fontSize: '0.75rem' }}
-                            value={assuranceSet.assignedInspector || ''}
+                            value={getSetAssignedInspector(assuranceSet) || ''}
                             onChange={(e) => {
                               if (e.target.value) assignStakeholder('Inspector', e.target.value);
                             }}
@@ -3165,8 +3189,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                       ) : (
                         <div className="fw-bold text-dark">
                           {assuranceSet.mandatoryInspectionRequired
-                            ? stakeholderLabel('Inspector', assuranceSet.assignedInspector || 'N. Technical (Bureau Veritas Inspectorate)')
-                            : (assuranceSet.assignedInspector || 'N/A (Not Required)')}
+                            ? stakeholderLabel('Inspector', getSetAssignedInspector(assuranceSet) || 'N. Technical (Bureau Veritas Inspectorate)')
+                            : (getSetAssignedInspector(assuranceSet) || 'N/A (Not Required)')}
                         </div>
                       )}
                     </div>
@@ -3191,7 +3215,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                           <select
                             className="form-select form-select-sm"
                             style={{ fontSize: '0.75rem' }}
-                            value={assuranceSet.assignedApprover || ''}
+                            value={getSetAssignedApprover(assuranceSet) || ''}
                             onChange={(e) => {
                               if (e.target.value) assignStakeholder('Approver', e.target.value);
                             }}
@@ -3216,8 +3240,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                         <div className="fw-bold text-dark">
                           {assuranceSet.formalApprovalRequired === false
                             ? 'N/A (Direct Sign-Off)'
-                            : (assuranceSet.assignedApprover
-                              ? stakeholderLabel('Approver', assuranceSet.assignedApprover)
+                            : (getSetAssignedApprover(assuranceSet)
+                              ? stakeholderLabel('Approver', getSetAssignedApprover(assuranceSet))
                               : stakeholderLabel('Approver', 'P. Nardelli (Marine Assurance Authority)'))}
                         </div>
                       )}
@@ -3275,7 +3299,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                     {filteredCrewGroups.map((group) => {
                       const isExpanded = expandedGroupIds.has(group.groupId);
                       const rollup = getGroupRollupStatus(group);
-                      const groupOrg = assuranceSet.serviceProviderOrg || clientOwnerOrg;
+                      const groupOrg = getRespondingParty(assuranceSet) || clientOwnerOrg;
 
                       return (
                         <React.Fragment key={`group-${group.groupId}`}>
@@ -3510,10 +3534,10 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                     {(setCrewGroups.length > 0 ? standaloneObjects : objectsPagination.pageItems).map((obj) => {
                       const verification = deriveObjectVerification(obj.id, assuranceSets, activeDemoOrganization);
                       const typeLabel = OBJECT_TYPE_LABELS[obj.type] || obj.type.charAt(0).toUpperCase() + obj.type.slice(1);
-                      const belongsTo = obj.ownerOrganization || assuranceSet.serviceProviderOrg || clientOwnerOrg;
+                      const belongsTo = obj.ownerOrganization || getRespondingParty(assuranceSet) || clientOwnerOrg;
                       const assignedTarget =
                         obj.assignments?.find((a) => a.isCurrent)?.targetName ||
-                        (obj.type !== 'vessel' && assuranceSet.vesselName ? assuranceSet.vesselName : null);
+                        (obj.type !== 'vessel' && getSetVesselName(assuranceSet) ? getSetVesselName(assuranceSet) : null);
                       const hasDetailView = obj.type === 'vessel' || obj.type === 'person' || obj.type === 'equipment';
 
                       return (
@@ -4736,11 +4760,11 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
         onClose={closeUploadModal}
         existingDocument={replaceExistingDoc}
         assuranceSetId={assuranceSet.id}
-        charterWindowEnd={assuranceSet.charterWindowEnd}
+        charterWindowEnd={getSetEndDate(assuranceSet)}
         requirementId={uploadTargetRequirement?.id}
         requirementTitle={uploadTargetRequirement?.title}
         requirementCategory={uploadTargetRequirement?.category}
-        defaultVesselId={assuranceSet.vesselId}
+        defaultVesselId={getSetVesselId(assuranceSet)}
         onUploadComplete={closeUploadModal}
       />
 
@@ -4925,7 +4949,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
           <div>
             <label className="form-label text-secondary small mb-1">Current Deadline</label>
             <div className="fw-bold text-dark">
-              {formatMaritimeDate(assuranceSet.revisedCompletionDate || assuranceSet.complianceDeadline || assuranceSet.targetDate || '')}
+              {formatMaritimeDate(assuranceSet.revisedCompletionDate || getSetDeadline(assuranceSet) || '')}
             </div>
           </div>
           <div>
@@ -5045,7 +5069,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                   )}
                                 </td>
                                 <td className="text-muted">
-                                  {formatMaritimeDate(req.targetDate || req.exemption?.newDate || assuranceSet.targetDate || assuranceSet.complianceDeadline || '')}
+                                  {formatMaritimeDate(req.targetDate || req.exemption?.newDate || getSetDeadline(assuranceSet) || '')}
                                 </td>
                                 <td>
                                   <StatusBadge

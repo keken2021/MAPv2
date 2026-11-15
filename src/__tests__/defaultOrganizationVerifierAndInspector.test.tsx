@@ -10,7 +10,13 @@ import {
   PENDING_ASSIGNMENT,
 } from '../utils/userRoleHelpers';
 import { isAssuranceSetAssignedToPersona } from '../utils/rbacHelpers';
+import {
+  getSetAssignedVerifier,
+  getSetAssignedInspector,
+  getSetAssignedApprover,
+} from '../utils/setStakeholders';
 import { UserProfile } from '../types/user';
+import { getRequestingParty } from '../utils/setParties';
 import {
   clickNext,
   defaultWizardVesselId,
@@ -276,8 +282,8 @@ describe('Assurance wizard - Sentinel Cyber Assurance and other organizations de
       .assuranceSets.find((s) => s.title === 'Sentinel Cyber Assurance Campaign')!;
     expect(created).toBeDefined();
 
-    expect(created.assignedVerifier).toBe(`R. Singh (${SENTINEL})`);
-    expect(created.assignedInspector).toBe(`M. Laurent (${SENTINEL})`);
+    expect(getSetAssignedVerifier(created)).toBe(`R. Singh (${SENTINEL})`);
+    expect(getSetAssignedInspector(created)).toBe(`M. Laurent (${SENTINEL})`);
     expect(created.stakeholders?.verifierOrg).toBe(SENTINEL);
     expect(created.stakeholders?.verifierId).toBe('USR-241');
     expect(created.stakeholders?.verifierName).toBe('R. Singh');
@@ -335,8 +341,8 @@ describe('Assurance wizard - Sentinel Cyber Assurance and other organizations de
       .getState()
       .assuranceSets.find((s) => s.title === 'Harbourline Reviewer Campaign')!;
     expect(created).toBeDefined();
-    expect(created.assignedVerifier).toBe(PENDING_ASSIGNMENT);
-    expect(created.assignedInspector).toBe(PENDING_ASSIGNMENT);
+    expect(getSetAssignedVerifier(created)).toBe(PENDING_ASSIGNMENT);
+    expect(getSetAssignedInspector(created)).toBe(PENDING_ASSIGNMENT);
     expect(created.requirements.every((r) => r.assignedVerifier === PENDING_ASSIGNMENT)).toBe(true);
   });
 
@@ -360,7 +366,7 @@ describe('Assurance wizard - Sentinel Cyber Assurance and other organizations de
     const template = useMapStore.getState().assuranceSets[0];
     useMapStore.setState((state) => ({
       activePersona: 'C Admin',
-      activeDemoOrganization: template.clientOrg || 'Chevron Australia Pty Ltd',
+      activeDemoOrganization: getRequestingParty(template) || 'Chevron Australia Pty Ltd',
       activeSessionUserId: 'USR-221',
       assuranceSets: [
         {
@@ -421,7 +427,7 @@ describe('Assurance wizard - Sentinel Cyber Assurance and other organizations de
       .getState()
       .assuranceSets.find((s) => s.title === 'MAA Approver Campaign')!;
     expect(created).toBeDefined();
-    expect(created.assignedApprover).toBe(`P. Nardelli (${MAA})`);
+    expect(getSetAssignedApprover(created)).toBe(`P. Nardelli (${MAA})`);
     expect(created.stakeholders?.approverOrg).toBe(MAA);
     expect(created.stakeholders?.approverName).toBe('P. Nardelli');
     expect(created.stakeholders?.approverId).toBe('USR-204');
@@ -453,7 +459,7 @@ describe('Assurance wizard - Sentinel Cyber Assurance and other organizations de
     const template = useMapStore.getState().assuranceSets[0];
     useMapStore.setState((state) => ({
       activePersona: 'C Admin',
-      activeDemoOrganization: template.clientOrg || 'Chevron Australia Pty Ltd',
+      activeDemoOrganization: getRequestingParty(template) || 'Chevron Australia Pty Ltd',
       activeSessionUserId: 'USR-221',
       assuranceSets: [
         {

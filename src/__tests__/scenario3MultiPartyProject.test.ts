@@ -37,6 +37,8 @@ import {
   customRequirementFields,
 } from '../utils/assuranceTemplates';
 import { AssuranceRequirement, AssuranceSet } from '../types/assurance';
+import { getRequestingParty, getRespondingParty } from '../utils/setParties';
+import { getSetAssignedVerifier, getSetAssignedApprover } from '../utils/setStakeholders';
 
 const initialState = useMapStore.getState();
 
@@ -74,25 +76,37 @@ describe('Scenario 3: Multi-party project and Master Project Roll-Up', () => {
       assuranceType: 'Vessel',
       subtypes: ['Vessel'],
       projectId: OIL_CO_LNG_PROJECT_ID,
-      projectName: 'Oil Company LNG Field Development',
-      vesselId: 'VES-OILCO-BUNKER-BARGE',
-      vesselName: 'Oilco Bunker Barge Aurora Supply',
-      imoNumber: '9876139',
-      initiatorOrg: NORTHWIND_ORG,
-      initiatorRole: 'C Admin · Client Created',
-      createdByPersona: 'C Admin',
-      createdByUserId: 'USR-235',
-      createdByName: 'T. Okada',
-      clientOrg: NORTHWIND_ORG,
-      charterer: NORTHWIND_ORG,
-      serviceProviderOrg: OIL_CO_ORG,
-      assignedSubmitter: 'J. Hale (Oil Company)',
-      assignedVerifier: 'N. Brooks (Coastal Fuel Testing)',
-      assignedApprover: 'C. Almeida (Coastal Fuel Testing)',
+      assuranceObjects: [
+        {
+          id: 'VES-OILCO-BUNKER-BARGE',
+          type: 'vessel',
+          name: 'Oilco Bunker Barge Aurora Supply',
+          ownerOrganization: OIL_CO_ORG,
+          identifier: '9876139',
+        },
+      ],
+      parties: [
+        { organization: NORTHWIND_ORG, role: 'Requesting party' },
+        { organization: OIL_CO_ORG, role: 'Responding party' },
+        { organization: COASTAL_ORG, role: 'Third party' },
+      ],
+      createdBy: {
+        persona: 'C Admin',
+        userId: 'USR-235',
+        name: 'T. Okada',
+      },
+      submitters: [
+        { organization: OIL_CO_ORG, assignee: 'J. Hale (Oil Company)' },
+      ],
+      stakeholders: {
+        verifierName: 'N. Brooks (Coastal Fuel Testing)',
+        approverName: 'C. Almeida (Coastal Fuel Testing)',
+      },
       reviewMode: 'third_party',
-      charterWindowStart: '2026-11-15',
-      complianceDeadline: '2026-11-15',
-      charterWindowEnd: '2027-05-15',
+      startDate: '2026-11-15',
+      deadline: '2026-11-15',
+      endDate: '2027-05-15',
+      dateHistory: [],
       stage: 'Initiated',
       readinessScore: 10,
       mandatoryInspectionRequired: false,
@@ -134,10 +148,10 @@ describe('Scenario 3: Multi-party project and Master Project Roll-Up', () => {
     expect(storedSS04).toBeDefined();
 
     // 2. Role reversal verified: Northwind is the Client, Oil Company is the Service Provider
-    expect(storedSS04?.clientOrg).toBe(NORTHWIND_ORG);
-    expect(storedSS04?.serviceProviderOrg).toBe(OIL_CO_ORG);
-    expect(storedSS04?.assignedVerifier).toContain(COASTAL_ORG);
-    expect(storedSS04?.assignedApprover).toContain(COASTAL_ORG);
+    expect(getRequestingParty(storedSS04!)).toBe(NORTHWIND_ORG);
+    expect(getRespondingParty(storedSS04!)).toBe(OIL_CO_ORG);
+    expect(getSetAssignedVerifier(storedSS04!)).toContain(COASTAL_ORG);
+    expect(getSetAssignedApprover(storedSS04!)).toContain(COASTAL_ORG);
   });
 
   it('enforces ownership isolation: Northwind owns the set it started, not other parties', () => {
@@ -147,19 +161,28 @@ describe('Scenario 3: Multi-party project and Master Project Roll-Up', () => {
       assuranceType: 'Vessel',
       subtypes: ['Vessel'],
       projectId: OIL_CO_LNG_PROJECT_ID,
-      initiatorOrg: NORTHWIND_ORG,
-      clientOrg: NORTHWIND_ORG,
-      serviceProviderOrg: OIL_CO_ORG,
-      vesselId: 'VES-OILCO-BUNKER-BARGE',
-      vesselName: 'Oilco Bunker Barge Aurora Supply',
-      imoNumber: '9876139',
-      initiatorRole: 'C Admin · Client Created',
-      createdByPersona: 'C Admin',
-      createdByUserId: 'USR-235',
-      createdByName: 'T. Okada',
-      charterWindowStart: '2026-11-15',
-      charterWindowEnd: '2027-05-15',
-      complianceDeadline: '2026-11-15',
+      assuranceObjects: [
+        {
+          id: 'VES-OILCO-BUNKER-BARGE',
+          type: 'vessel',
+          name: 'Oilco Bunker Barge Aurora Supply',
+          ownerOrganization: OIL_CO_ORG,
+          identifier: '9876139',
+        },
+      ],
+      parties: [
+        { organization: NORTHWIND_ORG, role: 'Requesting party' },
+        { organization: OIL_CO_ORG, role: 'Responding party' },
+      ],
+      createdBy: {
+        persona: 'C Admin',
+        userId: 'USR-235',
+        name: 'T. Okada',
+      },
+      startDate: '2026-11-15',
+      endDate: '2027-05-15',
+      deadline: '2026-11-15',
+      dateHistory: [],
       stage: 'Initiated',
       readinessScore: 10,
       requirements: [],
@@ -214,20 +237,28 @@ describe('Scenario 3: Multi-party project and Master Project Roll-Up', () => {
       assuranceType: 'Vessel',
       subtypes: ['Vessel'],
       projectId: OIL_CO_LNG_PROJECT_ID,
-      projectName: 'Oil Company LNG Field Development',
-      vesselId: 'VES-OILCO-BUNKER-BARGE',
-      vesselName: 'Oilco Bunker Barge Aurora Supply',
-      imoNumber: '9876139',
-      initiatorOrg: NORTHWIND_ORG,
-      clientOrg: NORTHWIND_ORG,
-      serviceProviderOrg: OIL_CO_ORG,
-      initiatorRole: 'C Admin · Client Created',
-      createdByPersona: 'C Admin',
-      createdByUserId: 'USR-235',
-      createdByName: 'T. Okada',
-      charterWindowStart: '2026-11-15',
-      charterWindowEnd: '2027-05-15',
-      complianceDeadline: '2026-11-15',
+      assuranceObjects: [
+        {
+          id: 'VES-OILCO-BUNKER-BARGE',
+          type: 'vessel',
+          name: 'Oilco Bunker Barge Aurora Supply',
+          ownerOrganization: OIL_CO_ORG,
+          identifier: '9876139',
+        },
+      ],
+      parties: [
+        { organization: NORTHWIND_ORG, role: 'Requesting party' },
+        { organization: OIL_CO_ORG, role: 'Responding party' },
+      ],
+      createdBy: {
+        persona: 'C Admin',
+        userId: 'USR-235',
+        name: 'T. Okada',
+      },
+      startDate: '2026-11-15',
+      endDate: '2027-05-15',
+      deadline: '2026-11-15',
+      dateHistory: [],
       stage: 'Initiated',
       readinessScore: 10,
       requirements: [],
@@ -243,20 +274,28 @@ describe('Scenario 3: Multi-party project and Master Project Roll-Up', () => {
       assuranceType: 'Equipment',
       subtypes: ['Equipment'],
       projectId: OIL_CO_LNG_PROJECT_ID,
-      projectName: 'Oil Company LNG Field Development',
-      initiatorOrg: OIL_CO_ORG,
-      clientOrg: OIL_CO_ORG,
-      serviceProviderOrg: KESTREL_ORG,
-      vesselId: OIL_CO_ENDEAVOUR_ID,
-      vesselName: 'OSV Meridian Endeavour',
-      imoNumber: '9876501',
-      initiatorRole: 'C Admin · Client Created',
-      createdByPersona: 'C Admin',
-      createdByUserId: 'USR-228',
-      createdByName: 'A. Okonkwo',
-      charterWindowStart: '2026-11-15',
-      charterWindowEnd: '2027-05-15',
-      complianceDeadline: '2026-11-15',
+      parties: [
+        { organization: OIL_CO_ORG, role: 'Requesting party' },
+        { organization: KESTREL_ORG, role: 'Responding party' },
+      ],
+      assuranceObjects: [
+        {
+          id: OIL_CO_ENDEAVOUR_ID,
+          type: 'vessel',
+          name: 'OSV Meridian Endeavour',
+          ownerOrganization: OIL_CO_ORG,
+          identifier: '9876501',
+        },
+      ],
+      createdBy: {
+        persona: 'C Admin',
+        userId: 'USR-228',
+        name: 'A. Okonkwo',
+      },
+      startDate: '2026-11-15',
+      endDate: '2027-05-15',
+      deadline: '2026-11-15',
+      dateHistory: [],
       stage: 'Approved',
       approverDecision: 'Approved',
       readinessScore: 100,

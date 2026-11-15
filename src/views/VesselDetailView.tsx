@@ -50,6 +50,7 @@ import { EmptyState } from '../components/common/EmptyState';
 import { Tabs } from '../components/common/Tabs';
 import { getVesselAssetStatus } from '../types/asset';
 import { getPhysicalInspectionsForAssuranceSets } from '../store/inspectionMockData';
+import { getSetVesselId, getSetVesselName } from '../utils/setObjects';
 import { VesselActivityTab } from '../components/vessels/VesselActivityTab';
 import { VesselActivityEntry } from '../utils/vesselActivityHelpers';
 import {
@@ -407,8 +408,8 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
       vessel && sessionUser
         ? assuranceSets.filter(
             (s) =>
-              (s.vesselId === vessel.id ||
-                (vessel.name && s.vesselName?.toLowerCase() === vessel.name.toLowerCase())) &&
+              (getSetVesselId(s) === vessel.id ||
+                (vessel.name && getSetVesselName(s)?.toLowerCase() === vessel.name.toLowerCase())) &&
               isAssuranceSetAssignedToPersona(
                 s,
                 activePersona,

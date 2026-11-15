@@ -62,10 +62,10 @@ describe('audit targets and finding closed date', () => {
     const current = set as AssuranceSet;
     const task = current.requirements[0];
 
-    const nextDeadline = current.complianceDeadline === '2027-01-15' ? '2027-02-15' : '2027-01-15';
+    const nextDeadline = current.deadline === '2027-01-15' ? '2027-02-15' : '2027-01-15';
     store.updateAssuranceSet({
       ...current,
-      complianceDeadline: nextDeadline,
+      deadline: nextDeadline,
       requirements: current.requirements.map((item) =>
         item.id === task.id ? { ...item, title: `${item.title} revised` } : item,
       ),
@@ -85,7 +85,7 @@ describe('audit targets and finding closed date', () => {
     expect(dateChange?.target).toEqual({
       kind: 'date',
       setId: current.id,
-      dateField: 'complianceDeadline',
+      dateField: 'deadline',
     });
     expect(dateChange?.fieldDelta?.newValue).toBe(nextDeadline);
     expect(taskEdit?.target).toEqual({

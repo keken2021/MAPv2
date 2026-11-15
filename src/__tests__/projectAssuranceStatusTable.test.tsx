@@ -29,21 +29,29 @@ function set(id: string, title: string, overrides: Partial<AssuranceSet> = {}): 
   return {
     id,
     title,
-    vesselId: `V-${id}`,
-    vesselName: `MV ${title}`,
-    imoNumber: '1',
-    initiatorOrg: 'Client Co',
-    initiatorRole: 'Client Admin',
-    clientOrg: 'Client Co',
-    serviceProviderOrg: 'Vendor Co',
-    charterWindowStart: '2026-01-01',
-    charterWindowEnd: '2026-12-01',
-    complianceDeadline: '2026-12-01',
+    parties: [
+      { organization: 'Client Co', role: 'Requesting party' },
+      { organization: 'Vendor Co', role: 'Responding party' },
+    ],
+    assuranceObjects: [
+      {
+        id: `V-${id}`,
+        type: 'vessel',
+        name: `MV ${title}`,
+        identifier: '1',
+        ownerOrganization: 'Vendor Co',
+      },
+    ],
+    startDate: '2026-01-01',
+    endDate: '2026-12-01',
+    deadline: '2026-12-01',
+    dateHistory: [],
     stage: 'Verification',
     readinessScore: 50,
     requirements: [task()],
     mandatoryInspectionRequired: false,
     inspectionCompleted: false,
+    createdBy: { userId: 'USR-101', name: 'K. Osei', persona: 'Administrator' },
     ...overrides,
   } as AssuranceSet;
 }
@@ -64,7 +72,13 @@ const SETS = [
     stage: 'Initiated',
     requirements: [task({ documentId: undefined, isFulfilled: false, verifierStatus: 'Rejected' })],
   }),
-  set('AS-OWN', 'Foxtrot', { stage: 'Validation', clientOrg: 'Own Co', serviceProviderOrg: 'Own Co' }),
+  set('AS-OWN', 'Foxtrot', {
+    stage: 'Validation',
+    parties: [
+      { organization: 'Own Co', role: 'Requesting party' },
+      { organization: 'Own Co', role: 'Responding party' },
+    ],
+  }),
 ];
 
 const renderTable = (viewer = { organization: 'Client Co' }) =>

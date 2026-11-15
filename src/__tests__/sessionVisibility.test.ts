@@ -12,6 +12,7 @@ import { useMapStore } from '../store/useMapStore';
 import { AssuranceSet } from '../types/assurance';
 import { MasterDocument } from '../types/document';
 import { MOCK_ASSURANCE_SETS } from '../store/mockData';
+import { getRequestingParty } from '../utils/setParties';
 
 describe('assigneeMatchesUser', () => {
   it('matches assignee name ignoring trailing organization suffix and case', () => {
@@ -53,18 +54,21 @@ describe('session visibility person-only matching per workflow role', () => {
   const baseSet = MOCK_ASSURANCE_SETS[0];
   const testSet: AssuranceSet = {
     ...baseSet,
-    serviceProviderOrg: 'Northwind Marine Pty Ltd',
-    initiatorOrg: 'Northwind Marine Pty Ltd',
-    assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
-    assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
-    assignedInspector: 'N. Technical (Bureau Veritas Inspectorate)',
-    assignedApprover: 'P. Nardelli (Chevron Australia Pty Ltd)',
+    parties: [
+      { organization: 'Northwind Marine Pty Ltd', role: 'Requesting party' },
+      { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+    ],
+    submitters: [{ organization: 'Northwind Marine Pty Ltd', assignee: 'M. Chen (Northwind Marine Pty Ltd)' }],
     mandatoryInspectionRequired: true,
     stage: 'Approval',
     stakeholders: {
+      submitterName: 'M. Chen (Northwind Marine Pty Ltd)',
       submitterOrg: 'Northwind Marine Pty Ltd',
+      verifierName: 'A. Fontaine (Bureau Veritas Inspectorate)',
       verifierOrg: 'Bureau Veritas Inspectorate',
+      inspectorName: 'N. Technical (Bureau Veritas Inspectorate)',
       inspectorOrg: 'Bureau Veritas Inspectorate',
+      approverName: 'P. Nardelli (Chevron Australia Pty Ltd)',
       approverOrg: 'Chevron Australia Pty Ltd',
     },
   };
@@ -85,7 +89,7 @@ describe('session visibility person-only matching per workflow role', () => {
       };
 
       expect(isAssuranceSetAssignedToPersona(testSet, 'Submitter', undefined, assignedUser)).toBe(true);
-      expect(isAssuranceSetAssignedToPersona(testSet, 'Submitter', testSet.initiatorOrg, coworkerUser)).toBe(false);
+      expect(isAssuranceSetAssignedToPersona(testSet, 'Submitter', getRequestingParty(testSet), coworkerUser)).toBe(false);
     });
 
     it('fails closed when no user is provided', () => {
@@ -237,16 +241,20 @@ describe('filterAssuranceSetsForSession', () => {
   const setA: AssuranceSet = {
     ...MOCK_ASSURANCE_SETS[0],
     id: 'AS-TEST-1',
-    assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
-    serviceProviderOrg: 'Northwind Marine Pty Ltd',
-    initiatorOrg: 'Northwind Marine Pty Ltd',
+    parties: [
+      { organization: 'Northwind Marine Pty Ltd', role: 'Requesting party' },
+      { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+    ],
+    submitters: [{ organization: 'Northwind Marine Pty Ltd', assignee: 'M. Chen (Northwind Marine Pty Ltd)' }],
   };
   const setB: AssuranceSet = {
     ...MOCK_ASSURANCE_SETS[0],
     id: 'AS-TEST-2',
-    assignedSubmitter: 'E. Ramirez (Northwind Marine Pty Ltd)',
-    serviceProviderOrg: 'Northwind Marine Pty Ltd',
-    initiatorOrg: 'Northwind Marine Pty Ltd',
+    parties: [
+      { organization: 'Northwind Marine Pty Ltd', role: 'Requesting party' },
+      { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+    ],
+    submitters: [{ organization: 'Northwind Marine Pty Ltd', assignee: 'E. Ramirez (Northwind Marine Pty Ltd)' }],
   };
 
   it('filters sets for workflow role by matching person when user is given', () => {
@@ -272,8 +280,7 @@ describe('verifier queue helpers with session user', () => {
   const set1: AssuranceSet = {
     ...MOCK_ASSURANCE_SETS[0],
     id: 'AS-V1',
-    assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
-    stakeholders: { verifierOrg: 'Bureau Veritas Inspectorate' },
+    stakeholders: { verifierOrg: 'Bureau Veritas Inspectorate', verifierName: 'A. Fontaine' },
     requirements: [
       {
         id: 'REQ-1',
@@ -290,8 +297,7 @@ describe('verifier queue helpers with session user', () => {
   const set2: AssuranceSet = {
     ...MOCK_ASSURANCE_SETS[0],
     id: 'AS-V2',
-    assignedVerifier: 'Other Verifier (Bureau Veritas Inspectorate)',
-    stakeholders: { verifierOrg: 'Bureau Veritas Inspectorate' },
+    stakeholders: { verifierOrg: 'Bureau Veritas Inspectorate', verifierName: 'Other Verifier' },
     requirements: [
       {
         id: 'REQ-2',

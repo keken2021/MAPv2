@@ -37,6 +37,8 @@ import {
 import { UserProfile } from '../types/user';
 import { isAssuranceSetAssignedToPersona } from '../utils/rbacHelpers';
 import { AssuranceSet } from '../types/assurance';
+import { getRequestingParty, getRespondingParty, getSetOrganizations } from '../utils/setParties';
+import { getSetAssignedSubmitter, getSetAssignedVerifier, getSetAssignedInspector, getSetAssignedApprover } from '../utils/setStakeholders';
 import { addObject, clickNext, objectItemSelect, objectPickerOptions, objectRowIds, pickReviewerRoles, removeObjectRow, renderWizardWithDefaultVessel } from './assuranceWizardTestHelpers';
 
 const initialState = useMapStore.getState();
@@ -83,17 +85,18 @@ describe('organization list', () => {
 
   it('builds the list of a seeded set from what it already stores', () => {
     const organizations = setOrganizations({
-      clientOrg: CLIENT,
-      serviceProviderOrg: PROVIDER,
-      assignedVerifier: `A. Fontaine (${THIRD_PARTY})`,
-      assignedInspector: PENDING_ASSIGNMENT,
-      assuranceObjects: [{ ownerOrganization: 'Tidewater Marine' }],
-    } as AssuranceSet);
+      parties: [
+        { organization: CLIENT, role: 'Requesting party' },
+        { organization: PROVIDER, role: 'Responding party' },
+        { organization: THIRD_PARTY, role: 'Third party' },
+      ],
+      assuranceObjects: [{ id: 'V-1', name: 'V-1', type: 'vessel', ownerOrganization: 'Tidewater Marine' }],
+    } as unknown as AssuranceSet);
     expect(organizations).toEqual([CLIENT, PROVIDER, THIRD_PARTY, 'Tidewater Marine']);
   });
 
   it('prefers the recorded list', () => {
-    expect(setOrganizations({ organizations: [CLIENT], serviceProviderOrg: PROVIDER } as AssuranceSet)).toEqual([CLIENT]);
+    expect(setOrganizations({ parties: [{ organization: CLIENT, role: 'Requesting party' }] } as unknown as AssuranceSet)).toEqual([CLIENT]);
   });
 
   it('makes every object owner a provider, with non-client owners first', () => {
@@ -248,17 +251,16 @@ describe('assigning a pending role', () => {
       id: 'AS-ORG-TEST',
       title: 'Organization Pending Test',
       projectId: undefined,
-      projectName: undefined,
-      initiatorOrg: THIRD_PARTY,
-      createdByPersona: 'Administrator',
-      createdByUserId: 'USR-202',
-      createdByName: 'A. Fontaine',
+      parties: [
+        { organization: THIRD_PARTY, role: 'Requesting party' },
+        { organization: THIRD_PARTY, role: 'Responding party' },
+      ],
+      createdBy: { userId: 'USR-202', name: 'A. Fontaine', persona: 'Administrator' },
       visibility: 'organization',
       stage: 'Initiated',
       approverDecision: 'Pending',
       clientWorkflowStage: undefined,
-      assignedVerifier: PENDING_ASSIGNMENT,
-      stakeholders: { verifierOrg: THIRD_PARTY },
+      stakeholders: { verifierName: PENDING_ASSIGNMENT, verifierOrg: THIRD_PARTY },
       requirements: template.requirements.map((r) => ({ ...r, assignedVerifier: PENDING_ASSIGNMENT })),
     });
   };
@@ -312,7 +314,7 @@ describe('assigning a pending role', () => {
     const result = useMapStore.getState().updateAssuranceStakeholder('AS-ORG-TEST', 'Verifier', label);
     expect(result.success, result.message).toBe(true);
     const saved = useMapStore.getState().assuranceSets.find((s) => s.id === 'AS-ORG-TEST')!;
-    expect(saved.assignedVerifier).toBe(label);
+    expect(getSetAssignedVerifier(saved)).toBe(label);
     expect(saved.requirements.every((r) => r.assignedVerifier === label)).toBe(true);
   });
 
@@ -322,7 +324,6 @@ describe('assigning a pending role', () => {
         set.id === 'AS-ORG-TEST'
           ? {
               ...set,
-              assignedSubmitter: PENDING_ASSIGNMENT,
               submitters: [
                 { organization: PROVIDER, assignee: PENDING_ASSIGNMENT },
                 { organization: THIRD_PARTY, assignee: PENDING_ASSIGNMENT },
@@ -339,7 +340,7 @@ describe('assigning a pending role', () => {
       { organization: PROVIDER, assignee: PENDING_ASSIGNMENT },
       { organization: THIRD_PARTY, assignee: label },
     ]);
-    expect(saved.assignedSubmitter).toBe(PENDING_ASSIGNMENT);
+    expect(getSetAssignedSubmitter(saved)).toBe(PENDING_ASSIGNMENT);
 
     const blocked = useMapStore.getState().updateAssuranceStakeholder('AS-ORG-TEST', 'Submitter', `M. Chen (${PROVIDER})`, PROVIDER);
     expect(blocked.success).toBe(false);
@@ -363,17 +364,16 @@ describe('assigning a pending role', () => {
       id: 'AS-CLIENT-PENDING',
       title: 'Client Pending Verifier Test',
       projectId: undefined,
-      projectName: undefined,
-      initiatorOrg: CLIENT,
-      createdByPersona: 'C Admin',
-      createdByUserId: 'USR-221',
-      createdByName: 'C. Henderson',
+      parties: [
+        { organization: CLIENT, role: 'Requesting party' },
+        { organization: CLIENT, role: 'Responding party' },
+      ],
+      createdBy: { userId: 'USR-221', name: 'C. Henderson', persona: 'C Admin' },
       visibility: 'organization',
       stage: 'Initiated',
       approverDecision: 'Pending',
       clientWorkflowStage: undefined,
-      assignedVerifier: PENDING_ASSIGNMENT,
-      stakeholders: { verifierOrg: THIRD_PARTY },
+      stakeholders: { verifierName: PENDING_ASSIGNMENT, verifierOrg: THIRD_PARTY },
       requirements: template.requirements.map((r) => ({ ...r, assignedVerifier: PENDING_ASSIGNMENT })),
     });
     const result = useMapStore
@@ -623,9 +623,9 @@ describe('wizard', () => {
 
     const created = useMapStore.getState().assuranceSets.find((set) => set.title === 'One Vendor Vetting')!;
     expect(created.submitters?.map((submitter) => submitter.organization)).toEqual([before[1]]);
-    expect(created.serviceProviderOrg).toBe(before[1]);
-    expect(created.clientOrg).toBe(before[0]);
-    expect(created.assignedSubmitter).toBe(created.submitters?.[0].assignee);
+    expect(getRespondingParty(created)).toBe(before[1]);
+    expect(getRequestingParty(created)).toBe(before[0]);
+    expect(getSetAssignedSubmitter(created)).toBe(created.submitters?.[0].assignee);
   });
 
   it('creates a set that names organizations and defaults existing users as stakeholders', () => {
@@ -649,12 +649,12 @@ describe('wizard', () => {
     expect(sets.length).toBe(before + 1);
     const created = sets.find((s) => s.title === 'Organizations In General Vetting')!;
 
-    expect(created.organizations).toContain(CLIENT);
-    expect(created.organizations).toContain(THIRD_PARTY);
+    expect(getSetOrganizations(created)).toContain(CLIENT);
+    expect(getSetOrganizations(created)).toContain(THIRD_PARTY);
     expect(created.stakeholders?.verifierOrg).toBe(THIRD_PARTY);
-    expect(created.assignedVerifier).toBe(`S. Girard (${THIRD_PARTY})`);
-    expect(created.assignedInspector).toBe(`N. Technical (${THIRD_PARTY})`);
-    expect(created.assignedApprover).toBe(`H. Okafor (${CLIENT})`);
+    expect(getSetAssignedVerifier(created)).toBe(`S. Girard (${THIRD_PARTY})`);
+    expect(getSetAssignedInspector(created)).toBe(`N. Technical (${THIRD_PARTY})`);
+    expect(getSetAssignedApprover(created)).toBe(`H. Okafor (${CLIENT})`);
     expect(created.requirements.every((r) => r.assignedVerifier === `S. Girard (${THIRD_PARTY})`)).toBe(true);
   });
 });

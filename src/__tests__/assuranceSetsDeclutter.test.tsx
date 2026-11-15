@@ -5,6 +5,8 @@ import { AssuranceTable } from '../components/tables/AssuranceTable';
 import { AssuranceDetailView } from '../views/AssuranceDetailView';
 import { useMapStore } from '../store/useMapStore';
 import { AssuranceSet } from '../types/assurance';
+import { getRequestingParty } from '../utils/setParties';
+import { getSetAssignedSubmitter, getSetAssignedVerifier } from '../utils/setStakeholders';
 
 describe('Assurance Sets List and Detail UI Declutter', () => {
   beforeEach(() => {
@@ -123,7 +125,7 @@ describe('Assurance Sets List and Detail UI Declutter', () => {
       const baseOpenSet = state.assuranceSets.find(
         (s) => s.stage !== 'Cancelled' && s.visibility !== 'draft' && !s.closureType
       ) || state.assuranceSets[0];
-      const openSet: AssuranceSet = { ...baseOpenSet, complianceDeadline: '2027-01-01', targetDate: '2027-01-01' };
+      const openSet: AssuranceSet = { ...baseOpenSet, deadline: '2027-01-01' };
       useMapStore.setState({ assuranceSets: [openSet, ...state.assuranceSets.filter((s) => s.id !== openSet.id)] });
 
       const { container } = render(<AssuranceDetailView setId={openSet.id} />);
@@ -136,8 +138,8 @@ describe('Assurance Sets List and Detail UI Declutter', () => {
 
       // Title and meta items
       expect(within(detailHeader as HTMLElement).getByText(openSet.title)).toBeDefined();
-      const clientOrg = openSet.clientOrg || openSet.charterer || openSet.initiatorOrg;
-      expect(within(detailHeader as HTMLElement).getByText(clientOrg)).toBeDefined();
+      const clientOrg = getRequestingParty(openSet) || '';
+      expect(within(detailHeader as HTMLElement).getByText(new RegExp(clientOrg))).toBeDefined();
 
       // Exactly 1 status badge in DetailHeader
       const headerBadges = detailHeader?.querySelectorAll('.map-status-badge');
@@ -162,8 +164,7 @@ describe('Assurance Sets List and Detail UI Declutter', () => {
       const overdueSet: AssuranceSet = {
         ...baseSet,
         id: 'AS-TEST-OVERDUE',
-        complianceDeadline: '2020-01-01',
-        targetDate: '2020-01-01',
+        deadline: '2020-01-01',
         revisedCompletionDate: undefined,
         stage: 'Verification',
         closureType: undefined,
@@ -305,14 +306,14 @@ describe('Assurance Sets List and Detail UI Declutter', () => {
       expect(setIdEl).toHaveClass('font-mono-code');
 
       // Stakeholders values do not have font-mono-code
-      const submitterText = openSet.assignedSubmitter || 'M. Chen (Northwind Marine Pty Ltd)';
+      const submitterText = getSetAssignedSubmitter(openSet) || 'M. Chen (Northwind Marine Pty Ltd)';
       const submitterEl = within(infoCard as HTMLElement).getByText(submitterText);
       expect(submitterEl).not.toHaveClass('font-mono-code');
       expect(submitterEl.closest('.font-mono-code')).toBeNull();
 
       const verifierText = openSet.verificationRequired === false
         ? 'N/A (Verification Bypassed)'
-        : (openSet.assignedVerifier || 'A. Fontaine (Bureau Veritas Inspectorate)');
+        : (getSetAssignedVerifier(openSet) || 'A. Fontaine (Bureau Veritas Inspectorate)');
       const verifierEl = within(infoCard as HTMLElement).getByText(verifierText);
       expect(verifierEl).not.toHaveClass('font-mono-code');
       expect(verifierEl.closest('.font-mono-code')).toBeNull();
@@ -393,7 +394,9 @@ describe('Assurance Sets List and Detail UI Declutter', () => {
         stage: 'Inspection',
         mandatoryInspectionRequired: true,
         inspectionCompleted: false,
-        assignedInspector: 'N. Technical (Bureau Veritas Inspectorate)',
+        stakeholders: {
+          inspectorName: 'N. Technical (Bureau Veritas Inspectorate)',
+        },
       };
       useMapStore.setState({
         assuranceSets: [testSet, ...state.assuranceSets],

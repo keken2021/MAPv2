@@ -28,7 +28,9 @@ describe('SS-01 Inspection Status & Guard (Task 1 / Adversarial Review S3-03, S3
       const setInVerification: Partial<AssuranceSet> = {
         id: 'AS-2026-101',
         stage: 'Verification',
-        assignedVerifier: 'L. Ferreira (XY Marine Assurance)',
+        stakeholders: {
+          verifierName: 'L. Ferreira (XY Marine Assurance)',
+        },
       };
 
       // With assigned verifier -> Awaiting Verifier
@@ -38,7 +40,7 @@ describe('SS-01 Inspection Status & Guard (Task 1 / Adversarial Review S3-03, S3
 
       // Without assigned verifier -> Submitted
       const unassignedSireReq = { ...sireReportReq, assignedVerifier: undefined };
-      const setWithoutVerifier = { ...setInVerification, assignedVerifier: undefined };
+      const setWithoutVerifier = { ...setInVerification, stakeholders: undefined };
       const unassignedLabel = getRequirementStatusLabel(unassignedSireReq, setWithoutVerifier);
       expect(unassignedLabel).toBe('Submitted');
       expect(unassignedLabel).not.toBe('To Inspect');

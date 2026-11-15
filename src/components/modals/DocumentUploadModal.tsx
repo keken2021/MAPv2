@@ -46,6 +46,8 @@ import { Upload, Check, AlertCircle, X, FileText } from 'lucide-react';
 import { DocumentCertificatePreview } from '../common/DocumentCertificatePreview';
 import { UniversalDocumentPreviewModal } from './UniversalDocumentPreviewModal';
 import { OCR_MIN_CONFIDENCE } from '../../config/thresholds';
+import { getRespondingParty } from '../../utils/setParties';
+import { getSetVessel, getSetCrew, getSetEquipment } from '../../utils/setObjects';
 
 interface DocumentUploadModalProps {
   isOpen: boolean;
@@ -283,8 +285,8 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     )?.verifierStatus;
     const contractEnd =
       charterWindowEnd ??
-      uploadContextSet?.charterWindowEnd ??
-      linkedSetsForDoc.map((s) => s.charterWindowEnd).find((end) => end && documentExpiresBeforeContractEnd(doc, end));
+      uploadContextSet?.endDate ??
+      linkedSetsForDoc.map((s) => s.endDate).find((end) => end && documentExpiresBeforeContractEnd(doc, end));
 
     return getDocumentReuploadBlockReason(
       doc,
@@ -477,18 +479,21 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
           initialObjType = 'vessel';
           initialObjId = defaultVesselId;
         } else if (!initialObjType && uploadContextSet) {
-          if (uploadContextSet.equipmentId) {
+          const eq = getSetEquipment(uploadContextSet)[0];
+          const crew = getSetCrew(uploadContextSet)[0];
+          const ves = getSetVessel(uploadContextSet);
+          if (eq) {
             initialObjType = 'equipment';
-            initialObjId = uploadContextSet.equipmentId;
-            initialObjName = uploadContextSet.equipmentName || '';
-          } else if (uploadContextSet.crewId) {
+            initialObjId = eq.id;
+            initialObjName = eq.name || '';
+          } else if (crew) {
             initialObjType = 'person';
-            initialObjId = uploadContextSet.crewId;
-            initialObjName = uploadContextSet.crewName || '';
-          } else if (uploadContextSet.vesselId) {
+            initialObjId = crew.id;
+            initialObjName = ('fullName' in crew ? crew.fullName : crew.name) || '';
+          } else if (ves) {
             initialObjType = 'vessel';
-            initialObjId = uploadContextSet.vesselId;
-            initialObjName = uploadContextSet.vesselName || '';
+            initialObjId = ves.id;
+            initialObjName = ves.name || '';
           }
         }
 
@@ -607,10 +612,10 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
 
   const effectiveCharterWindowEnd =
     charterWindowEnd ??
-    uploadContextSet?.charterWindowEnd ??
+    uploadContextSet?.endDate ??
     (effectiveVersionDoc
       ? linkedSetsForVersionDoc
-          .map((s) => s.charterWindowEnd)
+          .map((s) => s.endDate)
           .find((end) => end && documentExpiresBeforeContractEnd(effectiveVersionDoc, end))
       : undefined);
 
@@ -975,7 +980,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
         expiryDate: finalExpiry,
         ownerOrganization:
           effectiveOrg ||
-          uploadContextSet?.serviceProviderOrg ||
+          (uploadContextSet ? getRespondingParty(uploadContextSet) : undefined) ||
           sessionUser?.organization ||
           undefined,
         ocrConfidence: aiOcrConfidence || 99,

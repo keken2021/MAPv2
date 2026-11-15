@@ -5,6 +5,7 @@
 */
 
 import type { AssuranceSet } from '../types/assurance';
+import { getSetEndDate, SetDatesInput } from './setDates';
 
 import { EXPIRY_WARNING_DAYS } from '../config/thresholds';
 
@@ -45,14 +46,14 @@ function daysUntil(dateStr: string | undefined, today: Date): number | undefined
 */
 export function getValidityInContractPeriod(
   expiryDate: string | undefined,
-  set: Pick<AssuranceSet, 'charterWindowEnd'>,
+  set: SetDatesInput,
   today: Date = new Date(),
 ): ContractPeriodValidityResult {
   const daysLeft = daysUntil(expiryDate, today);
   if (daysLeft === undefined) return { state: 'unknown', label: 'Expiry not recorded' };
   if (daysLeft < 0) return { state: 'lapsed', label: 'Lapsed', expiryDate };
 
-  const periodEnd = new Date(set.charterWindowEnd).getTime();
+  const periodEnd = new Date(getSetEndDate(set)).getTime();
   if (!Number.isNaN(periodEnd) && new Date(expiryDate!).getTime() < periodEnd) {
     return { state: 'expires_in_period', label: 'Expires During Contract Period', expiryDate };
   }

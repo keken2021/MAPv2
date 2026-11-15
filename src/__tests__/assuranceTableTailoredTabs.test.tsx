@@ -25,7 +25,7 @@ describe('AssuranceTable tailored status tabs and role visibility', () => {
       });
     });
 
-    const { rerender } = render(<AssuranceTable onSelectSet={() => {}} />);
+    const { rerender } = render(<AssuranceTable onSelectSet={() => { }} />);
     expect(screen.getByRole('tab', { name: /Public/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Organization/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Drafts/i })).toBeInTheDocument();
@@ -40,7 +40,7 @@ describe('AssuranceTable tailored status tabs and role visibility', () => {
       });
     });
 
-    rerender(<AssuranceTable onSelectSet={() => {}} />);
+    rerender(<AssuranceTable onSelectSet={() => { }} />);
     expect(screen.getByRole('tab', { name: /Public/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Organization/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Drafts/i })).toBeInTheDocument();
@@ -62,7 +62,7 @@ describe('AssuranceTable tailored status tabs and role visibility', () => {
         activeSessionUserId: user,
       });
 
-      const { unmount } = render(<AssuranceTable onSelectSet={() => {}} />);
+      const { unmount } = render(<AssuranceTable onSelectSet={() => { }} />);
       expect(screen.getByRole('tab', { name: /To do/i })).toBeInTheDocument();
       expect(screen.getByRole('tab', { name: /In progress/i })).toBeInTheDocument();
       expect(screen.getByRole('tab', { name: /Completed/i })).toBeInTheDocument();
@@ -79,20 +79,20 @@ describe('AssuranceTable tailored status tabs and role visibility', () => {
       activeSessionUserId: 'USR-204',
     });
 
-    render(<AssuranceTable onSelectSet={() => {}} />);
+    render(<AssuranceTable onSelectSet={() => { }} />);
     const todoTab = screen.getByRole('tab', { name: /To do/i });
     expect(todoTab).toHaveClass('is-active');
   });
 
   it('categorizes assurance sets into todo, in_progress, and completed correctly', () => {
     const approverUser = MOCK_USERS.find((u) => u.id === 'USR-204')!;
-    
+
     // Approved set -> completed
     const approvedSet: AssuranceSet = {
       ...MOCK_ASSURANCE_SETS[0],
       stage: 'Approved',
       approverDecision: 'Approved',
-      assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
+      stakeholders: { approverName: 'P. Nardelli (Marine Assurance Authority)' },
     };
     expect(getAssuranceSetWorkflowTab(approvedSet, 'Approver', approverUser)).toBe('completed');
 
@@ -101,7 +101,7 @@ describe('AssuranceTable tailored status tabs and role visibility', () => {
       ...MOCK_ASSURANCE_SETS[0],
       stage: 'Approval',
       approverDecision: 'Pending',
-      assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
+      stakeholders: { approverName: 'P. Nardelli (Marine Assurance Authority)' },
       requirements: [{
         id: 'REQ-1',
         category: 'Class & Statutory',
@@ -119,7 +119,7 @@ describe('AssuranceTable tailored status tabs and role visibility', () => {
       ...MOCK_ASSURANCE_SETS[0],
       stage: 'Initiated',
       approverDecision: 'Pending',
-      assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
+      stakeholders: { approverName: 'P. Nardelli (Marine Assurance Authority)' },
       requirements: [{
         id: 'REQ-1',
         category: 'Class & Statutory',
@@ -140,7 +140,7 @@ describe('AssuranceTable tailored status tabs and role visibility', () => {
       id: 'AS-EARLY-001',
       stage: 'Initiated',
       approverDecision: 'Pending',
-      assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
+      stakeholders: { approverName: 'P. Nardelli (Marine Assurance Authority)' },
     };
 
     expect(isUserStakeholderOnSet(earlyStageSet, 'Approver', approverUser)).toBe(true);
@@ -154,7 +154,7 @@ describe('AssuranceTable tailored status tabs and role visibility', () => {
       activeSessionUserId: 'USR-204',
     });
 
-    const { unmount } = render(<AssuranceTable onSelectSet={() => {}} />);
+    const { unmount } = render(<AssuranceTable onSelectSet={() => { }} />);
     // Switch to In progress tab where AS-2026-003 is located
     const inProgressTab = screen.getByRole('tab', { name: /In progress/i });
     fireEvent.click(inProgressTab);
@@ -168,7 +168,7 @@ describe('AssuranceTable tailored status tabs and role visibility', () => {
       activeSessionUserId: 'USR-203',
     });
 
-    render(<AssuranceTable onSelectSet={() => {}} />);
+    render(<AssuranceTable onSelectSet={() => { }} />);
     const inspectorInProgressTab = screen.getByRole('tab', { name: /In progress/i });
     fireEvent.click(inspectorInProgressTab);
     expect(screen.getByText('AS-2026-005')).toBeInTheDocument();

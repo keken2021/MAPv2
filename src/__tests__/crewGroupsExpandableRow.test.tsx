@@ -17,14 +17,11 @@ const TEST_SET_WITH_GROUP: AssuranceSet = {
   stage: 'Verification',
   assuranceType: 'Crew',
   subtypes: ['Crew'],
-  vesselName: 'Pacific Responder',
-  initiatorOrg: 'Northwind Marine Pty Ltd',
-  initiatorRole: 'Vessel Provider Admin',
-  createdByUserId: 'USR-101',
-  createdByName: 'K. Osei',
-  createdByPersona: 'Administrator',
-  clientOrg: 'Chevron Australia Pty Ltd',
-  serviceProviderOrg: 'Northwind Marine Pty Ltd',
+  parties: [
+    { organization: 'Chevron Australia Pty Ltd', role: 'Requesting party' },
+    { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+  ],
+  createdBy: { userId: 'USR-101', name: 'K. Osei', persona: 'Administrator' },
   crewGroups: [
     {
       groupId: 'CG-001',
@@ -79,7 +76,7 @@ const TEST_SET_WITH_GROUP: AssuranceSet = {
       verifierStatus: 'Verified',
     },
   ],
-  targetDate: '2027-01-01',
+  deadline: '2027-01-01',
 };
 
 describe('AssuranceDetailView Objects Tab - Expandable Crew Groups (Task 5342)', () => {

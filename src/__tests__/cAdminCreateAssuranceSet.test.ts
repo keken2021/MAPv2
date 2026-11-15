@@ -9,6 +9,7 @@ import { useMapStore } from '../store/useMapStore';
 import { AssuranceSet } from '../types/assurance';
 import { isAssuranceSetAssignedToPersona } from '../utils/rbacHelpers';
 import { generateUniqueAssuranceSetId } from '../utils/validation';
+import { getRequestingParty } from '../utils/setParties';
 
 const initialState = useMapStore.getState();
 
@@ -44,23 +45,34 @@ describe('c admin assurance set creation and default charterer attribution', () 
     const newSet: AssuranceSet = {
       id: uniqueId,
       title: `${defaultCharterer} - MV Northern Endeavour Charter Vetting`,
-      vesselId: 'VESSEL-001',
-      vesselName: 'MV Northern Endeavour',
-      imoNumber: '9123453',
-      initiatorOrg: defaultCharterer,
-      initiatorRole: 'C Admin · Client Created',
-      charterer: defaultCharterer,
-      charterWindowStart: '2026-11-01',
-      complianceDeadline: '2026-11-01',
-      charterWindowEnd: '2027-11-01',
+      assuranceObjects: [
+        {
+          id: 'VESSEL-001',
+          type: 'vessel',
+          name: 'MV Northern Endeavour',
+          ownerOrganization: 'Northwind Marine Pty Ltd',
+          identifier: '9123453',
+        },
+      ],
+      parties: [
+        { organization: defaultCharterer, role: 'Requesting party' },
+        { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      ],
+      createdBy: {
+        userId: 'USR-221',
+        name: 'C. Henderson',
+        persona: 'C Admin',
+      },
+      startDate: '2026-11-01',
+      deadline: '2026-11-01',
+      endDate: '2027-11-01',
+      dateHistory: [],
       stage: 'Initiated',
       readinessScore: 10,
       mandatoryInspectionRequired: false,
       inspectionCompleted: false,
       requirements: [],
       stakeholders: undefined,
-      assignedStakeholders: undefined,
-      createdByPersona: '',
     };
 
     store.addAssuranceSet(newSet);
@@ -68,9 +80,7 @@ describe('c admin assurance set creation and default charterer attribution', () 
     const cAdminUser = useMapStore.getState().users.find((u) => u.id === 'USR-221')!;
     const createdSet = useMapStore.getState().assuranceSets.find((s) => s.id === uniqueId);
     expect(createdSet).toBeDefined();
-    expect(createdSet?.charterer).toBe('Chevron Australia Pty Ltd');
-    expect(createdSet?.initiatorOrg).toBe('Chevron Australia Pty Ltd');
-    expect(createdSet?.initiatorRole).toBe('C Admin · Client Created');
+    expect(getRequestingParty(createdSet!)).toBe('Chevron Australia Pty Ltd');
     expect(isAssuranceSetAssignedToPersona(createdSet!, 'C Admin', defaultCharterer, cAdminUser)).toBe(true);
   });
 
@@ -82,13 +92,15 @@ describe('c admin assurance set creation and default charterer attribution', () 
   it('enforces chevron australia pty ltd charterer even when using third-party template', () => {
     const isClientAdmin = true;
     const templateSet: Partial<AssuranceSet> = {
-      charterer: 'Woodside Energy Ltd',
-      initiatorOrg: 'Woodside Energy Ltd',
+      parties: [
+        { organization: 'Woodside Energy Ltd', role: 'Requesting party' },
+        { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      ],
     };
 
     const effectiveCharterer = isClientAdmin
       ? 'Chevron Australia Pty Ltd'
-      : (templateSet.charterer || templateSet.initiatorOrg || 'Northwind Marine Pty Ltd');
+      : (getRequestingParty(templateSet as AssuranceSet) || 'Northwind Marine Pty Ltd');
 
     expect(effectiveCharterer).toBe('Chevron Australia Pty Ltd');
   });

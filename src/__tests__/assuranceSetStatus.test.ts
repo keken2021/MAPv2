@@ -31,14 +31,16 @@ function set(overrides: Partial<AssuranceSet> = {}): AssuranceSet {
   return {
     id: 'AS-1',
     title: 'Test set',
-    vesselId: 'V-1',
-    vesselName: 'MV Test',
-    imoNumber: '1',
-    initiatorOrg: 'Client Co',
-    initiatorRole: 'Client Admin',
-    charterWindowStart: '2026-01-01',
-    charterWindowEnd: '2026-12-01',
-    complianceDeadline: '2026-12-01',
+    assuranceObjects: [{ id: 'V-1', type: 'vessel', name: 'MV Test', identifier: '1' }],
+    parties: [
+      { organization: 'Client Co', role: 'Requesting party' },
+      { organization: 'Vendor Co', role: 'Responding party' },
+    ],
+    startDate: '2026-01-01',
+    endDate: '2026-12-01',
+    deadline: '2026-12-01',
+    dateHistory: [],
+    createdBy: { userId: 'U-1', name: 'Client User', persona: 'Client Admin' },
     stage: 'Approved',
     approverDecision: 'Approved',
     readinessScore: 100,
@@ -89,7 +91,7 @@ describe('status rule', () => {
     ['a rejected required task', set({ requirements: [task({ verifierStatus: 'Rejected', isFulfilled: false })] }), [], []],
     ['a correction on a required task', set({ requirements: [task({ verifierStatus: 'Correction Requested', isFulfilled: false })] }), [], []],
     ['a required task past its target date', set({ stage: 'Validation', approverDecision: undefined, requirements: [task({ verifierStatus: 'Pending', isFulfilled: false, targetDate: '2026-10-01' })] }), [], []],
-    ['a passed compliance deadline', set({ stage: 'Validation', approverDecision: undefined, complianceDeadline: '2026-10-01' }), [], []],
+    ['a passed compliance deadline', set({ stage: 'Validation', approverDecision: undefined, deadline: '2026-10-01' }), [], []],
     ['an approver return', set({ stage: 'Approval', approverDecision: 'Returned for Correction' }), [], []],
     ['an expired required certificate', set({ requirements: [task({ documentId: 'D1' })] }), [document('D1', '2026-10-01')], []],
     ['a finding that needs rectification', set({ mandatoryInspectionRequired: true }), [], [finding({ status: 'Rectification Required' })]],
@@ -101,8 +103,8 @@ describe('status rule', () => {
   });
 
   it.each([
-    ['a certificate inside the warning period', set({ charterWindowEnd: '2026-11-10', requirements: [task({ documentId: 'D1' })] }), [document('D1', '2026-12-01')], []],
-    ['a certificate that ends before the contract', set({ charterWindowEnd: '2028-01-01', requirements: [task({ documentId: 'D1' })] }), [document('D1', '2027-06-01')], []],
+    ['a certificate inside the warning period', set({ endDate: '2026-11-10', requirements: [task({ documentId: 'D1' })] }), [document('D1', '2026-12-01')], []],
+    ['a certificate that ends before the contract', set({ endDate: '2028-01-01', requirements: [task({ documentId: 'D1' })] }), [document('D1', '2027-06-01')], []],
     ['an expired optional certificate', set({ requirements: [task({ isMandatory: false, documentId: 'D1' })] }), [document('D1', '2026-10-01')], []],
     ['an unresolved finding still in date', set(), [], [finding()]],
     ['a partial closure', set({ closureType: 'partial' }), [], []],
@@ -185,7 +187,12 @@ describe('next expiry', () => {
 
 describe('party roles', () => {
   it('shows both roles when one organization is client and provider', () => {
-    const s = set({ clientOrg: 'Northwind Marine', serviceProviderOrg: 'Northwind Marine' });
+    const s = set({
+      parties: [
+        { organization: 'Northwind Marine', role: 'Requesting party' },
+        { organization: 'Northwind Marine', role: 'Responding party' },
+      ],
+    });
     expect(getPartyRoles(s, { organization: 'Northwind Marine' }).roles).toEqual(['client', 'provider']);
   });
 
@@ -202,13 +209,29 @@ describe('party roles', () => {
   });
 
   it('reads Reviewing from the named reviewer of the set', () => {
-    const s = set({ clientOrg: 'Oil Co', assignedVerifier: 'A. Fontaine (Bureau Veritas)' });
+    const s = set({
+      parties: [
+        { organization: 'Oil Co', role: 'Requesting party' },
+        { organization: 'Vendor Co', role: 'Responding party' },
+      ],
+      stakeholders: {
+        verifierName: 'A. Fontaine (Bureau Veritas)',
+      },
+    });
     expect(getPartyRoles(s, { organization: 'Bureau Veritas', name: 'A. Fontaine' }).roles).toEqual(['reviewing']);
   });
 
   /* ADR 0037: the same name acting for another organization is not the named reviewer */
   it('does not read Reviewing for the same name in another organization', () => {
-    const s = set({ clientOrg: 'Oil Co', assignedVerifier: 'A. Fontaine (Bureau Veritas)' });
+    const s = set({
+      parties: [
+        { organization: 'Oil Co', role: 'Requesting party' },
+        { organization: 'Vendor Co', role: 'Responding party' },
+      ],
+      stakeholders: {
+        verifierName: 'A. Fontaine (Bureau Veritas)',
+      },
+    });
     expect(getPartyRoles(s, { organization: 'Elsewhere', name: 'A. Fontaine' }).roles).toEqual([]);
   });
 });
@@ -242,14 +265,12 @@ describe('optional tasks closed as not done at set close', () => {
     try {
       const testSet: AssuranceSet = set({
         id: 'AS-CLOSE-OPT-01',
-        initiatorOrg: 'Chevron Australia Pty Ltd',
-        initiatorRole: 'C Admin · Client Created',
-        clientOrg: 'Chevron Australia Pty Ltd',
-        charterer: 'Chevron Australia Pty Ltd',
-        createdByUserId: 'USR-221',
-        createdByName: 'C. Henderson',
-        createdByPersona: 'C Admin',
-        assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
+        parties: [
+          { organization: 'Chevron Australia Pty Ltd', role: 'Requesting party' },
+          { organization: 'Chevron Australia Pty Ltd', role: 'Responding party' },
+        ],
+        createdBy: { userId: 'USR-221', name: 'C. Henderson', persona: 'C Admin' },
+        stakeholders: { approverName: 'P. Nardelli (Marine Assurance Authority)' },
         stage: 'Approval',
         approverDecision: undefined,
         readinessScore: 70,

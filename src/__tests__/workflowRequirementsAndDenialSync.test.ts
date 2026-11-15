@@ -33,23 +33,41 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
     const testSet: AssuranceSet = {
       id: 'AS-WORKFLOW-TEST-01',
       title: 'Workflow Test Campaign Alpha',
-      vesselId: 'VESSEL-001',
-      vesselName: 'MV Torrens Supporter',
-      imoNumber: '9123453',
-      initiatorOrg: 'Chevron Australia Pty Ltd',
-      initiatorRole: 'C Admin · Client Created',
-      charterWindowStart: '2026-11-01',
-      complianceDeadline: '2026-11-01',
-      charterWindowEnd: '2027-11-01',
+      assuranceObjects: [
+        {
+          id: 'VESSEL-001',
+          type: 'vessel',
+          name: 'MV Torrens Supporter',
+          ownerOrganization: 'Northwind Marine Pty Ltd',
+          identifier: '9123453',
+        },
+      ],
+      parties: [
+        { organization: 'Chevron Australia Pty Ltd', role: 'Requesting party' },
+        { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      ],
+      createdBy: {
+        userId: 'USR-221',
+        name: 'C. Henderson',
+        persona: 'C Admin',
+      },
+      startDate: '2026-11-01',
+      deadline: '2026-11-01',
+      endDate: '2027-11-01',
+      dateHistory: [],
       stage: 'Approval',
       readinessScore: 70,
       verificationRequired: true,
       mandatoryInspectionRequired: false,
       formalApprovalRequired: true,
       inspectionCompleted: false,
-      assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
-      assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
-      assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
+      submitters: [
+        { organization: 'Northwind Marine Pty Ltd', assignee: 'M. Chen (Northwind Marine Pty Ltd)' },
+      ],
+      stakeholders: {
+        verifierName: 'A. Fontaine (Bureau Veritas Inspectorate)',
+        approverName: 'P. Nardelli (Marine Assurance Authority)',
+      },
       requirements: [
         {
           id: 'REQ-WF-001',
@@ -62,11 +80,6 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
           verifierStatus: 'Verified',
         },
       ],
-      stakeholders: undefined,
-      assignedStakeholders: undefined,
-      createdByPersona: 'C Admin',
-      createdByUserId: 'USR-221',
-      createdByName: 'C. Henderson',
     };
 
     store.addAssuranceSet(testSet);
@@ -117,23 +130,41 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
     const testSet: AssuranceSet = {
       id: 'AS-WORKFLOW-TEST-02',
       title: 'Workflow Test Campaign Beta',
-      vesselId: 'VESSEL-002',
-      vesselName: 'MV Dampier Supplier',
-      imoNumber: '9284714',
-      initiatorOrg: 'Chevron Australia Pty Ltd',
-      initiatorRole: 'C Admin · Client Created',
-      charterWindowStart: '2026-11-01',
-      complianceDeadline: '2026-11-01',
-      charterWindowEnd: '2027-11-01',
+      assuranceObjects: [
+        {
+          id: 'VESSEL-002',
+          type: 'vessel',
+          name: 'MV Dampier Supplier',
+          ownerOrganization: 'Northwind Marine Pty Ltd',
+          identifier: '9284714',
+        },
+      ],
+      parties: [
+        { organization: 'Chevron Australia Pty Ltd', role: 'Requesting party' },
+        { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      ],
+      createdBy: {
+        userId: 'USR-221',
+        name: 'C. Henderson',
+        persona: 'C Admin',
+      },
+      startDate: '2026-11-01',
+      deadline: '2026-11-01',
+      endDate: '2027-11-01',
+      dateHistory: [],
       stage: 'Approval',
       readinessScore: 70,
       verificationRequired: true,
       mandatoryInspectionRequired: false,
       formalApprovalRequired: true,
       inspectionCompleted: false,
-      assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
-      assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
-      assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
+      submitters: [
+        { organization: 'Northwind Marine Pty Ltd', assignee: 'M. Chen (Northwind Marine Pty Ltd)' },
+      ],
+      stakeholders: {
+        verifierName: 'A. Fontaine (Bureau Veritas Inspectorate)',
+        approverName: 'P. Nardelli (Marine Assurance Authority)',
+      },
       requirements: [
         {
           id: 'REQ-WF-002',
@@ -146,11 +177,6 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
           verifierStatus: 'Verified',
         },
       ],
-      stakeholders: undefined,
-      assignedStakeholders: undefined,
-      createdByPersona: 'C Admin',
-      createdByUserId: 'USR-221',
-      createdByName: 'C. Henderson',
     };
 
     store.addAssuranceSet(testSet);
@@ -192,14 +218,28 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
     const directSet: AssuranceSet = {
       id: 'AS-DIRECT-01',
       title: 'Direct Set No Approval',
-      vesselId: 'VESSEL-001',
-      vesselName: 'MV Torrens Supporter',
-      imoNumber: '9123453',
-      initiatorOrg: 'Northwind Marine',
-      initiatorRole: 'Vessel Provider Admin',
-      charterWindowStart: '2026-11-01',
-      complianceDeadline: '2026-11-01',
-      charterWindowEnd: '2027-11-01',
+      assuranceObjects: [
+        {
+          id: 'VESSEL-001',
+          type: 'vessel',
+          name: 'MV Torrens Supporter',
+          ownerOrganization: 'Northwind Marine Pty Ltd',
+          identifier: '9123453',
+        },
+      ],
+      parties: [
+        { organization: 'Northwind Marine', role: 'Requesting party' },
+        { organization: 'Northwind Marine', role: 'Responding party' },
+      ],
+      createdBy: {
+        userId: 'USR-101',
+        name: 'K. Osei',
+        persona: 'Administrator',
+      },
+      startDate: '2026-11-01',
+      deadline: '2026-11-01',
+      endDate: '2027-11-01',
+      dateHistory: [],
       stage: 'Approved',
       readinessScore: 10,
       verificationRequired: true,
@@ -217,9 +257,6 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
           verifierStatus: 'Verified',
         },
       ],
-      stakeholders: undefined,
-      assignedStakeholders: undefined,
-      createdByPersona: 'Administrator',
     };
 
     expect(calculateAssuranceSetReadiness(directSet)).toBe(100);
@@ -234,14 +271,28 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
     const unverifiedSet: AssuranceSet = {
       id: 'AS-OVERRIDE-01',
       title: 'Workflow Override Campaign',
-      vesselId: 'VESSEL-001',
-      vesselName: 'MV Torrens Supporter',
-      imoNumber: '9123453',
-      initiatorOrg: 'Northwind Marine',
-      initiatorRole: 'Vessel Provider Admin',
-      charterWindowStart: '2026-11-01',
-      complianceDeadline: '2026-11-01',
-      charterWindowEnd: '2027-11-01',
+      assuranceObjects: [
+        {
+          id: 'VESSEL-001',
+          type: 'vessel',
+          name: 'MV Torrens Supporter',
+          ownerOrganization: 'Northwind Marine Pty Ltd',
+          identifier: '9123453',
+        },
+      ],
+      parties: [
+        { organization: 'Northwind Marine', role: 'Requesting party' },
+        { organization: 'Northwind Marine', role: 'Responding party' },
+      ],
+      createdBy: {
+        userId: 'USR-101',
+        name: 'K. Osei',
+        persona: 'Administrator',
+      },
+      startDate: '2026-11-01',
+      deadline: '2026-11-01',
+      endDate: '2027-11-01',
+      dateHistory: [],
       stage: 'Approval',
       readinessScore: 70,
       verificationRequired: false, /* verification bypassed */
@@ -259,9 +310,6 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
           verifierStatus: 'Pending',
         },
       ],
-      stakeholders: undefined,
-      assignedStakeholders: undefined,
-      createdByPersona: 'Administrator',
     };
 
     /* when verification is required, mandatory pending requirement blocks approval */
@@ -286,14 +334,28 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
     const newCampaign: AssuranceSet = {
       id: 'AS-NEW-INIT-01',
       title: 'Newly Initiated Campaign',
-      vesselId: 'VESSEL-NO-DOCS',
-      vesselName: 'MV Torrens Supporter',
-      imoNumber: '9123453',
-      initiatorOrg: 'Northwind Marine',
-      initiatorRole: 'Vessel Provider Admin',
-      charterWindowStart: '2026-11-01',
-      complianceDeadline: '2026-11-01',
-      charterWindowEnd: '2027-11-01',
+      assuranceObjects: [
+        {
+          id: 'VESSEL-NO-DOCS',
+          type: 'vessel',
+          name: 'MV Torrens Supporter',
+          ownerOrganization: 'Northwind Marine Pty Ltd',
+          identifier: '9123453',
+        },
+      ],
+      parties: [
+        { organization: 'Northwind Marine', role: 'Requesting party' },
+        { organization: 'Northwind Marine', role: 'Responding party' },
+      ],
+      createdBy: {
+        userId: 'USR-101',
+        name: 'K. Osei',
+        persona: 'Administrator',
+      },
+      startDate: '2026-11-01',
+      deadline: '2026-11-01',
+      endDate: '2027-11-01',
+      dateHistory: [],
       stage: 'Initiated',
       readinessScore: 10,
       verificationRequired: false, /* even if verification is false */
@@ -320,9 +382,6 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
           verifierStatus: 'Pending',
         },
       ],
-      stakeholders: undefined,
-      assignedStakeholders: undefined,
-      createdByPersona: 'Administrator',
     };
 
     store.addAssuranceSet(newCampaign);
@@ -346,24 +405,40 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
     const testSet: AssuranceSet = {
       id: setId,
       title: 'Task Editing Campaign',
-      vesselId: 'VESSEL-001',
-      vesselName: 'MV Torrens Supporter',
-      imoNumber: '9123453',
-      initiatorOrg: 'Chevron Australia Pty Ltd',
-      clientOrg: 'Chevron Australia Pty Ltd',
-      serviceProviderOrg: 'Northwind Marine Pty Ltd',
-      initiatorRole: 'C Admin · Client Created',
-      charterWindowStart: '2026-11-01',
-      complianceDeadline: '2026-11-01',
-      charterWindowEnd: '2027-11-01',
+      assuranceObjects: [
+        {
+          id: 'VESSEL-001',
+          type: 'vessel',
+          name: 'MV Torrens Supporter',
+          ownerOrganization: 'Northwind Marine Pty Ltd',
+          identifier: '9123453',
+        },
+      ],
+      parties: [
+        { organization: 'Chevron Australia Pty Ltd', role: 'Requesting party' },
+        { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      ],
+      createdBy: {
+        userId: 'USR-221',
+        name: 'C. Henderson',
+        persona: 'C Admin',
+      },
+      startDate: '2026-11-01',
+      deadline: '2026-11-01',
+      endDate: '2027-11-01',
+      dateHistory: [],
       stage: 'Verification',
       readinessScore: 50,
       verificationRequired: true,
       mandatoryInspectionRequired: false,
       formalApprovalRequired: true,
       inspectionCompleted: false,
-      assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
-      assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
+      submitters: [
+        { organization: 'Northwind Marine Pty Ltd', assignee: 'M. Chen (Northwind Marine Pty Ltd)' },
+      ],
+      stakeholders: {
+        verifierName: 'A. Fontaine (Bureau Veritas Inspectorate)',
+      },
       requirements: [
         {
           id: 'REQ-EXISTING-01',
@@ -375,9 +450,6 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
           verifierStatus: 'Pending',
         },
       ],
-      createdByPersona: 'C Admin',
-      createdByUserId: 'USR-221',
-      createdByName: 'C. Henderson',
     };
 
     store.addAssuranceSet(testSet);
@@ -532,25 +604,41 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
     const testSet: AssuranceSet = {
       id: setId,
       title: 'Loop Resilience Campaign',
-      vesselId: 'VESSEL-001',
-      vesselName: 'MV Torrens Supporter',
-      imoNumber: '9123453',
-      initiatorOrg: 'Chevron Australia Pty Ltd',
-      clientOrg: 'Chevron Australia Pty Ltd',
-      serviceProviderOrg: 'Northwind Marine Pty Ltd',
-      initiatorRole: 'C Admin · Client Created',
-      charterWindowStart: '2026-11-01',
-      complianceDeadline: '2026-11-01',
-      charterWindowEnd: '2027-11-01',
+      assuranceObjects: [
+        {
+          id: 'VESSEL-001',
+          type: 'vessel',
+          name: 'MV Torrens Supporter',
+          ownerOrganization: 'Northwind Marine Pty Ltd',
+          identifier: '9123453',
+        },
+      ],
+      parties: [
+        { organization: 'Chevron Australia Pty Ltd', role: 'Requesting party' },
+        { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      ],
+      createdBy: {
+        userId: 'USR-221',
+        name: 'C. Henderson',
+        persona: 'C Admin',
+      },
+      startDate: '2026-11-01',
+      deadline: '2026-11-01',
+      endDate: '2027-11-01',
+      dateHistory: [],
       stage: 'Approval',
       readinessScore: 70,
       verificationRequired: true,
       mandatoryInspectionRequired: false,
       formalApprovalRequired: true,
       inspectionCompleted: false,
-      assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
-      assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
-      assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
+      submitters: [
+        { organization: 'Northwind Marine Pty Ltd', assignee: 'M. Chen (Northwind Marine Pty Ltd)' },
+      ],
+      stakeholders: {
+        verifierName: 'A. Fontaine (Bureau Veritas Inspectorate)',
+        approverName: 'P. Nardelli (Marine Assurance Authority)',
+      },
       requirements: [
         {
           id: 'REQ-LOOP-01',
@@ -563,9 +651,6 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
           verifierStatus: 'Verified',
         },
       ],
-      createdByPersona: 'C Admin',
-      createdByUserId: 'USR-221',
-      createdByName: 'C. Henderson',
     };
 
     store.addAssuranceSet(testSet);

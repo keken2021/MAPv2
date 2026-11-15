@@ -29,8 +29,20 @@ import {
   getProjectClientOrganization,
   isAssetOwnedByOrganization,
   isOrganizationMatch,
-  setOrganizations,
 } from '../utils/projectHelpers';
+import {
+  getRequestingParty,
+  getRespondingParty,
+  getThirdParties,
+  isInternalDeployment,
+  getSetOrganizations,
+} from '../utils/setParties';
+import {
+  getSetAssignedSubmitter,
+  getSetAssignedVerifier,
+  getSetAssignedInspector,
+  getSetAssignedApprover,
+} from '../utils/setStakeholders';
 import { AssuranceSet } from '../types/assurance';
 import { UserRolePersona } from '../types/audit';
 import { RoleName } from '../types/permissions';
@@ -55,10 +67,10 @@ const ROLE_HOLDERS: Record<WorkflowRole, RoleName[]> = {
 */
 function getAssignees(set: AssuranceSet): { role: WorkflowRole; label: string; user: UserProfile | undefined }[] {
   const slots: [WorkflowRole, string | undefined][] = [
-    ['Submitter', set.assignedSubmitter],
-    ['Verifier', set.assignedVerifier],
-    ['Inspector', set.assignedInspector],
-    ['Approver', set.assignedApprover],
+    ['Submitter', getSetAssignedSubmitter(set)],
+    ['Verifier', getSetAssignedVerifier(set)],
+    ['Inspector', getSetAssignedInspector(set)],
+    ['Approver', getSetAssignedApprover(set)],
   ];
   return slots
     .filter((slot): slot is [WorkflowRole, string] => Boolean(slot[1]?.trim()))
@@ -68,17 +80,16 @@ function getAssignees(set: AssuranceSet): { role: WorkflowRole; label: string; u
 describe('Seeded assurance sets keep client, service provider and assurance group apart', () => {
   it('names a client and a service provider, with the charterer as the client', () => {
     ALL_SETS.forEach((set) => {
-      expect(set.clientOrg, `${set.id} clientOrg`).toBeTruthy();
-      expect(set.serviceProviderOrg, `${set.id} serviceProviderOrg`).toBeTruthy();
-      expect(set.charterer, `${set.id} charterer`).toBe(set.clientOrg);
+      expect(getRequestingParty(set), `${set.id} requestingParty`).toBeTruthy();
+      expect(getRespondingParty(set), `${set.id} respondingParty`).toBeTruthy();
     });
   });
 
   it('never makes an organization its own client unless the set is an internal deployment', () => {
     ALL_SETS.forEach((set) => {
-      const sameOrganization = isOrganizationMatch(set.clientOrg ?? '', set.serviceProviderOrg ?? '');
-      expect(sameOrganization, `${set.id}: ${set.clientOrg} / ${set.serviceProviderOrg}`).toBe(
-        set.internalDeployment === true,
+      const sameOrganization = isOrganizationMatch(getRequestingParty(set) ?? '', getRespondingParty(set) ?? '');
+      expect(sameOrganization, `${set.id}: ${getRequestingParty(set)} / ${getRespondingParty(set)}`).toBe(
+        isInternalDeployment(set),
       );
     });
   });
@@ -106,8 +117,8 @@ describe('Seeded assurance sets keep client, service provider and assurance grou
 
   it('takes the submitter from the service provider and the reviewers from the client or an independent third party', () => {
     ALL_SETS.forEach((set) => {
-      const client = set.clientOrg ?? '';
-      const provider = set.serviceProviderOrg ?? '';
+      const client = getRequestingParty(set) ?? '';
+      const provider = getRespondingParty(set) ?? '';
 
       getAssignees(set).forEach(({ role, label, user }) => {
         if (!user) return;
@@ -117,7 +128,7 @@ describe('Seeded assurance sets keep client, service provider and assurance grou
         }
         if (role !== 'Inspector') {
           const result = validateStakeholderAssignmentForSet(
-            { ...set, serviceProviderOrg: provider, clientOrg: client },
+            set,
             role,
             label,
             MOCK_USERS,
@@ -127,7 +138,7 @@ describe('Seeded assurance sets keep client, service provider and assurance grou
         const fromClient = isOrganizationMatch(client, user.organization);
         const independent = user.userType === 'Third-Party';
         expect(fromClient || independent, `${set.id} ${role} ${label} is client staff or independent`).toBe(true);
-        if (!set.internalDeployment) {
+        if (!isInternalDeployment(set)) {
           expect(isOrganizationMatch(provider, user.organization), `${set.id} ${role} ${label} is not provider staff`).toBe(false);
         }
       });
@@ -136,7 +147,7 @@ describe('Seeded assurance sets keep client, service provider and assurance grou
 
   it('lists the organization of every assignee on the set', () => {
     ALL_SETS.forEach((set) => {
-      const organizations = setOrganizations(set);
+      const organizations = getSetOrganizations(set);
       getAssignees(set).forEach(({ role, label }) => {
         const organization = parseAssigneeOrganization(label);
         if (!organization) return;
@@ -157,9 +168,11 @@ describe('Seeded assurance sets keep client, service provider and assurance grou
 
   it('never assigns the same person as submitter and verifier on any set', () => {
     ALL_SETS.forEach((set) => {
-      if (set.assignedSubmitter && set.assignedVerifier) {
-        const sub = findUserByAssigneeLabel(MOCK_USERS, set.assignedSubmitter);
-        const ver = findUserByAssigneeLabel(MOCK_USERS, set.assignedVerifier);
+      const submitter = getSetAssignedSubmitter(set);
+      const verifier = getSetAssignedVerifier(set);
+      if (submitter && verifier) {
+        const sub = findUserByAssigneeLabel(MOCK_USERS, submitter);
+        const ver = findUserByAssigneeLabel(MOCK_USERS, verifier);
         if (sub && ver) {
           expect(sub.id, `${set.id} submitter !== verifier`).not.toBe(ver.id);
         }
@@ -205,7 +218,7 @@ describe('Seeded projects and marketplace offerings respect asset ownership', ()
           expect(linkedSet, `${project.id} ${link.id} set ${link.assuranceSetId}`).toBeDefined();
         }
         if (linkedSet?.assuranceObjects?.some((o) => o.type === 'activity')) {
-          expect(isOrganizationMatch(link.providerOrganization, linkedSet.serviceProviderOrg ?? '')).toBe(true);
+          expect(isOrganizationMatch(link.providerOrganization, getRespondingParty(linkedSet) ?? '')).toBe(true);
         } else {
           expect(
             isAssetOwnedByOrganization(link.assetType, link.providerOrganization, vessel, crew, equipment),
@@ -213,10 +226,11 @@ describe('Seeded projects and marketplace offerings respect asset ownership', ()
           ).toBe(true);
         }
         if (!linkedSet) return;
-        expect(isOrganizationMatch(client, linkedSet.clientOrg ?? ''), `${project.id} ${link.id} set client`).toBe(true);
+        const setOrgs = getSetOrganizations(linkedSet);
+        expect(setOrgs.some((org) => isOrganizationMatch(client, org)), `${project.id} ${link.id} set client`).toBe(true);
         /* a client supplying its own asset is an internal deployment */
         if (isOrganizationMatch(client, link.providerOrganization)) {
-          expect(linkedSet.internalDeployment, `${project.id} ${link.id} own asset`).toBe(true);
+          expect(isInternalDeployment(linkedSet), `${project.id} ${link.id} own asset`).toBe(true);
         }
       });
     });

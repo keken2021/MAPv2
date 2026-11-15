@@ -49,22 +49,21 @@ export interface DocumentObjectLookupContext {
     AssuranceObject,
     'id' | 'type' | 'name' | 'identifier' | 'ownerOrganization'
   >[];
-  assuranceSets?: Pick<
+  assuranceSets?: (Pick<
     AssuranceSet,
     | 'id'
-    | 'vesselId'
-    | 'vesselName'
-    | 'crewId'
-    | 'crewName'
-    | 'crewIds'
-    | 'equipmentId'
-    | 'equipmentName'
     | 'assuranceObjects'
     | 'requirements'
-    | 'clientOrg'
-    | 'serviceProviderOrg'
-    | 'initiatorOrg'
-  >[];
+    | 'parties'
+  > & {
+    vesselId?: string;
+    vesselName?: string;
+    crewId?: string;
+    crewName?: string;
+    crewIds?: string[];
+    equipmentId?: string;
+    equipmentName?: string;
+  })[];
 }
 
 export const OBJECT_TYPE_LABELS: Record<string, string> = {

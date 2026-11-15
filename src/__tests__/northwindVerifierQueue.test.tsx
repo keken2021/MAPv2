@@ -4,6 +4,7 @@ import { getPersonasForOrganization, pickSessionUserForOrgPersona } from '../uti
 import { documentsForSessionVerifier } from '../views/VerifierWorkspaceView';
 import { isComplianceDeadlineOverdue, toIsoLocalDate } from '../utils/validation';
 import { MasterDocument } from '../types/document';
+import { getSetAssignedSubmitter, getSetAssignedVerifier } from '../utils/setStakeholders';
 
 const NORTHWIND = 'Northwind Marine Pty Ltd';
 const BUREAU_VERITAS = 'Bureau Veritas Inspectorate';
@@ -23,7 +24,7 @@ const isDocOverdue = (d: MasterDocument) => {
   const { set, req } = info;
   if (set.stage === 'Approved' || set.stage === 'Certified' || set.stage === 'Cancelled') return false;
   if (isComplianceDeadlineOverdue(set)) return true;
-  const deadline = req.targetDate || set.revisedCompletionDate || set.complianceDeadline || set.targetDate;
+  const deadline = req.targetDate || set.revisedCompletionDate || set.deadline;
   if (!deadline) return false;
   return deadline < toIsoLocalDate();
 };
@@ -37,7 +38,7 @@ const verifierQueue = (organization: string) => {
 };
 
 const girardSets = MOCK_ASSURANCE_SETS.filter((set) =>
-  set.assignedVerifier?.toLowerCase().includes('s. girard'),
+  getSetAssignedVerifier(set)?.toLowerCase().includes('s. girard'),
 );
 
 /* ADR 0037: S. Girard verifies for Bureau Veritas only; the Northwind Verifier is M. Chen */
@@ -58,7 +59,7 @@ describe('Northwind and Bureau Veritas Verifier queues', () => {
   it('assigns S. Girard as Bureau Veritas verifier on at least 4 seeded sets with uploaded unverified documents', () => {
     expect(girardSets.length).toBeGreaterThanOrEqual(4);
     for (const set of girardSets) {
-      expect(set.assignedVerifier).toBe('S. Girard (Bureau Veritas Inspectorate)');
+      expect(getSetAssignedVerifier(set)).toBe('S. Girard (Bureau Veritas Inspectorate)');
       const hasUnverifiedUploaded = set.requirements?.some(
         (r) => Boolean(r.documentId) && r.verifierStatus !== 'Verified',
       );
@@ -87,9 +88,11 @@ describe('Northwind and Bureau Veritas Verifier queues', () => {
 
   it('ensures no assurance set has the same user as submitter and verifier', () => {
     MOCK_ASSURANCE_SETS.forEach((set) => {
-      if (set.assignedSubmitter && set.assignedVerifier) {
-        const subName = set.assignedSubmitter.replace(/\s*\([^)]*\)\s*$/, '').trim().toLowerCase();
-        const verName = set.assignedVerifier.replace(/\s*\([^)]*\)\s*$/, '').trim().toLowerCase();
+      const submitter = getSetAssignedSubmitter(set);
+      const verifier = getSetAssignedVerifier(set);
+      if (submitter && verifier) {
+        const subName = submitter.replace(/\s*\([^)]*\)\s*$/, '').trim().toLowerCase();
+        const verName = verifier.replace(/\s*\([^)]*\)\s*$/, '').trim().toLowerCase();
         expect(subName, `${set.id} submitter !== verifier`).not.toBe(verName);
       }
     });

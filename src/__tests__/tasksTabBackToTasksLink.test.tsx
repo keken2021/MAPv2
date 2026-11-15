@@ -29,23 +29,29 @@ describe('Task 5379: Back to tasks link after opening a requirement', () => {
     const testSet: AssuranceSet = {
       id: testSetId,
       title: 'North Sea Drill Support Set',
-      vesselName: 'Pacific Supporter',
-      vesselId: 'VES-5379',
-      imoNumber: '9123456',
-      initiatorOrg: 'Chevron Australia Pty Ltd',
-      initiatorRole: 'Client Admin',
-      clientOrg: 'Chevron Australia Pty Ltd',
-      requestingParty: 'Chevron Australia Pty Ltd',
-      serviceProviderOrg: 'Northwind Marine Pty Ltd',
-      respondingParty: 'Northwind Marine Pty Ltd',
-      charterWindowStart: '2026-01-01',
-      charterWindowEnd: '2026-12-31',
-      complianceDeadline: '2026-11-30',
+      parties: [
+        { organization: 'Chevron Australia Pty Ltd', role: 'Requesting party' },
+        { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      ],
+      assuranceObjects: [
+        {
+          id: 'VES-5379',
+          type: 'vessel',
+          name: 'Pacific Supporter',
+          identifier: '9123456',
+          ownerOrganization: 'Northwind Marine Pty Ltd',
+        },
+      ],
+      startDate: '2026-01-01',
+      endDate: '2026-12-31',
+      deadline: '2026-11-30',
+      dateHistory: [],
       stage: 'Verification',
       readinessScore: 50,
       requirements: [testReq],
       mandatoryInspectionRequired: false,
       inspectionCompleted: false,
+      createdBy: { userId: 'USR-101', name: 'K. Osei', persona: 'Administrator' },
     };
 
     useMapStore.setState(

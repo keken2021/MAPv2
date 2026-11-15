@@ -10,6 +10,8 @@ import { AppNotification, DocumentRenewalReason } from '../types/notification';
 import { getAssuranceSetAsset } from './assuranceTemplates';
 import { formatMaritimeDate, getProviderLabel } from './formatters';
 import { EXPIRY_WARNING_DAYS } from './expiryPolicy';
+import { getSetEndDate, SetDatesInput } from './setDates';
+import { getSetAssignedSubmitter, SetStakeholdersInput } from './setStakeholders';
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
@@ -36,7 +38,7 @@ function getDaysUntil(dateStr: string | undefined, today: Date): number | undefi
 */
 export function getDocumentRenewalReason(
   document: Pick<MasterDocument, 'expiryDate' | 'complianceState'>,
-  set: Pick<AssuranceSet, 'charterWindowEnd'>,
+  set: SetDatesInput,
   today: Date = new Date(),
 ): Exclude<DocumentRenewalReason, 'reupload_requested'> | undefined {
   const daysLeft = getDaysUntil(document.expiryDate, today);
@@ -45,7 +47,7 @@ export function getDocumentRenewalReason(
   }
 
   const expiry = new Date(document.expiryDate).getTime();
-  const charterEnd = new Date(set.charterWindowEnd).getTime();
+  const charterEnd = new Date(getSetEndDate(set)).getTime();
   if (!Number.isNaN(expiry) && !Number.isNaN(charterEnd) && expiry < charterEnd) {
     return 'charter_window';
   }
@@ -246,10 +248,10 @@ export function findDocumentRenewalsDue(
   with what file: src/utils/documentRenewalHelpers.ts used by useMapStore.ts.
 */
 export function getRenewalSubmitterLabel(
-  set: Pick<AssuranceSet, 'assignedSubmitter'>,
+  set?: SetStakeholdersInput | null,
   requirement?: Pick<AssuranceRequirement, 'assignedSubmitter'>,
 ): string | undefined {
-  return requirement?.assignedSubmitter?.trim() || set.assignedSubmitter?.trim() || undefined;
+  return requirement?.assignedSubmitter?.trim() || (set ? getSetAssignedSubmitter(set).trim() : '') || undefined;
 }
 
 /**
@@ -260,7 +262,7 @@ export function getRenewalSubmitterLabel(
 export function getRenewalSubject(
   reason: DocumentRenewalReason,
   document: Pick<MasterDocument, 'title' | 'expiryDate'>,
-  set: Parameters<typeof getAssuranceSetAsset>[0] & Pick<AssuranceSet, 'charterWindowEnd'>,
+  set: Parameters<typeof getAssuranceSetAsset>[0] & SetDatesInput,
   today: Date = new Date(),
 ): string {
   /* a crew or equipment document title often carries the asset name already */
@@ -271,7 +273,7 @@ export function getRenewalSubject(
     case 'expired':
       return `${target} is expired please re-upload`;
     case 'charter_window':
-      return `Expires before charter end ${formatMaritimeDate(set.charterWindowEnd)}: ${target}`;
+      return `Expires before charter end ${formatMaritimeDate(getSetEndDate(set))}: ${target}`;
     case 'expiring':
       return daysLeft !== undefined && daysLeft >= 0
         ? `Expires in ${daysLeft} ${daysLeft === 1 ? 'day' : 'days'}: ${target}`
@@ -290,7 +292,7 @@ export function getRenewalSubject(
 export function getRenewalMessage(
   reason: Exclude<DocumentRenewalReason, 'reupload_requested'>,
   document: Pick<MasterDocument, 'certificateNo' | 'expiryDate'>,
-  set: Parameters<typeof getAssuranceSetAsset>[0] & Pick<AssuranceSet, 'title' | 'charterWindowEnd'>,
+  set: Parameters<typeof getAssuranceSetAsset>[0] & Pick<AssuranceSet, 'title'> & SetDatesInput,
 ): string {
   const asset = getAssuranceSetAsset(set);
   const certificate = `Certificate ${document.certificateNo}`;
@@ -300,7 +302,7 @@ export function getRenewalMessage(
     case 'expired':
       return `${certificate} expired on ${expiry}. ${upload}`;
     case 'charter_window':
-      return `${certificate} expires on ${expiry}, before the charter ends on ${formatMaritimeDate(set.charterWindowEnd)}. ${upload}`;
+      return `${certificate} expires on ${expiry}, before the charter ends on ${formatMaritimeDate(getSetEndDate(set))}. ${upload}`;
     case 'expiring':
     default:
       return `${certificate} expires on ${expiry}. ${upload}`;

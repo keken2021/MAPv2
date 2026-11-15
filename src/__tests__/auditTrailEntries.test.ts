@@ -27,20 +27,25 @@ describe('audit trail entries', () => {
   });
 
   it('records both values when a target date changes', () => {
+    useMapStore.setState({
+      activePersona: 'C Admin',
+      activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      activeSessionUserId: 'USR-221',
+    });
     const store = useMapStore.getState();
     const set = store.assuranceSets.find((item) => item.id === 'AS-2026-001');
     expect(set).toBeDefined();
-    store.updateAssuranceSet({ ...set!, targetDate: '2026-12-01' });
+    store.updateAssuranceSet({ ...set!, deadline: '2026-12-01' });
     store.updateAssuranceSet({
       ...useMapStore.getState().assuranceSets.find((item) => item.id === 'AS-2026-001')!,
-      targetDate: '2026-12-15',
+      deadline: '2026-12-15',
     });
 
     const change = useMapStore.getState().auditEvents.find(
-      (event) => event.fieldDelta?.fieldName === 'Target date' && event.fieldDelta.newValue === '2026-12-15',
+      (event) => event.fieldDelta?.fieldName === 'Deadline' && event.fieldDelta.newValue === '2026-12-15',
     );
     expect(change?.fieldDelta).toEqual({
-      fieldName: 'Target date',
+      fieldName: 'Deadline',
       oldValue: '2026-12-01',
       newValue: '2026-12-15',
     });

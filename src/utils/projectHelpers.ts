@@ -4,12 +4,7 @@
   role in system: consumed by useMapStore and project views.
 */
 
-import { AssuranceObject, AssuranceProject, AssuranceRequirement, AssuranceSet, AssuranceSubtype, ThreePillarsCategory } from '../types/assurance';
-import { getAssuranceObjectScope, getAssuranceSetCrewIds, getThreePillarsCategory } from './assuranceTemplates';
-import { UserRolePersona } from '../types/audit';
-import { CrewMember } from '../types/crew';
-import { EquipmentAsset } from '../types/equipment';
-import { OrganizationParty } from '../types/assurance';
+import { AssuranceObject, AssuranceProject, AssuranceRequirement, AssuranceSet, AssuranceSubtype, OrganizationGroup, OrganizationParty, ThreePillarsCategory } from '../types/assurance';
 import {
   ContractChainRole,
   ContractParty,
@@ -18,8 +13,10 @@ import {
   ProjectType,
   WORK_LOCATION_OPTIONS,
 } from '../types/project';
-import { UserProfile } from '../types/user';
+import { UserProfile, UserRolePersona } from '../types/user';
 import { VesselInformation } from '../types/vessel';
+import { CrewMember } from '../types/crew';
+import { EquipmentAsset } from '../types/equipment';
 import type { AppNotification } from '../types/notification';
 import { calculateAssuranceSetReadiness, derivePipelineStage } from './readinessHelpers';
 import { isClosedAssuranceSet } from './documentVersionSnapshot';
@@ -30,6 +27,10 @@ import {
   isAssuranceSetAssignedToPersona,
   orgFieldMatches,
 } from './rbacHelpers';
+import { getRequestingParty, getRespondingParty, getSetOrganizations } from './setParties';
+import { getSetStartDate, getSetEndDate, type SetDatesInput } from './setDates';
+import { getSetVessel, getSetCrew, getSetEquipment, getSetVesselId, getSetVesselName, getSetCrewIds } from './setObjects';
+import { getAssuranceObjectScope, getThreePillarsCategory } from './assuranceTemplates';
 
 export { WORK_LOCATION_OPTIONS };
 
@@ -151,29 +152,36 @@ export function taskProvider(
   with what file: src/utils/projectHelpers.ts used by AssuranceDetailView.tsx and CreateAssuranceSetView.tsx.
 */
 export function setOrganizations(
-  set: Pick<
+  set: (Pick<
     AssuranceSet,
-    | 'organizations'
-    | 'clientOrg'
-    | 'charterer'
-    | 'serviceProviderOrg'
+    | 'parties'
     | 'stakeholders'
-    | 'assignedSubmitter'
-    | 'assignedVerifier'
-    | 'assignedInspector'
-    | 'assignedApprover'
     | 'assuranceObjects'
-  >,
+  > & {
+    assignedSubmitter?: string;
+    assignedVerifier?: string;
+    assignedInspector?: string;
+    assignedApprover?: string;
+  }),
 ): string[] {
-  if (set.organizations?.length) return set.organizations;
+  if (set.parties?.length) {
+    const orgs = getSetOrganizations(set);
+    if (set.assuranceObjects?.length) {
+      return addObjectOwners(orgs, set.assuranceObjects as any);
+    }
+    return orgs;
+  }
+  if ((set as any).organizations?.length) return (set as any).organizations;
   const organizations: string[] = [];
-  addOrganization(organizations, set.clientOrg || set.charterer);
-  addOrganization(organizations, set.serviceProviderOrg);
-  addOrganization(organizations, set.stakeholders?.submitterOrg || parseAssigneeOrganization(set.assignedSubmitter || ''));
-  addOrganization(organizations, set.stakeholders?.verifierOrg || parseAssigneeOrganization(set.assignedVerifier || ''));
-  addOrganization(organizations, set.stakeholders?.inspectorOrg || parseAssigneeOrganization(set.assignedInspector || ''));
-  addOrganization(organizations, set.stakeholders?.approverOrg || parseAssigneeOrganization(set.assignedApprover || ''));
-  objectOwnerOrganizations(set.assuranceObjects).forEach((owner) => addOrganization(organizations, owner));
+  addOrganization(organizations, (set as any).clientOrg || (set as any).charterer);
+  addOrganization(organizations, (set as any).serviceProviderOrg);
+  addOrganization(organizations, (set as any).stakeholders?.submitterOrg || parseAssigneeOrganization((set as any).assignedSubmitter || ''));
+  addOrganization(organizations, (set as any).stakeholders?.verifierOrg || parseAssigneeOrganization((set as any).assignedVerifier || ''));
+  addOrganization(organizations, (set as any).stakeholders?.inspectorOrg || parseAssigneeOrganization((set as any).assignedInspector || ''));
+  addOrganization(organizations, (set as any).stakeholders?.approverOrg || parseAssigneeOrganization((set as any).assignedApprover || ''));
+  if (set.assuranceObjects) {
+    objectOwnerOrganizations(set.assuranceObjects).forEach((owner) => addOrganization(organizations, owner));
+  }
   return organizations;
 }
 
@@ -434,15 +442,28 @@ export function syncInvitedOrganizationsToParties<
   with what file: src/utils/projectHelpers.ts used by AssuranceDetailView.tsx and CreateAssuranceSetView.tsx.
 */
 export function setOrganizationParties(
-  set: Pick<AssuranceSet, 'parties' | 'clientOrg' | 'charterer' | 'serviceProviderOrg'>,
+  set: Pick<AssuranceSet, 'parties'>,
 ): OrganizationParty[] {
-  if (set.parties?.length) return set.parties;
+  if (set.parties?.length) {
+    return set.parties.map((p) => {
+      let group: OrganizationGroup | undefined = (p as any).group;
+      if (!group) {
+        if (p.role === 'Requesting party') group = 'Client';
+        else if (p.role === 'Responding party') group = 'Vendor';
+        else if (p.role === 'Third party') group = 'Third party';
+      }
+      return {
+        ...p,
+        group,
+      };
+    });
+  }
   const parties: OrganizationParty[] = [];
-  const client = set.clientOrg?.trim() || set.charterer?.trim();
-  if (client) parties.push({ organization: client, group: 'Client' });
-  const vendor = set.serviceProviderOrg?.trim();
+  const client = getRequestingParty(set);
+  if (client) parties.push({ organization: client, group: 'Client', role: 'Requesting party' });
+  const vendor = getRespondingParty(set);
   if (vendor && (!client || !sameOrganization(vendor, client))) {
-    parties.push({ organization: vendor, group: 'Vendor' });
+    parties.push({ organization: vendor, group: 'Vendor', role: 'Responding party' });
   }
   return parties;
 }
@@ -579,15 +600,15 @@ export function isAssuranceSetRosterable(
   Dates are not rewritten — callers filter or block selection instead.
 */
 export function isAssuranceSetWithinProjectWindow(
-  set: Pick<AssuranceSet, 'charterWindowStart' | 'charterWindowEnd'>,
+  set: SetDatesInput,
   projectWindowStart: string,
   projectWindowEnd: string,
 ): boolean {
   if (!projectWindowStart || !projectWindowEnd) return false;
-  if (!set.charterWindowStart || !set.charterWindowEnd) return false;
-  return (
-    projectWindowStart <= set.charterWindowStart && set.charterWindowEnd <= projectWindowEnd
-  );
+  const start = getSetStartDate(set);
+  const end = getSetEndDate(set);
+  if (!start || !end) return false;
+  return projectWindowStart <= start && end <= projectWindowEnd;
 }
 
 export type ProjectDateBounds = {
@@ -688,12 +709,12 @@ export function getAssuranceSetsForProjectCreation(
     /* already on a project — cannot seed another (same rule as getStandaloneAssuranceSetsForAttach) */
     if (getProjectForAssuranceSet(s, projects)) return false;
     const isPublic = s.visibility === 'public';
+    const reqOrg = getRequestingParty(s);
+    const respOrg = getRespondingParty(s);
     const matchesOrg =
       !requestingOrganization ||
-      orgFieldMatches(requestingOrganization, s.charterer || '') ||
-      orgFieldMatches(requestingOrganization, s.initiatorOrg || '') ||
-      orgFieldMatches(requestingOrganization, s.clientOrg || '') ||
-      orgFieldMatches(requestingOrganization, s.serviceProviderOrg || '');
+      (Boolean(reqOrg) && orgFieldMatches(requestingOrganization, reqOrg!)) ||
+      (Boolean(respOrg) && orgFieldMatches(requestingOrganization, respOrg!));
     if (!(isPublic || matchesOrg)) return false;
     if (
       requireRosterable &&
@@ -747,40 +768,50 @@ export function buildDraftAssetLinkFromAssuranceSet(
     Equipment: 'Rented equipment',
   };
 
-  if (set.assuranceType === 'Crew' && set.crewId) {
-    const member = crew.find((c) => c.id === set.crewId);
-    return {
-      assetType: 'Crew',
-      assetId: set.crewId,
-      assetName: set.crewName || member?.fullName || set.crewId,
-      providerOrganization:
-        member?.organization || set.initiatorOrg || set.serviceProviderOrg || '',
-      assuranceSetId: set.id,
-      roleInProject: defaultRoles.Crew || '',
-    };
+  const providerOrg = getRespondingParty(set) || getRequestingParty(set) || '';
+
+  if (set.assuranceType === 'Crew') {
+    const memberObj = getSetCrew(set, crew)[0];
+    const crewId = memberObj?.id;
+    if (crewId) {
+      const member = crew.find((c) => c.id === crewId);
+      const memberName = memberObj ? ('fullName' in memberObj ? memberObj.fullName : memberObj.name) : member?.fullName || crewId;
+      return {
+        assetType: 'Crew',
+        assetId: crewId,
+        assetName: memberName,
+        providerOrganization: member?.organization || providerOrg,
+        assuranceSetId: set.id,
+        roleInProject: defaultRoles.Crew || '',
+      };
+    }
   }
 
-  if (set.assuranceType === 'Equipment' && set.equipmentId) {
-    const item = equipment.find((e) => e.id === set.equipmentId);
-    return {
-      assetType: 'Equipment',
-      assetId: set.equipmentId,
-      assetName: set.equipmentName || item?.name || set.equipmentId,
-      providerOrganization:
-        item?.owningOrganization || set.initiatorOrg || set.serviceProviderOrg || '',
-      assuranceSetId: set.id,
-      roleInProject: defaultRoles.Equipment || '',
-    };
+  if (set.assuranceType === 'Equipment') {
+    const eqObj = getSetEquipment(set, equipment)[0];
+    const equipmentId = eqObj?.id;
+    if (equipmentId) {
+      const item = equipment.find((e) => e.id === equipmentId);
+      return {
+        assetType: 'Equipment',
+        assetId: equipmentId,
+        assetName: eqObj?.name || item?.name || equipmentId,
+        providerOrganization: item?.owningOrganization || providerOrg,
+        assuranceSetId: set.id,
+        roleInProject: defaultRoles.Equipment || '',
+      };
+    }
   }
 
-  if (set.vesselId) {
-    const vessel = vessels.find((v) => v.id === set.vesselId);
+  const vesselObj = getSetVessel(set, vessels);
+  const vesselId = vesselObj?.id;
+  if (vesselId) {
+    const vessel = vessels.find((v) => v.id === vesselId);
     return {
       assetType: 'Vessel',
-      assetId: set.vesselId,
-      assetName: set.vesselName || vessel?.name || set.vesselId,
-      providerOrganization:
-        vessel?.registeredOwner || set.initiatorOrg || set.serviceProviderOrg || '',
+      assetId: vesselId,
+      assetName: vesselObj?.name || vessel?.name || vesselId,
+      providerOrganization: vessel?.registeredOwner || providerOrg,
       assuranceSetId: set.id,
       roleInProject: defaultRoles.Vessel || '',
     };
@@ -833,9 +864,9 @@ export function getCharterAssuranceSetsForAsset(
   assuranceSets: AssuranceSet[],
 ): AssuranceSet[] {
   return assuranceSets.filter((set) => {
-    if (assetType === 'Vessel') return set.vesselId === assetId;
-    if (assetType === 'Crew') return getAssuranceSetCrewIds(set).includes(assetId);
-    if (assetType === 'Equipment') return set.equipmentId === assetId;
+    if (assetType === 'Vessel') return getSetVessel(set)?.id === assetId;
+    if (assetType === 'Crew') return getSetCrew(set).some((c) => c.id === assetId) || getSetCrewIds(set).includes(assetId);
+    if (assetType === 'Equipment') return getSetEquipment(set).some((e) => e.id === assetId);
     return false;
   });
 }
@@ -962,9 +993,9 @@ export function getEligibleAssuranceSetsForAsset(
 ): AssuranceSet[] {
   const matched = assuranceSets.filter((set) => {
     if (set.visibility === 'draft' || (set.visibility as string) === 'private') return false;
-    if (assetType === 'Vessel') return set.vesselId === assetId;
-    if (assetType === 'Crew') return getAssuranceSetCrewIds(set).includes(assetId);
-    if (assetType === 'Equipment') return set.equipmentId === assetId;
+    if (assetType === 'Vessel') return getSetVessel(set)?.id === assetId;
+    if (assetType === 'Crew') return getSetCrew(set).some((c) => c.id === assetId) || getSetCrewIds(set).includes(assetId);
+    if (assetType === 'Equipment') return getSetEquipment(set).some((e) => e.id === assetId);
     return false;
   });
 
@@ -978,11 +1009,11 @@ export function getEligibleAssuranceSetsForAsset(
 
   return matched.filter((set) => {
     if (set.visibility === 'public') return true;
+    const reqOrg = getRequestingParty(set);
+    const respOrg = getRespondingParty(set);
     return (
-      orgFieldMatches(requestingOrg, set.initiatorOrg || '') ||
-      orgFieldMatches(requestingOrg, set.charterer || '') ||
-      orgFieldMatches(requestingOrg, set.clientOrg || '') ||
-      orgFieldMatches(requestingOrg, set.serviceProviderOrg || '')
+      (Boolean(reqOrg) && orgFieldMatches(requestingOrg, reqOrg!)) ||
+      (Boolean(respOrg) && orgFieldMatches(requestingOrg, respOrg!))
     );
   });
 }
@@ -1249,23 +1280,6 @@ export function getAssuranceSetCreatorsInOrganization(
       u.roles.some((role) => creatorRoles.has(role as UserRolePersona)) &&
       orgFieldMatches(organization, u.organization),
   );
-}
-
-/** Charterable vessels plus any vessel already linked to the project. */
-export function withProjectVessels<T extends { id: string }>(
-  charterable: T[],
-  allVessels: T[],
-  project: Pick<Project, 'assetLinks'> | undefined,
-): T[] {
-  const linkedIds = new Set(
-    (project?.assetLinks ?? [])
-      .filter((link) => link.assetType === 'Vessel')
-      .map((link) => link.assetId),
-  );
-  const extras = allVessels.filter(
-    (vessel) => linkedIds.has(vessel.id) && !charterable.some((item) => item.id === vessel.id),
-  );
-  return [...charterable, ...extras];
 }
 
 /** Creators in the sender's organization and in organizations invited onto the project. */

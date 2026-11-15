@@ -31,6 +31,9 @@ import {
   customRequirementFields,
 } from '../utils/assuranceTemplates';
 import { AssuranceRequirement, AssuranceSet } from '../types/assurance';
+import { getRequestingParty, getRespondingParty } from '../utils/setParties';
+import { getSetVesselId, getSetVesselName } from '../utils/setObjects';
+import { getSetAssignedApprover, getSetAssignedVerifier } from '../utils/setStakeholders';
 
 const initialState = useMapStore.getState();
 
@@ -56,12 +59,12 @@ describe('Scenario 2: Client creates', () => {
     const ss01 = seededSets.find((s) => s.id === OIL_CO_SS01_ID);
     expect(ss01).toBeDefined();
     expect(ss01?.title).toBe('LNG Transport Charter');
-    expect(ss01?.clientOrg).toBe(OIL_CO_ORG);
-    expect(ss01?.serviceProviderOrg).toBe(NORTHWIND_ORG);
-    expect(ss01?.vesselId).toBe(OIL_CO_AURORA_ID);
-    expect(ss01?.vesselName).toBe('LNGC Northwind Aurora');
-    expect(ss01?.assignedVerifier).toContain(XY_MARINE_ORG);
-    expect(ss01?.assignedApprover).toContain(XY_MARINE_ORG);
+    expect(getRequestingParty(ss01)).toBe(OIL_CO_ORG);
+    expect(getRespondingParty(ss01)).toBe(NORTHWIND_ORG);
+    expect(getSetVesselId(ss01)).toBe(OIL_CO_AURORA_ID);
+    expect(getSetVesselName(ss01)).toBe('LNGC Northwind Aurora');
+    expect(getSetAssignedVerifier(ss01)).toContain(XY_MARINE_ORG);
+    expect(getSetAssignedApprover(ss01)).toContain(XY_MARINE_ORG);
     expect(ss01?.requirements).toHaveLength(20);
     expect(ss01?.stage).toBe('Verification');
     expect(ss01?.approverDecision).toBe('Pending');
@@ -71,12 +74,12 @@ describe('Scenario 2: Client creates', () => {
     const ss02 = seededSets.find((s) => s.id === OIL_CO_SS02_ID);
     expect(ss02).toBeDefined();
     expect(ss02?.title).toBe('Vessel Purchase (OSV)');
-    expect(ss02?.clientOrg).toBe(OIL_CO_ORG);
-    expect(ss02?.serviceProviderOrg).toBe(MERIDIAN_ORG);
-    expect(ss02?.vesselId).toBe(OIL_CO_ENDEAVOUR_ID);
-    expect(ss02?.vesselName).toBe('OSV Meridian Endeavour');
-    expect(ss02?.assignedVerifier).toContain(AUSTRAL_ORG);
-    expect(ss02?.assignedApprover).toContain(XY_MARINE_ORG);
+    expect(getRequestingParty(ss02)).toBe(OIL_CO_ORG);
+    expect(getRespondingParty(ss02)).toBe(MERIDIAN_ORG);
+    expect(getSetVesselId(ss02)).toBe(OIL_CO_ENDEAVOUR_ID);
+    expect(getSetVesselName(ss02)).toBe('OSV Meridian Endeavour');
+    expect(getSetAssignedVerifier(ss02)).toContain(AUSTRAL_ORG);
+    expect(getSetAssignedApprover(ss02)).toContain(XY_MARINE_ORG);
     expect(ss02?.requirements).toHaveLength(14);
     expect(ss02?.stage).toBe('Approved');
     expect(ss02?.approverDecision).toBe('Approved');
@@ -87,9 +90,9 @@ describe('Scenario 2: Client creates', () => {
     const ss03 = seededSets.find((s) => s.id === OIL_CO_SS03_ID);
     expect(ss03).toBeDefined();
     expect(ss03?.title).toBe('Terminal / Loading Operations');
-    expect(ss03?.clientOrg).toBe(OIL_CO_ORG);
-    expect(ss03?.serviceProviderOrg).toBe(HARBOURLINE_ORG);
-    expect(ss03?.assignedVerifier).toContain(XY_MARINE_ORG);
+    expect(getRequestingParty(ss03)).toBe(OIL_CO_ORG);
+    expect(getRespondingParty(ss03)).toBe(HARBOURLINE_ORG);
+    expect(getSetAssignedVerifier(ss03)).toContain(XY_MARINE_ORG);
     expect(ss03?.requirements).toHaveLength(15);
     expect(ss03?.stage).toBe('Approved');
     expect(ss03?.approverDecision).toBe('Approved');
@@ -124,23 +127,31 @@ describe('Scenario 2: Client creates', () => {
       assuranceType: 'Equipment',
       subtypes: ['Equipment'],
       projectId: OIL_CO_LNG_PROJECT_ID,
-      projectName: project.name,
-      initiatorOrg: OIL_CO_ORG,
-      vesselId: '',
-      vesselName: '',
-      imoNumber: '',
-      initiatorRole: 'C Admin · Client Created',
-      createdByPersona: 'C Admin',
-      clientOrg: OIL_CO_ORG,
-      charterer: OIL_CO_ORG,
-      serviceProviderOrg: KESTREL_ORG,
-      assignedSubmitter: 'A. Petrov (Kestrel Control Systems)',
-      assignedVerifier: 'R. Singh (Sentinel Cyber Assurance)',
-      assignedApprover: 'K. Adeyemi (Oil Company)',
+      assuranceObjects: [
+        {
+          id: 'EQ-KESTREL-CYBER-01',
+          type: 'equipment',
+          name: 'IT / Control Systems',
+          ownerOrganization: KESTREL_ORG,
+        },
+      ],
+      parties: [
+        { organization: OIL_CO_ORG, role: 'Requesting party' },
+        { organization: KESTREL_ORG, role: 'Responding party' },
+      ],
+      startDate: '2026-11-15',
+      deadline: '2026-11-15',
+      endDate: '2027-05-15',
+      dateHistory: [],
+      createdBy: { userId: 'USR-228', name: 'K. Adeyemi', persona: 'C Admin' },
+      submitters: [{ organization: KESTREL_ORG, assignee: 'A. Petrov (Kestrel Control Systems)' }],
+      stakeholders: {
+        verifierName: 'R. Singh (Sentinel Cyber Assurance)',
+        verifierOrg: SENTINEL_ORG,
+        approverName: 'K. Adeyemi (Oil Company)',
+        approverOrg: OIL_CO_ORG,
+      },
       reviewMode: 'third_party',
-      charterWindowStart: '2026-11-15',
-      complianceDeadline: '2026-11-15',
-      charterWindowEnd: '2027-05-15',
       stage: 'Approved',
       approverDecision: 'Approved',
       readinessScore: 100,
@@ -155,8 +166,8 @@ describe('Scenario 2: Client creates', () => {
 
     const createdSS05 = useMapStore.getState().assuranceSets.find((s) => s.id === 'AS-2026-105');
     expect(createdSS05).toBeDefined();
-    expect(createdSS05?.serviceProviderOrg).toBe(KESTREL_ORG);
-    expect(createdSS05?.assignedVerifier).toContain(SENTINEL_ORG);
+    expect(getRespondingParty(createdSS05)).toBe(KESTREL_ORG);
+    expect(getSetAssignedVerifier(createdSS05)).toContain(SENTINEL_ORG);
     expect(createdSS05?.requirements).toHaveLength(13);
     expect(createdSS05?.stage).toBe('Approved');
   });
@@ -173,9 +184,9 @@ describe('Scenario 2: Client creates', () => {
     expect(new Set(ids).size).toBe(sets.length);
 
     // 2. Each assurance set has its own service provider and stakeholder groups
-    expect(sets[0].serviceProviderOrg).toBe(NORTHWIND_ORG);
-    expect(sets[1].serviceProviderOrg).toBe(MERIDIAN_ORG);
-    expect(sets[2].serviceProviderOrg).toBe(HARBOURLINE_ORG);
+    expect(getRespondingParty(sets[0])).toBe(NORTHWIND_ORG);
+    expect(getRespondingParty(sets[1])).toBe(MERIDIAN_ORG);
+    expect(getRespondingParty(sets[2])).toBe(HARBOURLINE_ORG);
 
     // 3. Each assurance set has its own independent tasks / requirements
     expect(sets[0].requirements.length).toBe(20);

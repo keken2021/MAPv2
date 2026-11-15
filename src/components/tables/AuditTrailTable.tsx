@@ -20,6 +20,7 @@ import { usePagination } from '../../utils/usePagination';
 import { useDeferredFilters } from '../../utils/useDeferredFilters';
 import { TablePagination } from '../common/TablePagination';
 import { EmptyState } from '../common/EmptyState';
+import { getSetVessel } from '../../utils/setObjects';
 
 function displayAuditValue(value: string): string {
   if (!/^\d{4}-\d{2}-\d{2}/.test(value)) return value;
@@ -137,7 +138,7 @@ export const AuditTrailTable: React.FC<AuditTrailTableProps> = ({ vesselId }) =>
       assuranceSets
         .filter(
           (s) =>
-            s.vesselId === vesselId &&
+            getSetVessel(s)?.id === vesselId &&
             isAssuranceSetAssignedToPersona(
               s,
               activePersona,

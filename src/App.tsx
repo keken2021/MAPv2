@@ -28,6 +28,7 @@ import { RolesAndPermissionsView } from './views/RolesAndPermissionsView';
 import { OrganizationProfileView } from './views/OrganizationProfileView';
 import { CrewView } from './views/CrewView';
 import { CrewDetailView } from './views/CrewDetailView';
+import { getSetVessel } from './utils/setObjects';
 import { CrewGroupDetailView } from './views/CrewGroupDetailView';
 import { CapaManagementView } from './views/CapaManagementView';
 import { ApproverDashboardView } from './views/ApproverDashboardView';
@@ -220,9 +221,10 @@ export const App: React.FC = () => {
 
     if ((currentHashView === 'inspector' || currentHashView === 'inspection') && currentEntityId) {
       const decoded = decodeURIComponent(currentEntityId);
-      const matchingSets = assuranceSets.filter(
-        (s) => s.id === decoded || s.vesselId === decoded || s.vesselName === decoded,
-      );
+      const matchingSets = assuranceSets.filter((s) => {
+        const v = getSetVessel(s);
+        return s.id === decoded || v?.id === decoded || v?.name === decoded;
+      });
       const isReadOnlyAdmin = isAdminReadOnlyWorkView(currentHashView, activePersona);
       if (matchingSets.length > 0) {
         const hasAccessibleInspectionSet = matchingSets.some(

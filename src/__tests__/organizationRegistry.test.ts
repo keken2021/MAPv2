@@ -6,6 +6,7 @@ import {
   isCanonicalOrganization,
   canonicalizeOrganization,
 } from '../utils/organizationRegistry';
+import { getSetOrganizations } from '../utils/setParties';
 import { useMapStore } from '../store/useMapStore';
 import { orgFieldMatches } from '../utils/rbacHelpers';
 import { defaultOrganizationVerifier } from '../utils/userRoleHelpers';
@@ -133,11 +134,11 @@ describe('Organization Registry and Mock Data Consistency', () => {
     for (const s of allSets) {
       const raw = s as any;
       if (raw.clientOrganization) expect(isCanonicalOrganization(raw.clientOrganization), `Set ${s.id} clientOrganization: ${raw.clientOrganization}`).toBe(true);
-      if (s.clientOrg) expect(isCanonicalOrganization(s.clientOrg), `Set ${s.id} clientOrg: ${s.clientOrg}`).toBe(true);
       if (raw.providerOrganization) expect(isCanonicalOrganization(raw.providerOrganization), `Set ${s.id} providerOrganization: ${raw.providerOrganization}`).toBe(true);
-      if (s.serviceProviderOrg) expect(isCanonicalOrganization(s.serviceProviderOrg), `Set ${s.id} serviceProviderOrg: ${s.serviceProviderOrg}`).toBe(true);
-      if (s.initiatorOrg) expect(isCanonicalOrganization(s.initiatorOrg), `Set ${s.id} initiatorOrg: ${s.initiatorOrg}`).toBe(true);
-      if (s.charterer) expect(isCanonicalOrganization(s.charterer), `Set ${s.id} charterer: ${s.charterer}`).toBe(true);
+
+      for (const org of getSetOrganizations(s)) {
+        expect(isCanonicalOrganization(org), `Set ${s.id} org: ${org}`).toBe(true);
+      }
 
       for (const p of s.parties || []) {
         expect(isCanonicalOrganization(p.organization), `Set ${s.id} party: ${p.organization}`).toBe(true);
@@ -148,10 +149,10 @@ describe('Organization Registry and Mock Data Consistency', () => {
       if (s.stakeholders?.inspectorOrg) expect(isCanonicalOrganization(s.stakeholders.inspectorOrg), `Set ${s.id} inspectorOrg: ${s.stakeholders.inspectorOrg}`).toBe(true);
       if (s.stakeholders?.approverOrg) expect(isCanonicalOrganization(s.stakeholders.approverOrg), `Set ${s.id} approverOrg: ${s.stakeholders.approverOrg}`).toBe(true);
 
-      if (s.assignedStakeholders?.submitterOrg) expect(isCanonicalOrganization(s.assignedStakeholders.submitterOrg), `Set ${s.id} assigned submitterOrg: ${s.assignedStakeholders.submitterOrg}`).toBe(true);
-      if (s.assignedStakeholders?.verifierOrg) expect(isCanonicalOrganization(s.assignedStakeholders.verifierOrg), `Set ${s.id} assigned verifierOrg: ${s.assignedStakeholders.verifierOrg}`).toBe(true);
-      if (s.assignedStakeholders?.inspectorOrg) expect(isCanonicalOrganization(s.assignedStakeholders.inspectorOrg), `Set ${s.id} assigned inspectorOrg: ${s.assignedStakeholders.inspectorOrg}`).toBe(true);
-      if (s.assignedStakeholders?.approverOrg) expect(isCanonicalOrganization(s.assignedStakeholders.approverOrg), `Set ${s.id} assigned approverOrg: ${s.assignedStakeholders.approverOrg}`).toBe(true);
+      if (raw.assignedStakeholders?.submitterOrg) expect(isCanonicalOrganization(raw.assignedStakeholders.submitterOrg), `Set ${s.id} assigned submitterOrg: ${raw.assignedStakeholders.submitterOrg}`).toBe(true);
+      if (raw.assignedStakeholders?.verifierOrg) expect(isCanonicalOrganization(raw.assignedStakeholders.verifierOrg), `Set ${s.id} assigned verifierOrg: ${raw.assignedStakeholders.verifierOrg}`).toBe(true);
+      if (raw.assignedStakeholders?.inspectorOrg) expect(isCanonicalOrganization(raw.assignedStakeholders.inspectorOrg), `Set ${s.id} assigned inspectorOrg: ${raw.assignedStakeholders.inspectorOrg}`).toBe(true);
+      if (raw.assignedStakeholders?.approverOrg) expect(isCanonicalOrganization(raw.assignedStakeholders.approverOrg), `Set ${s.id} assigned approverOrg: ${raw.assignedStakeholders.approverOrg}`).toBe(true);
     }
   });
 

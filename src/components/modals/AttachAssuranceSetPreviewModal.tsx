@@ -29,6 +29,15 @@ import {
   getProjectDateBounds,
   isAssuranceSetWithinProjectWindow,
 } from '../../utils/projectHelpers';
+import { getSetVessel, getSetCrew, getSetEquipment, getSetImoNumber } from '../../utils/setObjects';
+import { getRequestingParty, getRespondingParty } from '../../utils/setParties';
+import { getSetStartDate, getSetEndDate } from '../../utils/setDates';
+import {
+  getSetAssignedSubmitter,
+  getSetAssignedVerifier,
+  getSetAssignedInspector,
+  getSetAssignedApprover,
+} from '../../utils/setStakeholders';
 
 export interface AttachAssuranceSetPreviewModalProps {
   isOpen: boolean;
@@ -72,40 +81,49 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
     ) {
       return assuranceSet.assuranceType;
     }
-    if (assuranceSet.crewId) return 'Crew';
-    if (assuranceSet.equipmentId) return 'Equipment';
+    if (getSetCrew(assuranceSet).length > 0) return 'Crew';
+    if (getSetEquipment(assuranceSet).length > 0) return 'Equipment';
     return 'Vessel';
   }, [assuranceSet]);
 
   const assetDetails = useMemo(() => {
     if (!assuranceSet) return { id: '', name: '', org: '', extra: '' };
+    const defaultOrg = getRespondingParty(assuranceSet) || getRequestingParty(assuranceSet);
 
     if (assetType === 'Crew') {
-      const c = crew.find((item) => item.id === assuranceSet.crewId);
+      const setCrew = getSetCrew(assuranceSet);
+      const crewId = setCrew[0]?.id;
+      const c = crew.find((item) => item.id === crewId);
+      const firstCrew = setCrew[0];
+      const firstName = firstCrew ? ('fullName' in firstCrew ? firstCrew.fullName : firstCrew.name) : undefined;
       return {
-        id: assuranceSet.crewId || 'CREW-N/A',
-        name: getAssuranceSetCrewNames(assuranceSet).join(', ') || c?.fullName || 'Crew Member',
-        org: c?.organization || assuranceSet.initiatorOrg || assuranceSet.serviceProviderOrg || 'Crew Provider',
+        id: crewId || 'CREW-N/A',
+        name: getAssuranceSetCrewNames(assuranceSet).join(', ') || firstName || c?.fullName || 'Crew Member',
+        org: c?.organization || defaultOrg || 'Crew Provider',
         extra: c ? `${c.rank} · ${c.nationality}` : 'Crew',
       };
     }
 
     if (assetType === 'Equipment') {
-      const eq = equipment.find((item) => item.id === assuranceSet.equipmentId);
+      const setEq = getSetEquipment(assuranceSet);
+      const eqId = setEq[0]?.id;
+      const eq = equipment.find((item) => item.id === eqId);
       return {
-        id: assuranceSet.equipmentId || 'EQ-N/A',
-        name: assuranceSet.equipmentName || eq?.name || 'Equipment',
-        org: eq?.owningOrganization || assuranceSet.initiatorOrg || assuranceSet.serviceProviderOrg || 'Equipment Owner',
+        id: eqId || 'EQ-N/A',
+        name: setEq[0]?.name || eq?.name || 'Equipment',
+        org: eq?.owningOrganization || defaultOrg || 'Equipment Owner',
         extra: eq ? `${eq.category} · ${eq.model || eq.equipmentIdentifier}` : 'Equipment Asset',
       };
     }
 
-    const v = vessels.find((item) => item.id === assuranceSet.vesselId);
+    const setVessel = getSetVessel(assuranceSet);
+    const v = vessels.find((item) => item.id === setVessel?.id);
+    const imo = getSetImoNumber(assuranceSet) || v?.imoNumber || 'N/A';
     return {
-      id: assuranceSet.vesselId || (v ? v.id : 'VESSEL-N/A'),
-      name: assuranceSet.vesselName || v?.name || 'Assigned Vessel',
-      org: v?.registeredOwner || assuranceSet.initiatorOrg || assuranceSet.serviceProviderOrg || 'Vessel Owner',
-      extra: v ? `IMO ${v.imoNumber || assuranceSet.imoNumber} · ${v.vesselType}` : `IMO ${assuranceSet.imoNumber || 'N/A'}`,
+      id: setVessel?.id || (v ? v.id : 'VESSEL-N/A'),
+      name: setVessel?.name || v?.name || 'Assigned Vessel',
+      org: v?.registeredOwner || defaultOrg || 'Vessel Owner',
+      extra: v ? `IMO ${imo} · ${v.vesselType}` : `IMO ${imo}`,
     };
   }, [assuranceSet, assetType, vessels, crew, equipment]);
 
@@ -137,8 +155,8 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
       else if (assetType === 'Equipment') setRoleInProject('Rented equipment');
       else setRoleInProject('Attached standalone set');
 
-      const initialStart = project.charterWindowStart || assuranceSet.charterWindowStart || '2026-11-01';
-      const initialEnd = project.charterWindowEnd || assuranceSet.charterWindowEnd || '2027-02-28';
+      const initialStart = project.charterWindowStart || getSetStartDate(assuranceSet) || '2026-11-01';
+      const initialEnd = project.charterWindowEnd || getSetEndDate(assuranceSet) || '2027-02-28';
       const clamped = clampPeriodToBounds(initialStart, initialEnd, projectBounds);
       setCharterWindowStart(clamped.start);
       setCharterWindowEnd(clamped.end);
@@ -163,8 +181,9 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
       // 2. Fallback fuzzy match across documents matching asset
       if (!matchedDoc) {
         const reqNorm = normalizeText(req.title);
+        const setVessel = getSetVessel(assuranceSet);
         matchedDoc = documents.find((d) => {
-          if (assetType === 'Vessel' && d.vesselId === assuranceSet.vesselId) {
+          if (assetType === 'Vessel' && setVessel && d.vesselId === setVessel.id) {
             return normalizeText(d.title).includes(reqNorm) || reqNorm.includes(normalizeText(d.title));
           }
           return false;
@@ -283,20 +302,20 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
                   <div className="row g-2 text-sm">
                     <div className="col-sm-6">
                       <div className="small text-muted">Created By</div>
-                      <div className="fw-semibold text-dark text-truncate" title={assuranceSet.initiatorOrg}>
-                        {assuranceSet.initiatorOrg || 'N/A'}
+                      <div className="fw-semibold text-dark text-truncate" title={assuranceSet.createdBy?.name || getRequestingParty(assuranceSet)}>
+                        {assuranceSet.createdBy?.name || getRequestingParty(assuranceSet) || 'N/A'}
                       </div>
                     </div>
                     <div className="col-sm-6">
                       <div className="small text-muted">Client</div>
-                      <div className="fw-semibold text-dark text-truncate" title={assuranceSet.charterer || assuranceSet.clientOrg}>
-                        {assuranceSet.charterer || assuranceSet.clientOrg || project.clientOperator}
+                      <div className="fw-semibold text-dark text-truncate" title={project.clientOperator || getRequestingParty(assuranceSet)}>
+                        {project.clientOperator || getRequestingParty(assuranceSet) || 'N/A'}
                       </div>
                     </div>
                     <div className="col-sm-6">
                       <div className="small text-muted">Charter Period</div>
                       <div className="fw-semibold text-dark font-mono-code" style={{ fontSize: '0.8rem' }}>
-                        {assuranceSet.charterWindowStart || '2026-11-01'} to {assuranceSet.charterWindowEnd || '2027-02-28'}
+                        {getSetStartDate(assuranceSet) || '2026-11-01'} to {getSetEndDate(assuranceSet) || '2027-02-28'}
                       </div>
                     </div>
                     <div className="col-sm-6">
@@ -538,25 +557,25 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
                       <div className="d-flex justify-content-between border-bottom pb-1">
                         <span className="text-muted">Submitter:</span>
                         <span className="fw-semibold text-dark">
-                          {assuranceSet.assignedSubmitter || assuranceSet.stakeholders?.submitterName || 'Provider Admin'}
+                          {getSetAssignedSubmitter(assuranceSet) || assuranceSet.stakeholders?.submitterName || 'Provider Admin'}
                         </span>
                       </div>
                       <div className="d-flex justify-content-between border-bottom pb-1">
                         <span className="text-muted">Verifier:</span>
                         <span className="fw-semibold text-dark">
-                          {assuranceSet.assignedVerifier || assuranceSet.stakeholders?.verifierName || 'Assurance Verifier'}
+                          {getSetAssignedVerifier(assuranceSet) || assuranceSet.stakeholders?.verifierName || 'Assurance Verifier'}
                         </span>
                       </div>
                       <div className="d-flex justify-content-between border-bottom pb-1">
                         <span className="text-muted">Inspector:</span>
                         <span className="fw-semibold text-dark">
-                          {assuranceSet.assignedInspector || assuranceSet.stakeholders?.inspectorName || 'Not assigned'}
+                          {getSetAssignedInspector(assuranceSet) || assuranceSet.stakeholders?.inspectorName || 'Not assigned'}
                         </span>
                       </div>
                       <div className="d-flex justify-content-between border-bottom pb-1">
                         <span className="text-muted">Approver:</span>
                         <span className="fw-semibold text-dark">
-                          {assuranceSet.assignedApprover || assuranceSet.stakeholders?.approverName || 'Not assigned'}
+                          {getSetAssignedApprover(assuranceSet) || assuranceSet.stakeholders?.approverName || 'Not assigned'}
                         </span>
                       </div>
                     </div>

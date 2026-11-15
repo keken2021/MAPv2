@@ -19,6 +19,7 @@ import { isAssuranceSetAssignedToPersona, isViewAccessibleToPersona } from './rb
 import { isProjectAccessibleToUser } from './projectHelpers';
 import { getDemoSessionContext, getSessionUserForPersona } from './userRoleHelpers';
 import { setAssuranceDetailPreselect } from './dashboardTileNavigation';
+import { getSetVessel } from './setObjects';
 
 export interface NotificationInbox {
   sessionUser?: UserProfile;
@@ -131,13 +132,15 @@ export function useNotificationInbox(): NotificationInbox {
             }
           }
           if ((view === 'inspector' || view === 'inspection') && entityId) {
-            const matchingSets = assuranceSets.filter(
-              (s) =>
+            const matchingSets = assuranceSets.filter((s) => {
+              const v = getSetVessel(s);
+              return (
                 s.id === entityId ||
-                s.vesselId === entityId ||
-                s.vesselName === entityId ||
-                s.vesselName === decodeURIComponent(entityId),
-            );
+                v?.id === entityId ||
+                v?.name === entityId ||
+                v?.name === decodeURIComponent(entityId)
+              );
+            });
             if (matchingSets.length > 0) {
               return matchingSets.some((s) =>
                 isAssuranceSetAssignedToPersona(

@@ -54,13 +54,19 @@ const bunkerSet = (overrides: Partial<AssuranceSet> = {}): AssuranceSet =>
   ({
     id: 'AS-BUNKER',
     title: 'SS-04 Fuel Supply and Bunkering',
-    assuranceType: 'Vessel',
     subtypes: ['Vessel'],
-    vesselId: 'VES-OILCO-BUNKER-BARGE',
-    vesselName: 'Oilco Bunker Barge Aurora Supply',
-    charterWindowStart: '2026-11-18',
-    charterWindowEnd: '2027-11-18',
-    complianceDeadline: '2026-11-18',
+    assuranceObjects: [
+      {
+        id: 'VES-OILCO-BUNKER-BARGE',
+        type: 'vessel',
+        name: 'Oilco Bunker Barge Aurora Supply',
+        ownerOrganization: 'Oil Company',
+      },
+    ],
+    startDate: '2026-11-18',
+    endDate: '2027-11-18',
+    deadline: '2026-11-18',
+    dateHistory: [],
     stage: 'Verification',
     readinessScore: 50,
     mandatoryInspectionRequired: true,
@@ -69,16 +75,12 @@ const bunkerSet = (overrides: Partial<AssuranceSet> = {}): AssuranceSet =>
     formalApprovalRequired: true,
     requirements: [],
     visibility: 'organization',
-    clientOrg: 'Northwind Marine Pty Ltd',
-    serviceProviderOrg: 'Oil Company',
-    respondingParty: 'Oil Company',
-    requestingParty: 'Northwind Marine Pty Ltd',
     parties: [
-      { organization: 'Northwind Marine Pty Ltd', group: 'Client' },
-      { organization: 'Oil Company', group: 'Vendor' },
-      { organization: 'Coastal Fuel Testing', group: 'Third party' },
+      { organization: 'Northwind Marine Pty Ltd', role: 'Requesting party' },
+      { organization: 'Oil Company', role: 'Responding party' },
+      { organization: 'Coastal Fuel Testing', role: 'Third party' },
     ],
-    organizations: ['Northwind Marine Pty Ltd', 'Oil Company', 'Coastal Fuel Testing'],
+    createdBy: { userId: 'USR-101', name: 'K. Osei', persona: 'Administrator' },
     ...overrides,
   }) as AssuranceSet;
 
@@ -138,11 +140,10 @@ describe('A16 evidence reuse vendor-only', () => {
 
   it('allows reuse when the client is also the Vendor', () => {
     const set = bunkerSet({
-      clientOrg: 'Oil Company',
-      requestingParty: 'Oil Company',
-      serviceProviderOrg: 'Oil Company',
-      respondingParty: 'Oil Company',
-      parties: [{ organization: 'Oil Company', group: 'Vendor' }],
+      parties: [
+        { organization: 'Oil Company', role: 'Requesting party' },
+        { organization: 'Oil Company', role: 'Responding party' },
+      ],
     });
     expect(canOfferEvidenceReuse(set, 'Oil Company')).toBe(true);
     expect(isReusableLibraryDocument(baseDoc({ ownerOrganization: 'Oil Company' }), set)).toBe(true);

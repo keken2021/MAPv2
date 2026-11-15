@@ -14,17 +14,33 @@ import {
 const seededSet: AssuranceSet = {
   id: 'AS-PERF-01',
   title: 'Approver performance columns',
-  vesselId: 'VESSEL-PERF',
-  vesselName: 'Performance Horn',
-  imoNumber: '9000001',
-  initiatorOrg: 'Oceanic Logistics',
-  initiatorRole: 'Vessel Provider',
-  charterWindowStart: '2026-11-01',
-  charterWindowEnd: '2026-12-31',
-  complianceDeadline: '2026-12-31',
+  parties: [
+    { organization: 'Southern Basin Energy', role: 'Requesting party' },
+    { organization: 'Oceanic Logistics', role: 'Responding party' },
+  ],
+  assuranceObjects: [
+    {
+      id: 'VESSEL-PERF',
+      type: 'vessel',
+      name: 'Performance Horn',
+      identifier: '9000001',
+      ownerOrganization: 'Oceanic Logistics',
+    },
+  ],
+  startDate: '2026-11-01',
+  endDate: '2026-12-31',
+  deadline: '2026-12-31',
+  dateHistory: [],
   stage: 'Approval',
   approverDecision: 'Pending',
   verificationRequired: true,
+  mandatoryInspectionRequired: false,
+  inspectionCompleted: true,
+  createdBy: { userId: 'USR-101', name: 'K. Osei', persona: 'Administrator' },
+  stakeholders: {
+    approverName: 'P. Nardelli',
+  },
+  readinessScore: 40,
   requirements: [
     {
       id: 'REQ-PERF-1',
@@ -36,10 +52,6 @@ const seededSet: AssuranceSet = {
       ocrConfidence: 90,
     },
   ],
-  assignedApprover: 'P. Nardelli',
-  readinessScore: 40,
-  mandatoryInspectionRequired: false,
-  inspectionCompleted: true,
 };
 
 const seededFinding: CapaItem = {

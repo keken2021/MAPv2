@@ -13,6 +13,8 @@ import { EXPIRY_WARNING_DAYS, getValidityInContractPeriod } from './expiryPolicy
 import { assigneeMatchesUser, orgFieldMatches } from './rbacHelpers';
 import { doFindingsBlockSet, getAssuranceSetOpenFindings, isRequirementLate } from './readinessHelpers';
 import { isComplianceDeadlineOverdue } from './validation';
+import { getRequestingParty, getRespondingParty } from './setParties';
+import { getSetAssignedVerifier, getSetAssignedInspector, getSetAssignedApprover } from './setStakeholders';
 
 /* every threshold of the status rule; findings have no severity field, so status and due date decide which ones block. On a set with no inspection, no finding blocks (doFindingsBlockSet) */
 export const ASSURANCE_SET_STATUS_RULES = {
@@ -191,13 +193,13 @@ export function getPartyRoles(
 ): { roles: PartyRole[]; otherParties: string[] } {
   const parties = set.parties ?? [];
   const inGroup = (group: string) => parties.filter((party) => party.group === group).map((party) => party.organization);
-  const stakeholders = [set.stakeholders, set.assignedStakeholders];
+  const stakeholders = [set.stakeholders];
 
   const orgsByRole: Record<PartyRole, (string | undefined)[]> = {
-    client: [...inGroup('Client'), set.clientOrg || set.charterer],
+    client: [...inGroup('Client'), getRequestingParty(set)],
     provider: [
       ...inGroup('Vendor'),
-      set.serviceProviderOrg,
+      getRespondingParty(set),
       ...getAssuranceSetObjects(set).map((object) => object.ownerOrganization),
     ],
     reviewing: [
@@ -209,9 +211,11 @@ export function getPartyRoles(
   const organization = viewer.organization?.trim() ?? '';
   const matchesViewer = (org: string) => Boolean(organization) && orgFieldMatches(organization, org);
   const holdsRole = (role: PartyRole) => orgsByRole[role].some((org) => Boolean(org) && matchesViewer(org as string));
-  const isNamedReviewer = [set.assignedVerifier, set.assignedInspector, set.assignedApprover].some((assigned) =>
-    assigneeMatchesUser(assigned, viewer),
-  );
+  const isNamedReviewer = [
+    getSetAssignedVerifier(set),
+    getSetAssignedInspector(set),
+    getSetAssignedApprover(set),
+  ].some((assigned) => assigneeMatchesUser(assigned, viewer));
 
   const roles = (['client', 'provider', 'reviewing'] as PartyRole[]).filter(
     (role) => holdsRole(role) || (role === 'reviewing' && isNamedReviewer),

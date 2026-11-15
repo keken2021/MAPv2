@@ -19,6 +19,8 @@ import { ReadinessGauge } from '../common/ReadinessGauge';
 import { ApproverDecisionBar } from '../common/ApproverDecisionBar';
 import { DocumentCertificatePreview } from '../common/DocumentCertificatePreview';
 import { ConfirmDialog } from '../modals/ConfirmDialog';
+import { getSetAssignedSubmitter, getSetAssignedVerifier, getSetAssignedApprover } from '../../utils/setStakeholders';
+import { getSetVessel } from '../../utils/setObjects';
 
 export interface ApproverDecisionDrawerProps {
   assuranceSet: AssuranceSet;
@@ -49,7 +51,7 @@ export const ApproverDecisionDrawer: React.FC<ApproverDecisionDrawerProps> = ({
     isNamedApproverProp ?? (
       activePersona === 'Approver' &&
       Boolean(sessionUser) &&
-      assigneeMatchesUser(assuranceSet?.assignedApprover, sessionUser)
+      assigneeMatchesUser(getSetAssignedApprover(assuranceSet), sessionUser)
     );
   const isApprovalStage =
     isApprovalStageProp ?? (
@@ -86,11 +88,11 @@ export const ApproverDecisionDrawer: React.FC<ApproverDecisionDrawerProps> = ({
         </div>
         <div className="col-sm-6">
           <div className="map-drawer-label">Assignee</div>
-          <div className="text-dark fw-medium">{requirement.assignedSubmitter || assuranceSet.assignedSubmitter || 'Unassigned'}</div>
+          <div className="text-dark fw-medium">{requirement.assignedSubmitter || getSetAssignedSubmitter(assuranceSet) || 'Unassigned'}</div>
         </div>
         <div className="col-sm-6">
           <div className="map-drawer-label">Verifier</div>
-          <div className="text-dark fw-medium">{requirement.verifiedVersion?.verifiedBy || requirement.assignedVerifier || assuranceSet.assignedVerifier || 'Unassigned'}</div>
+          <div className="text-dark fw-medium">{requirement.verifiedVersion?.verifiedBy || requirement.assignedVerifier || getSetAssignedVerifier(assuranceSet) || 'Unassigned'}</div>
         </div>
         <div className="col-sm-6">
           <div className="map-drawer-label">Verification Method</div>
@@ -124,10 +126,10 @@ export const ApproverDecisionDrawer: React.FC<ApproverDecisionDrawerProps> = ({
         )}
       </div>
 
-      {linkedDoc && documentExpiresBeforeContractEnd(linkedDoc, assuranceSet.charterWindowEnd) && (
+      {linkedDoc && assuranceSet.endDate && documentExpiresBeforeContractEnd(linkedDoc, assuranceSet.endDate) && (
         <div className="alert alert-warning py-2 px-3 small mt-3 mb-0">
           Certificate expires {formatMaritimeDate(linkedDoc.expiryDate)}, before the contract ends{' '}
-          {formatMaritimeDate(assuranceSet.charterWindowEnd)}.
+          {formatMaritimeDate(assuranceSet.endDate)}.
         </div>
       )}
 
@@ -190,8 +192,8 @@ export const ApproverDecisionDrawer: React.FC<ApproverDecisionDrawerProps> = ({
           <div className="fw-semibold text-dark">
             Set Decision: {getStatusDisplayLabel(assuranceSet.approverDecision)}
           </div>
-          {assuranceSet.assignedApprover && (
-            <div className="text-secondary mt-1">Approver: {assuranceSet.assignedApprover}</div>
+          {getSetAssignedApprover(assuranceSet) && (
+            <div className="text-secondary mt-1">Approver: {getSetAssignedApprover(assuranceSet)}</div>
           )}
           {assuranceSet.approverNotes && (
             <div className="text-secondary mt-1">{assuranceSet.approverNotes}</div>
@@ -209,7 +211,7 @@ export const ApproverDecisionDrawer: React.FC<ApproverDecisionDrawerProps> = ({
     <>
       <Drawer
         title={requirement.title}
-        meta={[requirement.id, requirement.category, assuranceSet.vesselName || assuranceSet.title]
+        meta={[requirement.id, requirement.category, getSetVessel(assuranceSet)?.name || assuranceSet.title]
           .filter(Boolean)
           .join(' · ')}
         size={linkedDoc ? 'xl' : 'lg'}

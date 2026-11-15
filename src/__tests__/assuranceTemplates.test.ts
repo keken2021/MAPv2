@@ -57,7 +57,7 @@ describe('Public Assurance Set Templates Separation', () => {
   it('ensures active execution sets in MOCK_ASSURANCE_SETS do not have public template visibility', () => {
     MOCK_ASSURANCE_SETS.forEach((set) => {
       // Private execution sets bound to specific vessels must not leak as public templates
-      if (set.vesselName || set.crewName || set.equipmentName) {
+      if ((set.assuranceObjects || []).length > 0) {
         expect(set.visibility).not.toBe('public');
       }
     });

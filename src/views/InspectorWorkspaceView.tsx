@@ -17,6 +17,9 @@ import { isComplianceDeadlineOverdue, toIsoLocalDate } from '../utils/validation
 import { AssuranceSet } from '../types/assurance';
 import { inspectionProgressForSet } from '../store/inspectionMockData';
 import { EmptyState } from '../components/common/EmptyState';
+import { getSetAssignedInspector } from '../utils/setStakeholders';
+import { getSetVesselId, getSetVesselName, getSetImoNumber } from '../utils/setObjects';
+import { getSetDeadline } from '../utils/setDates';
 
 type InspectionRow = {
   set: AssuranceSet;
@@ -91,12 +94,12 @@ export const InspectorWorkspaceView: React.FC = () => {
 
   const inspectionRows = useMemo<InspectionRow[]>(() => {
     const vesselForSet = (set: AssuranceSet): VesselInformation => {
-      const found = vessels.find((vessel) => vessel.id === set.vesselId || vessel.name === set.vesselName);
+      const found = vessels.find((vessel) => vessel.id === getSetVesselId(set) || (getSetVesselName(set) && vessel.name === getSetVesselName(set)));
       if (found) return found;
       return {
-        id: set.vesselId || set.id,
-        name: set.vesselName || '—',
-        imoNumber: set.imoNumber || '—',
+        id: getSetVesselId(set) || set.id,
+        name: getSetVesselName(set) || '—',
+        imoNumber: getSetImoNumber(set) || '—',
         status: '—',
         portOfRegistry: '',
         flagState: '',
@@ -108,7 +111,7 @@ export const InspectorWorkspaceView: React.FC = () => {
       return assuranceSets
         .filter(
           (set) =>
-            Boolean(set.mandatoryInspectionRequired && set.assignedInspector) &&
+            Boolean(set.mandatoryInspectionRequired && getSetAssignedInspector(set)) &&
             isAssuranceSetAssignedToPersona(set, activePersona, activeDemoOrganization, sessionUser, users) &&
             !getAssuranceSetRoleActions(set, activePersona, activeDemoOrganization, sessionUser).canInspect,
         )
@@ -124,7 +127,7 @@ export const InspectorWorkspaceView: React.FC = () => {
       .filter(
         (set) =>
           isAssuranceSetAssignedToPersona(set, activePersona, activeDemoOrganization, sessionUser, users) &&
-          Boolean(set.assignedInspector?.toLowerCase().includes(name)),
+          Boolean(getSetAssignedInspector(set)?.toLowerCase().includes(name)),
       )
       .map((set) => ({ set, vessel: vesselForSet(set) }));
   }, [vessels, assuranceSets, activePersona, activeDemoOrganization, sessionUser, users]);
@@ -141,7 +144,7 @@ export const InspectorWorkspaceView: React.FC = () => {
     if (isCompleted(row)) return false;
     if (row.set.stage === 'Approved' || row.set.stage === 'Certified' || row.set.stage === 'Cancelled') return false;
     if (isComplianceDeadlineOverdue(row.set)) return true;
-    const deadline = row.set.revisedCompletionDate || row.set.complianceDeadline || row.set.targetDate;
+    const deadline = row.set.revisedCompletionDate || getSetDeadline(row.set);
     if (!deadline) return false;
     return deadline < toIsoLocalDate();
   };
@@ -210,7 +213,7 @@ export const InspectorWorkspaceView: React.FC = () => {
       valB = b.set.title;
     } else if (sortField === 'due') {
       const dueOf = (row: InspectionRow) =>
-        row.set.revisedCompletionDate || row.set.complianceDeadline || row.set.targetDate || '';
+        row.set.revisedCompletionDate || getSetDeadline(row.set) || '';
       valA = dueOf(a);
       valB = dueOf(b);
     } else if (sortField === 'location') {
@@ -240,7 +243,7 @@ export const InspectorWorkspaceView: React.FC = () => {
 
   const handleExportCsv = () => {
     const exportData = sortedAssignedVessels.map((row) => {
-      const effectiveDeadline = row.set.revisedCompletionDate || row.set.complianceDeadline || row.set.targetDate || '';
+      const effectiveDeadline = row.set.revisedCompletionDate || getSetDeadline(row.set) || '';
       return {
         ImoNumber: row.vessel.imoNumber,
         VesselName: row.vessel.name,
@@ -259,7 +262,7 @@ export const InspectorWorkspaceView: React.FC = () => {
   const handleExportPdf = () => {
     const headers = ['IMO Number', 'Vessel', 'Assurance Set', 'Due', 'Location', 'Checklist'];
     const rows = sortedAssignedVessels.map((row) => {
-      const effectiveDeadline = row.set.revisedCompletionDate || row.set.complianceDeadline || row.set.targetDate || '—';
+      const effectiveDeadline = row.set.revisedCompletionDate || getSetDeadline(row.set) || '—';
       const progress = inspectionProgressForSet(row.set.id);
       return [
         row.vessel.imoNumber,
@@ -363,7 +366,7 @@ export const InspectorWorkspaceView: React.FC = () => {
               {vesselsPagination.pageItems.map((row) => {
                 const v = row.vessel;
                 const linkedSet = row.set;
-                const effectiveDeadline = linkedSet.revisedCompletionDate || linkedSet.complianceDeadline || linkedSet.targetDate;
+                const effectiveDeadline = linkedSet.revisedCompletionDate || linkedSet.deadline;
                 const overdue = isVesselOverdue(row);
                 let daysLate = 0;
                 if (overdue && effectiveDeadline) {

@@ -105,11 +105,11 @@ export const AssuranceTaskModal: React.FC<AssuranceTaskModalProps> = (props) => 
               type="date"
               className={`form-control bg-white text-dark${dateError ? ' is-invalid border-danger' : ''}`}
               value={dateDraft}
-              max={assuranceSet.targetDate || assuranceSet.complianceDeadline || undefined}
+              max={assuranceSet.deadline || undefined}
               onChange={(e) => { onDateDraftChange(e.target.value); }}
             />
             <div className="form-text">
-              Must fall on or before the set target date ({formatMaritimeDate(assuranceSet.targetDate || assuranceSet.complianceDeadline)}).
+              Must fall on or before the set target date ({formatMaritimeDate(assuranceSet.deadline || '')}).
             </div>
             {dateError && (
               <div className="invalid-feedback d-block small mt-1">{dateError}</div>
@@ -237,12 +237,12 @@ export const AssuranceTaskModal: React.FC<AssuranceTaskModalProps> = (props) => 
             id={`${idPrefix}-task-target-date`}
             type="date"
             className="form-control form-control-sm bg-white text-dark"
-            max={assuranceSet.targetDate || assuranceSet.complianceDeadline || undefined}
+            max={assuranceSet.deadline || undefined}
             value={draft.targetDate}
             onChange={(e) => onDraftChange({ ...draft, targetDate: e.target.value })}
           />
           <div className="form-text" style={{ fontSize: '0.72rem' }}>
-            Must fall on or before the set target date ({formatMaritimeDate(assuranceSet.targetDate || assuranceSet.complianceDeadline)}).
+            Must fall on or before the set target date ({formatMaritimeDate(assuranceSet.deadline || '')}).
           </div>
         </div>
         <div>

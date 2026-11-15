@@ -7,6 +7,7 @@
 import type { MasterDocument } from '../types/document';
 import type { AssuranceSet, VerificationMethod } from '../types/assurance';
 import { getValidityInContractPeriod } from './expiryPolicy';
+import type { SetDatesInput } from './setDates';
 
 /* the methods a verifier chooses from, in the order shown (paper Table 3) */
 export const VERIFICATION_METHODS: readonly VerificationMethod[] = [
@@ -56,7 +57,7 @@ export type FieldCheckDocument = Pick<
 */
 export function getFieldChecks(
   document: FieldCheckDocument,
-  set?: Pick<AssuranceSet, 'charterWindowEnd'>,
+  set?: SetDatesInput,
   today: Date = new Date(),
 ): Partial<Record<FieldCheckKey, FieldCheck>> {
   const rules = document.validationRules;
@@ -70,7 +71,7 @@ export function getFieldChecks(
 
   /* the current version's expiry comes first; the certificate details can hold an older one */
   const expiryDate = document.expiryDate || document.crewAttributes?.expiryDate || document.vesselAttributes?.expiryDate;
-  const validity = getValidityInContractPeriod(expiryDate, set ?? { charterWindowEnd: '' }, today);
+  const validity = getValidityInContractPeriod(expiryDate, set ?? {}, today);
   checks.expiryDate =
     validity.state === 'unknown'
       ? { state: 'fail', message: 'Expiry date missing. Enter it (Edit Fields) or upload a clearer scan.' }
@@ -112,7 +113,7 @@ export function getFieldChecks(
 export interface VerifyGateInput {
   document: FieldCheckDocument;
   /* the set the document is reviewed on; its contract period judges the expiry */
-  set?: Pick<AssuranceSet, 'charterWindowEnd'>;
+  set?: SetDatesInput;
   overallConfidence: number;
   fullPagePassed: boolean;
   signaturePassed: boolean;

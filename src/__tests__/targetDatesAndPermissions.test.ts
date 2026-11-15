@@ -28,15 +28,21 @@ describe('Target Dates and Date Permission Validation', () => {
     ...MOCK_ASSURANCE_SETS[0],
     id: 'AS-TEST-001',
     title: 'Test Assurance Campaign',
-    vesselId: 'VESSEL-001',
-    vesselName: 'Pacific Valour',
-    serviceProviderOrg: 'Northwind Marine Pty Ltd',
-    clientOrg: 'Chevron Australia Pty Ltd',
-    charterer: 'Chevron Australia Pty Ltd',
-    charterWindowStart: '2026-11-01',
-    charterWindowEnd: '2027-04-30',
-    targetDate: '2026-11-01',
-    complianceDeadline: '2026-11-01',
+    assuranceObjects: [
+      {
+        id: 'VESSEL-001',
+        type: 'vessel',
+        name: 'Pacific Valour',
+        ownerOrganization: 'Northwind Marine Pty Ltd',
+      },
+    ],
+    parties: [
+      { organization: 'Chevron Australia Pty Ltd', role: 'Requesting party' },
+      { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+    ],
+    startDate: '2026-11-01',
+    endDate: '2027-04-30',
+    deadline: '2026-11-01',
     stage: 'Verification',
     readinessScore: 80,
     requirements: [
@@ -72,7 +78,7 @@ describe('Target Dates and Date Permission Validation', () => {
         reason: 'Pre-mobilization schedule adjustment',
       },
     ],
-    targetDateHistory: [
+    dateHistory: [
       {
         id: 'TDH-001',
         setId: 'AS-TEST-001',
@@ -294,15 +300,18 @@ describe('Map Store Date Permissions and Target Date History Ledger', () => {
       ...existing,
       id: 'AS-STORE-001',
       title: 'Store Test Campaign',
-      initiatorOrg: 'Chevron Australia Pty Ltd',
-      initiatorRole: 'C Admin · Client Created',
-      clientOrg: 'Chevron Australia Pty Ltd',
-      charterer: 'Chevron Australia Pty Ltd',
-      createdByUserId: 'USR-221',
-      createdByName: 'C. Henderson',
-      createdByPersona: 'C Admin',
-      targetDate: '2026-11-01',
-      complianceDeadline: '2026-11-01',
+      parties: [
+        { organization: 'Chevron Australia Pty Ltd', role: 'Requesting party' },
+        { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      ],
+      createdBy: {
+        userId: 'USR-221',
+        name: 'C. Henderson',
+        persona: 'C Admin',
+      },
+      startDate: '2026-11-01',
+      endDate: '2027-04-30',
+      deadline: '2026-11-01',
       requirements: [
         {
           ...existing.requirements[0],
@@ -312,7 +321,7 @@ describe('Map Store Date Permissions and Target Date History Ledger', () => {
         },
       ],
       datePermissionGrants: [],
-      targetDateHistory: [],
+      dateHistory: [],
     };
     useMapStore.setState({
       activePersona: 'C Admin',
@@ -385,8 +394,8 @@ describe('Map Store Date Permissions and Target Date History Ledger', () => {
     expect(req?.targetDate).toBe('2026-10-28');
 
     // Exactly one history row recorded
-    expect(currentSet?.targetDateHistory).toHaveLength(1);
-    const historyEntry = currentSet?.targetDateHistory?.[0];
+    expect(currentSet?.dateHistory).toHaveLength(1);
+    const historyEntry = currentSet?.dateHistory?.[0];
     expect(historyEntry).toMatchObject({
       targetType: 'task',
       requirementId: 'REQ-STORE-01',
@@ -409,14 +418,14 @@ describe('Map Store Date Permissions and Target Date History Ledger', () => {
     const initialSet = useMapStore.getState().assuranceSets.find((s) => s.id === 'AS-STORE-001')!;
     store.updateAssuranceSet({
       ...initialSet,
-      targetDate: '2026-11-15',
+      deadline: '2026-11-15',
     });
 
     const currentSet = useMapStore.getState().assuranceSets.find((s) => s.id === 'AS-STORE-001');
-    expect(currentSet?.targetDate).toBe('2026-11-15');
+    expect(currentSet?.deadline).toBe('2026-11-15');
 
-    expect(currentSet?.targetDateHistory).toHaveLength(1);
-    const historyEntry = currentSet?.targetDateHistory?.[0];
+    expect(currentSet?.dateHistory).toHaveLength(1);
+    const historyEntry = currentSet?.dateHistory?.[0];
     expect(historyEntry?.targetType).toBe('set');
     expect(historyEntry?.oldDate).toBe('2026-11-01');
     expect(historyEntry?.newDate).toBe('2026-11-15');

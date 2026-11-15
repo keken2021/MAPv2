@@ -24,6 +24,14 @@ import {
   isAssuranceSetAssignedToPersona,
   isVesselOwnedByClientOrg,
 } from './rbacHelpers';
+import { getSetVesselName, getSetVesselId } from './setObjects';
+import { getSetDeadline } from './setDates';
+import {
+  getSetAssignedSubmitter,
+  getSetAssignedVerifier,
+  getSetAssignedInspector,
+  getSetAssignedApprover,
+} from './setStakeholders';
 import { filterProjectsForPersona } from './projectHelpers';
 import { calculateVesselReadiness } from './readinessHelpers';
 import { isExpiringWithinWarning } from './expiryPolicy';
@@ -48,12 +56,15 @@ function resolveCapaSetId(capa: CapaItem, candidateSets: AssuranceSet[]): string
     return capa.assuranceSetId;
   }
   const byVesselId = capa.vesselId
-    ? candidateSets.find((s) => s.vesselId === capa.vesselId)
+    ? candidateSets.find((s) => getSetVesselId(s) === capa.vesselId)
     : undefined;
   if (byVesselId) return byVesselId.id;
   const byVesselName = capa.vesselName
     ? candidateSets.find(
-        (s) => s.vesselName && s.vesselName.toLowerCase() === capa.vesselName.toLowerCase(),
+        (s) => {
+          const vName = getSetVesselName(s);
+          return vName && vName.toLowerCase() === capa.vesselName?.toLowerCase();
+        },
       )
     : undefined;
   return byVesselName?.id;
@@ -64,21 +75,25 @@ function resolveCapaSetId(capa: CapaItem, candidateSets: AssuranceSet[]): string
  */
 export function getMissingRolesForSet(set: AssuranceSet): string[] {
   const missing: string[] = [];
-  if (!set.assignedSubmitter || set.assignedSubmitter === 'Unassigned' || set.assignedSubmitter.toLowerCase().includes('pending')) {
+  const assignedSubmitter = getSetAssignedSubmitter(set);
+  if (!assignedSubmitter || assignedSubmitter === 'Unassigned' || assignedSubmitter.toLowerCase().includes('pending')) {
     missing.push('submitter');
   }
-  if (!set.assignedVerifier || set.assignedVerifier === 'Unassigned' || set.assignedVerifier.toLowerCase().includes('pending')) {
+  const assignedVerifier = getSetAssignedVerifier(set);
+  if (!assignedVerifier || assignedVerifier === 'Unassigned' || assignedVerifier.toLowerCase().includes('pending')) {
     missing.push('verifier');
   }
+  const assignedInspector = getSetAssignedInspector(set);
   if (
     set.mandatoryInspectionRequired !== false &&
-    (!set.assignedInspector || set.assignedInspector === 'Unassigned' || set.assignedInspector.toLowerCase().includes('pending'))
+    (!assignedInspector || assignedInspector === 'Unassigned' || assignedInspector.toLowerCase().includes('pending'))
   ) {
     missing.push('inspector');
   }
+  const assignedApprover = getSetAssignedApprover(set);
   if (
     set.formalApprovalRequired !== false &&
-    (!set.assignedApprover || set.assignedApprover === 'Unassigned' || set.assignedApprover.toLowerCase().includes('pending'))
+    (!assignedApprover || assignedApprover === 'Unassigned' || assignedApprover.toLowerCase().includes('pending'))
   ) {
     missing.push('approver');
   }
@@ -112,7 +127,7 @@ export function formatStartDateSnippet(dateStr?: string): string {
  * Returns the effective start date for sorting and displaying a set.
  */
 export function getSetStartDate(set: AssuranceSet): string | undefined {
-  return set.charterWindowStart || set.projectWindowStart || set.complianceDeadline || set.targetDate;
+  return set.startDate || (set as any).charterWindowStart || set.deadline || (set as any).complianceDeadline || (set as any).targetDate;
 }
 
 export interface AdministratorClientConfigParams {
@@ -158,9 +173,9 @@ export function getAdministratorClientDashboardConfig({
     : [];
 
   const orgSetIds = new Set(orgSets.map((s) => s.id));
-  const orgVesselIds = new Set(orgSets.map((s) => s.vesselId).filter(Boolean));
+  const orgVesselIds = new Set(orgSets.map((s) => getSetVesselId(s)).filter(Boolean));
   const orgVesselNames = new Set(
-    orgSets.map((s) => s.vesselName?.toLowerCase()).filter(Boolean) as string[],
+    orgSets.map((s) => getSetVesselName(s)?.toLowerCase()).filter(Boolean) as string[],
   );
 
   const orgCapas = !userForRbac
@@ -275,7 +290,7 @@ export function getAdministratorClientDashboardConfig({
     const startSnippet = formatStartDateSnippet(getSetStartDate(set));
     const subtitle = [missingSnippet, startSnippet].filter(Boolean).join(' · ');
 
-    const vessel = set.vesselName?.trim();
+    const vessel = getSetVesselName(set)?.trim();
     const title = set.title?.trim() || set.id;
     const itemTitle = vessel && !title.includes(vessel) ? `${vessel} · ${title}` : title;
 
@@ -359,12 +374,12 @@ export function getAdministratorDashboardConfig({
   const orgSetIds = new Set(orgSets.map((s) => s.id));
   const orgVesselIds = new Set([
     ...orgVessels.map((v) => v.id),
-    ...orgSets.map((s) => s.vesselId).filter(Boolean),
+    ...orgSets.map((s) => getSetVesselId(s)).filter(Boolean),
   ]);
   const orgVesselNames = new Set(
     [
       ...orgVessels.map((v) => v.name?.toLowerCase()),
-      ...orgSets.map((s) => s.vesselName?.toLowerCase()),
+      ...orgSets.map((s) => getSetVesselName(s)?.toLowerCase()),
     ].filter(Boolean) as string[],
   );
   const orgVesselImos = new Set(orgVessels.map((v) => v.imoNumber).filter(Boolean));
@@ -486,9 +501,9 @@ export function getAdministratorDashboardConfig({
         s.stage !== 'Certified' &&
         s.stage !== 'Approved' &&
         s.stage !== 'Cancelled' &&
-        (!s.assignedSubmitter ||
-          s.assignedSubmitter === 'Unassigned' ||
-          s.assignedSubmitter.toLowerCase().includes('pending')),
+        (!getSetAssignedSubmitter(s) ||
+          getSetAssignedSubmitter(s) === 'Unassigned' ||
+          getSetAssignedSubmitter(s)!.toLowerCase().includes('pending')),
     )
     .sort((a, b) => {
       const dateA = Date.parse(getSetStartDate(a) || '9999-12-31');
@@ -498,7 +513,7 @@ export function getAdministratorDashboardConfig({
 
   const needingSubmitterItems: DashboardActionItem[] = needingSubmitterSets.map((set) => {
     const startSnippet = formatStartDateSnippet(getSetStartDate(set));
-    const vessel = set.vesselName?.trim();
+    const vessel = getSetVesselName(set)?.trim();
     const title = set.title?.trim() || set.id;
     const itemTitle = vessel && !title.includes(vessel) ? `${vessel} · ${title}` : title;
 
@@ -529,7 +544,7 @@ export function getAdministratorDashboardConfig({
       if (req.verifierStatus === 'Correction Requested' || req.verifierStatus === 'Rejected') {
         if (req.documentId) returnedDocIds.add(req.documentId);
         if (req.linkedDocumentId) returnedDocIds.add(req.linkedDocumentId);
-        const vessel = set.vesselName || set.title;
+        const vessel = getSetVesselName(set) || set.title;
         returnedItems.push({
           id: `returned-req-${set.id}-${req.id}`,
           tag: 'Returned',
@@ -726,7 +741,7 @@ export function getSubmitterDashboardConfig({
     : [];
 
   const assignedSetIds = new Set(assignedSets.map((s) => s.id));
-  const assignedVesselIds = new Set(assignedSets.map((s) => s.vesselId).filter(Boolean));
+  const assignedVesselIds = new Set(assignedSets.map((s) => getSetVesselId(s)).filter(Boolean));
 
   const docIdToSetId = new Map<string, string>();
   const otherSetDocIds = new Set<string>();
@@ -750,7 +765,7 @@ export function getSubmitterDashboardConfig({
     if (set.stage === 'Cancelled') continue;
     for (const req of set.requirements || []) {
       if (req.verifierStatus === 'Correction Requested' || req.verifierStatus === 'Rejected') {
-        const vessel = set.vesselName || set.title;
+        const vessel = getSetVesselName(set) || set.title;
         returnedItems.push({
           id: `returned-${req.id}`,
           tag: 'Returned',
@@ -832,7 +847,10 @@ export function getSubmitterDashboardConfig({
     }
     if (c.assuranceSetId) return assignedSetIds.has(c.assuranceSetId);
     if (c.vesselId && assignedVesselIds.has(c.vesselId)) return true;
-    return assignedSets.some((s) => s.vesselName && c.vesselName && s.vesselName.toLowerCase() === c.vesselName.toLowerCase());
+    return assignedSets.some((s) => {
+      const vName = getSetVesselName(s);
+      return vName && c.vesselName && vName.toLowerCase() === c.vesselName.toLowerCase();
+    });
   });
 
   for (const capa of assignedCapas) {
@@ -862,8 +880,8 @@ export function getSubmitterDashboardConfig({
   // 3. Missing documents sorted by nearest set due date
   const missingItems: DashboardActionItem[] = [];
   const sortedSetsByDueDate = [...assignedSets].sort((a, b) => {
-    const dateA = Date.parse(a.targetDate || a.complianceDeadline || a.charterWindowStart || '9999-12-31');
-    const dateB = Date.parse(b.targetDate || b.complianceDeadline || b.charterWindowStart || '9999-12-31');
+    const dateA = Date.parse(a.deadline || (a as any).targetDate || (a as any).complianceDeadline || a.startDate || (a as any).charterWindowStart || '9999-12-31');
+    const dateB = Date.parse(b.deadline || (b as any).targetDate || (b as any).complianceDeadline || b.startDate || (b as any).charterWindowStart || '9999-12-31');
     return dateA - dateB;
   });
 
@@ -877,9 +895,9 @@ export function getSubmitterDashboardConfig({
         r.verifierStatus !== 'Rejected',
     );
     if (unfulfilled.length > 0) {
-      const setDueDate = set.targetDate || set.complianceDeadline || set.charterWindowStart;
+      const setDueDate = set.deadline || (set as any).targetDate || (set as any).complianceDeadline || set.startDate || (set as any).charterWindowStart;
       const dueSnippet = setDueDate ? `Set due ${formatShortDate(setDueDate)}` : 'Set due soon';
-      const vessel = set.vesselName || set.title;
+      const vessel = getSetVesselName(set) || set.title;
 
       missingItems.push({
         id: `missing-${set.id}`,
@@ -1055,7 +1073,7 @@ export function getVerifierDashboardConfig({
   const effectiveSets = assignedSets;
 
   const effectiveSetIds = new Set(effectiveSets.map((s) => s.id));
-  const effectiveVesselIds = new Set(effectiveSets.map((s) => s.vesselId).filter(Boolean));
+  const effectiveVesselIds = new Set(effectiveSets.map((s) => getSetVesselId(s)).filter(Boolean));
 
   const docIdToSet = new Map<string, AssuranceSet>();
   for (const set of effectiveSets) {
@@ -1093,7 +1111,7 @@ export function getVerifierDashboardConfig({
         docIdToSet.get(doc.id) ||
         explicitSet ||
         (!anyDoc.assuranceSetId && doc.vesselId
-          ? effectiveSets.find((s) => s.vesselId === doc.vesselId)
+          ? effectiveSets.find((s) => getSetVesselId(s) === doc.vesselId)
           : undefined);
 
       const isAssigned = Boolean(linkedSet) ||
@@ -1102,13 +1120,13 @@ export function getVerifierDashboardConfig({
       if (isAssigned) {
         seenIds.add(doc.id);
         const setForDoc = linkedSet || effectiveSets.find((s) => s.id === anyDoc.assuranceSetId);
-        const vesselName = doc.vesselAttributes?.vesselName || anyDoc.vesselName || setForDoc?.vesselName || setForDoc?.title || 'Vessel';
+        const vesselName = doc.vesselAttributes?.vesselName || anyDoc.vesselName || (setForDoc ? getSetVesselName(setForDoc) : undefined) || setForDoc?.title || 'Vessel';
         const docTitle = doc.title || anyDoc.name || 'Document';
         const attempt = anyDoc.attemptNumber || doc.versions?.length || 1;
         const isResubmitted = attempt > 1 || Boolean(anyDoc.isResubmitted);
         const isEscalated = Boolean(setForDoc && isSetEscalated(setForDoc, notifications)) || Boolean(anyDoc.isEscalated);
         const isDueSoon = Boolean(setForDoc && (isSetDueThisWeek(setForDoc, now) || isSetOverdue(setForDoc, now))) || Boolean(anyDoc.isDueSoon);
-        const setDueDate = setForDoc?.targetDate || setForDoc?.complianceDeadline || setForDoc?.charterWindowStart || anyDoc.setDueDate;
+        const setDueDate = setForDoc?.deadline || (setForDoc as any)?.targetDate || (setForDoc as any)?.complianceDeadline || setForDoc?.startDate || (setForDoc as any)?.charterWindowStart || anyDoc.setDueDate;
 
         let daysWaiting = 0;
         if (anyDoc.daysWaiting != null) {
@@ -1154,7 +1172,7 @@ export function getVerifierDashboardConfig({
         const isResubmitted = attempt > 1 || Boolean(anyReq.isResubmitted);
         const isEscalated = isSetEscalated(set, notifications) || Boolean(anyReq.isEscalated);
         const isDueSoon = isSetDueThisWeek(set, now) || isSetOverdue(set, now) || Boolean(anyReq.isDueSoon);
-        const setDueDate = set.targetDate || set.complianceDeadline || set.charterWindowStart;
+        const setDueDate = set.deadline || (set as any).targetDate || (set as any).complianceDeadline || set.startDate || (set as any).charterWindowStart;
 
         let daysWaiting = 0;
         if (anyReq.daysWaiting != null) {
@@ -1171,7 +1189,7 @@ export function getVerifierDashboardConfig({
           docId: req.documentId,
           setId: set.id,
           title: req.title,
-          vesselName: set.vesselName || set.title,
+          vesselName: getSetVesselName(set) || set.title,
           attemptNumber: attempt,
           isResubmitted,
           isEscalated,
@@ -1368,7 +1386,7 @@ export function getInspectorDashboardConfig({
   const effectiveSets = assignedSets;
 
   const assignedSetIds = new Set(effectiveSets.map((s) => s.id));
-  const assignedVesselIds = new Set(effectiveSets.map((s) => s.vesselId).filter(Boolean));
+  const assignedVesselIds = new Set(effectiveSets.map((s) => getSetVesselId(s)).filter(Boolean));
 
   const relevantCapas = !userForRbac
     ? []
@@ -1387,7 +1405,10 @@ export function getInspectorDashboardConfig({
         }
         if (c.assuranceSetId) return assignedSetIds.has(c.assuranceSetId);
         if (c.vesselId && assignedVesselIds.has(c.vesselId)) return true;
-        return effectiveSets.some((s) => s.vesselName && c.vesselName && s.vesselName.toLowerCase() === c.vesselName.toLowerCase());
+        return effectiveSets.some((s) => {
+          const vName = getSetVesselName(s);
+          return vName && c.vesselName && vName.toLowerCase() === c.vesselName.toLowerCase();
+        });
       });
 
   // 1. Reports overdue / reports to finish
@@ -1469,7 +1490,7 @@ export function getInspectorDashboardConfig({
   );
 
   for (const set of candidateReportSets) {
-    const vessel = set.vesselName || set.title;
+    const vessel = getSetVesselName(set) || set.title;
     const anySet = set as any;
     const inspectedDateSnippet = anySet.inspectedDate ? `inspected ${formatShortDate(anySet.inspectedDate)}` : 'inspection report';
     const checklistSnippet = anySet.checklistDone != null && anySet.checklistTotal != null
@@ -1524,10 +1545,11 @@ export function getInspectorDashboardConfig({
   // Tier 3: Inspections in next 7 days
   const candidateUpcomingSets = next7Days.filter((s) => !candidateReportSets.some((r) => r.id === s.id));
   for (const set of candidateUpcomingSets) {
-    const vessel = set.vesselName || set.title;
+    const vessel = getSetVesselName(set) || set.title;
     const anySet = set as any;
-    const locationSnippet = anySet.port || anySet.location || (set.targetDate ? formatShortDate(set.targetDate) : 'Upcoming inspection');
-    const timeSnippet = anySet.scheduledTime || (set.targetDate ? `Due ${formatShortDate(set.targetDate)}` : 'Inspection scheduled');
+    const deadline = getSetDeadline(set);
+    const locationSnippet = anySet.port || anySet.location || (deadline ? formatShortDate(deadline) : 'Upcoming inspection');
+    const timeSnippet = anySet.scheduledTime || (deadline ? `Due ${formatShortDate(deadline)}` : 'Inspection scheduled');
 
     upcomingItems.push({
       id: `upcoming-${set.id}`,
@@ -1665,7 +1687,7 @@ export function getApproverDashboardConfig({
         c.status !== 'Verified & Closed' &&
         (c.assuranceSetId
           ? c.assuranceSetId === set.id
-          : Boolean(c.vesselId && c.vesselId === set.vesselId)),
+          : Boolean(c.vesselId && c.vesselId === getSetVesselId(set))),
     );
     const openFindingsCount = anySet.openFindingsCount != null ? anySet.openFindingsCount : openCapas.length;
     const hasOpenFindings = openFindingsCount > 0 || Boolean(anySet.hasOpenFindings);
@@ -1777,7 +1799,7 @@ export function getApproverDashboardConfig({
   ];
 
   const actionItems: DashboardActionItem[] = candidates.slice(0, 5).map((c) => {
-    const vessel = c.set.vesselName;
+    const vessel = getSetVesselName(c.set);
     const title = c.set.title;
     const displayTitle = vessel && title && vessel !== title ? `${vessel} · ${title}` : (vessel || title || 'Assurance Set');
 

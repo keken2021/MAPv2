@@ -17,6 +17,7 @@ import {
   isRequirementOnOlderVersion,
 } from '../../utils/documentVersionSnapshot';
 import { getValidityInContractPeriod } from '../../utils/expiryPolicy';
+import { getRespondingParty } from '../../utils/setParties';
 
 export interface AssuranceRequirementRowProps {
   req: AssuranceRequirement;
@@ -348,7 +349,7 @@ export const AssuranceRequirementRow: React.FC<AssuranceRequirementRowProps> = (
                             <>
                               {' '}· {docView.doc.issuingAuthority || 'Issuing authority not recorded'}
                               {' '}· Responsible:{' '}
-                              {assuranceSet.serviceProviderOrg || 'Service provider not recorded'}
+                              {getRespondingParty(assuranceSet) || 'Service provider not recorded'}
                             </>
                           )}
                         </span>

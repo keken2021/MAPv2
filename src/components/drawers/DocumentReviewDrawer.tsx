@@ -212,7 +212,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
       document,
       notifications,
       new Date(),
-      linkedSet?.charterWindowEnd,
+      linkedSet?.endDate,
       requirementVerifierStatus ?? linkedReq?.verifierStatus,
       isUnlinked,
     );

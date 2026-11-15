@@ -4,6 +4,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { useMapStore } from '../store/useMapStore';
 import { CreateAssuranceSetView } from '../views/CreateAssuranceSetView';
 import { clickNext, pickReviewerRoles, renderWizardWithDefaultVessel } from './assuranceWizardTestHelpers';
+import { getRequestingParty, getRespondingParty } from '../utils/setParties';
 
 const initialState = useMapStore.getState();
 
@@ -129,14 +130,14 @@ describe('Assurance set parties - One requesting and one responding party (Task 
       .assuranceSets.find((s) => s.title === 'Exactly One Party Role Set');
 
     expect(createdSet).toBeDefined();
-    expect(createdSet?.requestingParty).toBe(CLIENT);
-    expect(createdSet?.respondingParty).toBe(VENDOR);
+    expect(getRequestingParty(createdSet)).toBe(CLIENT);
+    expect(getRespondingParty(createdSet)).toBe(VENDOR);
 
     const requestingParties = (createdSet?.parties || []).filter(
-      (p) => p.partyRole === 'Requesting party',
+      (p) => (p.role || (p as any).partyRole) === 'Requesting party',
     );
     const respondingParties = (createdSet?.parties || []).filter(
-      (p) => p.partyRole === 'Responding party',
+      (p) => (p.role || (p as any).partyRole) === 'Responding party',
     );
 
     expect(requestingParties.length).toBe(1);

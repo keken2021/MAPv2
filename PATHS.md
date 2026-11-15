@@ -87,7 +87,14 @@ Root: `C:\mapFiles\MAPv2`
 - `src/utils/inspectionTask.ts` : re-exports `stageTasks.ts` for backward compatibility
 - `src/components/drawers/DocumentReviewDrawer.tsx` : document review drawer opened from the detail screen
 - `src/components/drawers/ApproverDecisionDrawer.tsx` : approver decision drawer opened in-place from the detail screen Tasks tab
-- `src/types/assurance.ts` : assurance set types
+- `src/types/assurance.ts` : assurance set types (simplified under ADR 0042)
+- `src/utils/setParties.ts` : pure functions and validator for reading assurance set parties and party roles under ADR 0042 (`getRequestingParty`, `getRespondingParty`, `getThirdParties`, `getSetOrganizations`, `isInternalDeployment`, `validateSetParties`)
+- `src/utils/setObjects.ts` : pure functions for reading covered objects and computing Rule 8 object pools for project and standalone sets (`getSetVessel`, `getSetCrew`, `getSetEquipment`, `getSetObjectPool`)
+- `src/utils/setDates.ts` : pure functions for assurance set date reading, formatting, and Rule 2 project window clamping (`adjustSetDatesForProject`, `getSetStartDate`, `getSetEndDate`, `getSetDeadline`)
+- `src/utils/setStakeholders.ts` : pure functions for reading stakeholder and creator assignments (`getSetCreatedBy`, `getSetAssignedSubmitter`, `getSetAssignedVerifier`, `getSetAssignedInspector`, `getSetAssignedApprover`)
+- `docs/adr/0042-assurance-set-simplification.md` : ADR 0042 simplifying `AssuranceSet` data model to single source of truth
+- `src/__tests__/rosterAndDateRules.test.ts` : unit tests for Rule 2 project window date clamping, Rule 8 object pool filtering, and Rule 9 roster modification restrictions
+- `src/__tests__/setPartiesAndObjects.test.ts` : unit tests for set parties derivation and validator
 - `src/__tests__/assuranceSetsRoleAccess.test.ts` : role access rules for these screens
 - `src/__tests__/assuranceTableTailoredTabs.test.tsx` : tailored status tabs (To do, In progress, Completed) for workflow roles vs universal tabs for Admins and notification-assigned set visibility
 - `src/__tests__/oneAssetPerSet.test.ts` : one scope and one covered asset per set, provider terms (a crew set may list several crew members, ADR 0023)

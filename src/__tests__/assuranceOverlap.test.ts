@@ -21,14 +21,28 @@ const makeSet = (overrides: Partial<AssuranceSet>): AssuranceSet => ({
   title: 'Test Set',
   assuranceType: 'Vessel',
   subtypes: ['Vessel'],
-  vesselId: 'VESSEL-001',
-  vesselName: 'MV Pacific Endeavour',
-  imoNumber: '9123453',
-  initiatorOrg: 'Chevron Australia Pty Ltd',
-  initiatorRole: 'C Admin · Client Created',
-  charterWindowStart: '2026-11-01',
-  complianceDeadline: '2026-11-01',
-  charterWindowEnd: '2027-11-01',
+  assuranceObjects: [
+    {
+      id: 'VESSEL-001',
+      type: 'vessel',
+      name: 'MV Pacific Endeavour',
+      ownerOrganization: 'Northwind Marine Pty Ltd',
+      identifier: '9123453',
+    },
+  ],
+  parties: [
+    { organization: 'Chevron Australia Pty Ltd', role: 'Requesting party' },
+    { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+  ],
+  createdBy: {
+    userId: 'USR-201',
+    name: 'C Admin',
+    persona: 'C Admin',
+  },
+  startDate: '2026-11-01',
+  endDate: '2027-11-01',
+  deadline: '2026-11-01',
+  dateHistory: [],
   stage: 'Initiated',
   readinessScore: 0,
   requirements: [],
@@ -77,8 +91,14 @@ describe('contract period overlap', () => {
       id: 'AS-CREW',
       assuranceType: 'Crew',
       subtypes: ['Crew'],
-      crewId: 'CREW-101',
-      crewName: 'Capt. Alexander Wright',
+      assuranceObjects: [
+        {
+          id: 'CREW-101',
+          type: 'crew',
+          name: 'Capt. Alexander Wright',
+          ownerOrganization: 'Northwind Marine Pty Ltd',
+        },
+      ],
     });
     expect(
       findOverlappingAssuranceSets(
@@ -103,10 +123,20 @@ describe('contract period overlap', () => {
       id: 'AS-CREW',
       assuranceType: 'Crew',
       subtypes: ['Crew'],
-      crewId: 'CREW-102',
-      crewName: 'Chief Eng. Marcus Sterling',
-      crewIds: ['CREW-102', 'CREW-103'],
-      crewNames: ['Chief Eng. Marcus Sterling', 'Chief Off. Sarah Jenkins'],
+      assuranceObjects: [
+        {
+          id: 'CREW-102',
+          type: 'crew',
+          name: 'Chief Eng. Marcus Sterling',
+          ownerOrganization: 'Northwind Marine Pty Ltd',
+        },
+        {
+          id: 'CREW-103',
+          type: 'crew',
+          name: 'Chief Off. Sarah Jenkins',
+          ownerOrganization: 'Northwind Marine Pty Ltd',
+        },
+      ],
     });
     const conflicts = findOverlappingAssuranceSets(
       { scope: 'Crew', crewIds: ['CREW-105', 'CREW-103'], start: '2027-01-01', end: '2027-06-01' },
@@ -126,8 +156,14 @@ describe('contract period overlap', () => {
       id: 'AS-EQ',
       assuranceType: 'Equipment',
       subtypes: ['Equipment'],
-      equipmentId: 'EQ-001',
-      equipmentName: '150T Traction Winch',
+      assuranceObjects: [
+        {
+          id: 'EQ-001',
+          type: 'equipment',
+          name: '150T Traction Winch',
+          ownerOrganization: 'Northwind Marine Pty Ltd',
+        },
+      ],
     });
     expect(
       findOverlappingAssuranceSets(
@@ -139,7 +175,7 @@ describe('contract period overlap', () => {
 
   it('words the field error with the first conflict and a count of the rest', () => {
     const a = makeSet({ id: 'AS-A' });
-    const b = makeSet({ id: 'AS-B', charterWindowStart: '2027-02-01', charterWindowEnd: '2027-08-01' });
+    const b = makeSet({ id: 'AS-B', startDate: '2027-02-01', endDate: '2027-08-01' });
     const conflicts = findOverlappingAssuranceSets(
       { scope: 'Vessel', vesselId: 'VESSEL-001', start: '2027-03-01', end: '2027-04-01' },
       [a, b],
@@ -151,7 +187,7 @@ describe('contract period overlap', () => {
   });
 
   it('determines individual asset period availability and conflict retrieval', () => {
-    const existing = makeSet({ id: 'AS-EXISTING', vesselId: 'VESSEL-001', charterWindowStart: '2026-11-01', charterWindowEnd: '2027-11-01' });
+    const existing = makeSet({ id: 'AS-EXISTING', startDate: '2026-11-01', endDate: '2027-11-01' });
     expect(isAssetAvailableForPeriod('Vessel', 'VESSEL-001', '2027-01-01', '2027-06-01', [existing])).toBe(false);
     expect(isAssetAvailableForPeriod('Vessel', 'VESSEL-001', '2027-11-01', '2028-11-01', [existing])).toBe(true);
     expect(isAssetAvailableForPeriod('Vessel', 'VESSEL-002', '2027-01-01', '2027-06-01', [existing])).toBe(true);
@@ -162,13 +198,13 @@ describe('contract period overlap', () => {
   });
 
   it('calculates a demo-friendly non-conflicting default contract period', () => {
-    const existing = makeSet({ id: 'AS-2027', charterWindowStart: '2026-11-01', charterWindowEnd: '2027-11-01' });
+    const existing = makeSet({ id: 'AS-2027', startDate: '2026-11-01', endDate: '2027-11-01' });
     const defaultDates = getDefaultNonConflictingContractPeriod([existing]);
     expect(defaultDates.start).toBe('2028-01-01');
     expect(defaultDates.end).toBe('2028-12-31');
 
     /* when sets already extend past 2027, advances past the latest end date */
-    const futureSet = makeSet({ id: 'AS-2028', charterWindowStart: '2028-01-01', charterWindowEnd: '2028-06-30' });
+    const futureSet = makeSet({ id: 'AS-2028', startDate: '2028-01-01', endDate: '2028-06-30' });
     const futureDefault = getDefaultNonConflictingContractPeriod([existing, futureSet]);
     expect(futureDefault.start).toBe('2028-07-01');
     expect(futureDefault.end).toBe('2029-07-01');

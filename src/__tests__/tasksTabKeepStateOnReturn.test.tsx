@@ -32,25 +32,29 @@ describe('Task 5380: Keep search, filters, sort and page on return to Tasks tab'
   const testSet: AssuranceSet = {
     id: testSetId,
     title: 'North Sea Drill Support Set',
-    vesselName: 'Pacific Supporter',
-    vesselId: 'VES-5380',
-    imoNumber: '9123456',
-    initiatorOrg: 'Chevron Australia Pty Ltd',
-    initiatorRole: 'Client Admin',
-    createdByUserId: 'USR-221',
-    createdByName: 'C. Henderson',
-    clientOrg: 'Chevron Australia Pty Ltd',
-    requestingParty: 'Chevron Australia Pty Ltd',
-    serviceProviderOrg: 'Northwind Marine Pty Ltd',
-    respondingParty: 'Northwind Marine Pty Ltd',
-    charterWindowStart: '2026-01-01',
-    charterWindowEnd: '2026-12-31',
-    complianceDeadline: '2026-11-30',
+    parties: [
+      { organization: 'Chevron Australia Pty Ltd', role: 'Requesting party' },
+      { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+    ],
+    assuranceObjects: [
+      {
+        id: 'VES-5380',
+        type: 'vessel',
+        name: 'Pacific Supporter',
+        identifier: '9123456',
+        ownerOrganization: 'Northwind Marine Pty Ltd',
+      },
+    ],
+    startDate: '2026-01-01',
+    endDate: '2026-12-31',
+    deadline: '2026-11-30',
+    dateHistory: [],
     stage: 'Verification',
     readinessScore: 50,
     requirements: testReqs,
     mandatoryInspectionRequired: false,
     inspectionCompleted: false,
+    createdBy: { userId: 'USR-221', name: 'C. Henderson', persona: 'C Admin' },
   };
 
   beforeEach(() => {

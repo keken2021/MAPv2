@@ -26,6 +26,16 @@ import { MOCK_PERSONA_SESSION_USER_IDS, MOCK_USERS } from "../store/mockData";
 import { documentClientOrganizations } from "./documentVersionSnapshot";
 import type { CapaItem } from "../types/capa";
 import { sameOrganization } from "./organizationMatch";
+import { getRequestingParty, getRespondingParty, getSetOrganizations, type SetPartiesInput } from "./setParties";
+import {
+  getSetCreatedBy,
+  getSetAssignedSubmitter,
+  getSetAssignedVerifier,
+  getSetAssignedInspector,
+  getSetAssignedApprover,
+  type SetStakeholdersInput,
+} from "./setStakeholders";
+import { getSetVessel, getSetVesselId, getSetVesselName, getSetImoNumber } from "./setObjects";
 
 export { sameOrganization };
 
@@ -93,32 +103,36 @@ function mappingNamesUser(mapping: RoleMapping, role: RoleKey, user: RbacSession
   return assigneeMatchesUser(label, user, organization);
 }
 
-/** Every stakeholder mapping on a set, top level first, then per subtype and per category. */
+/** Every stakeholder mapping on a set, top level first, then per subtype. */
 function setRoleMappings(set: AssuranceSet): RoleMapping[] {
-  const top = [set.stakeholders, set.assignedStakeholders];
-  const nested = [set.subtypeStakeholders, set.categoryStakeholders].flatMap((map) => Object.values(map ?? {}));
+  let topStakeholders = set.stakeholders as RoleMapping | undefined;
+  const assignedSubmitter = getSetAssignedSubmitter(set);
+  const assignedVerifier = getSetAssignedVerifier(set);
+  const assignedInspector = getSetAssignedInspector(set);
+  const assignedApprover = getSetAssignedApprover(set);
+  if (topStakeholders && assignedSubmitter && topStakeholders.submitterName && !assigneeMatchesUser(assignedSubmitter, { name: topStakeholders.submitterName })) {
+    topStakeholders = { ...topStakeholders, submitterName: undefined, assignedSubmitter: undefined };
+  }
+  if (topStakeholders && assignedVerifier && topStakeholders.verifierName && !assigneeMatchesUser(assignedVerifier, { name: topStakeholders.verifierName })) {
+    topStakeholders = { ...topStakeholders, verifierName: undefined };
+  }
+  if (topStakeholders && assignedInspector && topStakeholders.inspectorName && !assigneeMatchesUser(assignedInspector, { name: topStakeholders.inspectorName })) {
+    topStakeholders = { ...topStakeholders, inspectorName: undefined };
+  }
+  if (topStakeholders && assignedApprover && topStakeholders.approverName && !assigneeMatchesUser(assignedApprover, { name: topStakeholders.approverName })) {
+    topStakeholders = { ...topStakeholders, approverName: undefined };
+  }
+  const top = [topStakeholders];
+  const nested = [set.subtypeStakeholders].flatMap((map) => Object.values(map ?? {}));
   return [...top, ...nested].filter((mapping): mapping is RoleMapping => Boolean(mapping));
 }
 
 function isUserSubmitterOnSet(set: AssuranceSet, user?: RbacSessionUser | null): boolean {
   if (!user) return false;
-  if (assigneeMatchesUser(set.assignedSubmitter, user)) return true;
+  const setAssignedSubmitter = getSetAssignedSubmitter(set);
+  if (assigneeMatchesUser(setAssignedSubmitter, user)) return true;
   if (
-    user.organization &&
-    set.assignedSubmitter &&
-    !isPlaceholderAssignee(set.assignedSubmitter) &&
-    sameOrganization(set.assignedSubmitter, user.organization)
-  ) {
-    return true;
-  }
-  if (
-    setSubmitters(set).some(
-      (s) =>
-        assigneeMatchesUser(s.assignee, user, s.organization) ||
-        (Boolean(user.organization) &&
-          !isPlaceholderAssignee(s.assignee) &&
-          sameOrganization(s.assignee, user.organization)),
-    )
+    setSubmitters(set).some((s) => assigneeMatchesUser(s.assignee, user, s.organization))
   ) {
     return true;
   }
@@ -127,27 +141,13 @@ function isUserSubmitterOnSet(set: AssuranceSet, user?: RbacSessionUser | null):
   return (set.requirements ?? []).some(
     (req) =>
       (Boolean(req.submitterId) && Boolean(user.id) && req.submitterId === user.id) ||
-      assigneeMatchesUser(req.assignedSubmitter, user) ||
-      (Boolean(user.organization) && (
-        (Boolean(req.assignedSubmitter) &&
-          !isPlaceholderAssignee(req.assignedSubmitter!) &&
-          sameOrganization(req.assignedSubmitter, user.organization)) ||
-        (Boolean(req.responsibleParty) &&
-          !isPlaceholderAssignee(req.responsibleParty!) &&
-          sameOrganization(req.responsibleParty, user.organization)) ||
-        Boolean(
-          req.responsibleParties?.some(
-            (party) =>
-              !isPlaceholderAssignee(party) && sameOrganization(party, user.organization),
-          ),
-        )
-      )),
+      assigneeMatchesUser(req.assignedSubmitter, user),
   );
 }
 
 function isUserVerifierOnSet(set: AssuranceSet, user?: RbacSessionUser | null): boolean {
   if (!user) return false;
-  if (assigneeMatchesUser(set.assignedVerifier, user)) return true;
+  if (assigneeMatchesUser(getSetAssignedVerifier(set), user)) return true;
   if (setRoleMappings(set).some((mapping) => mappingNamesUser(mapping, "verifier", user))) return true;
   return (set.requirements ?? []).some(
     (req) =>
@@ -158,35 +158,37 @@ function isUserVerifierOnSet(set: AssuranceSet, user?: RbacSessionUser | null): 
 
 function isUserInspectorOnSet(set: AssuranceSet, user?: RbacSessionUser | null): boolean {
   if (!user) return false;
-  if (assigneeMatchesUser(set.assignedInspector, user)) return true;
-  return [set.stakeholders, set.assignedStakeholders].some(
+  if (assigneeMatchesUser(getSetAssignedInspector(set), user)) return true;
+  return [set.stakeholders].some(
     (mapping) => Boolean(mapping) && mappingNamesUser(mapping as RoleMapping, "inspector", user),
   );
 }
 
 function isUserApproverOnSet(set: AssuranceSet, user?: RbacSessionUser | null): boolean {
   if (!user) return false;
-  if (assigneeMatchesUser(set.assignedApprover, user)) return true;
-  return [set.stakeholders, set.assignedStakeholders].some(
+  if (assigneeMatchesUser(getSetAssignedApprover(set), user)) return true;
+  return [set.stakeholders].some(
     (mapping) => Boolean(mapping) && mappingNamesUser(mapping as RoleMapping, "approver", user),
   );
 }
 
 export function isUserAssuranceSetCreator(
-  set: Pick<AssuranceSet, "createdByUserId" | "createdByName" | "createdByPersona" | "initiatorRole" | "initiatorOrg">,
+  set: SetStakeholdersInput & SetPartiesInput,
   user?: RbacSessionUser | null,
   users: (Pick<UserProfile, "name" | "roles" | "organization"> & { id?: string; status?: UserProfile["status"] })[] = MOCK_USERS,
 ): boolean {
   if (!user || (!user.id && !user.name?.trim())) return false;
-  if (set.createdByUserId) {
-    return Boolean(user.id && set.createdByUserId === user.id);
+  const createdBy = getSetCreatedBy(set);
+  if (createdBy.userId) {
+    return Boolean(user.id && createdBy.userId === user.id);
   }
-  if (set.createdByName) {
+  if (createdBy.name) {
+    const org = getRequestingParty(set);
     const orgMatches =
-      !set.initiatorOrg ||
+      !org ||
       !user.organization ||
-      orgFieldMatches(set.initiatorOrg, user.organization);
-    return orgMatches && assigneeMatchesUser(set.createdByName, user);
+      orgFieldMatches(org, user.organization);
+    return orgMatches && assigneeMatchesUser(createdBy.name, user);
   }
   const resolvedCreator = getAssuranceSetCreator(set, users);
   if (!resolvedCreator.name) return false;
@@ -297,11 +299,13 @@ export function canSessionUserAccessCapa(
     return persona !== "Inspector" || Boolean(exactSet.mandatoryInspectionRequired);
   }
   return assuranceSets.some((s) => {
+    const setVesselId = getSetVesselId(s);
+    const setVesselName = getSetVesselName(s);
     const matchesVessel =
-      (Boolean(capa.vesselId) && s.vesselId === capa.vesselId) ||
+      (Boolean(capa.vesselId) && setVesselId === capa.vesselId) ||
       (Boolean(capa.vesselName) &&
-        Boolean(s.vesselName) &&
-        s.vesselName!.trim().toLowerCase() === capa.vesselName!.trim().toLowerCase());
+        Boolean(setVesselName) &&
+        setVesselName.trim().toLowerCase() === capa.vesselName.trim().toLowerCase());
     if (!matchesVessel) return false;
     if (!isAssuranceSetAssignedToPersona(s, persona, organization, user, users)) {
       return false;
@@ -332,46 +336,50 @@ export function isUserStakeholderOnSet(
     if (user && setSubmitters(set).some((submitter) => assigneeMatchesUser(submitter.assignee, user))) {
       return true;
     }
+    const setAssignedSubmitter = getSetAssignedSubmitter(set);
     if (organization) {
       return pilotPartyMatches(
         organization,
-        set.assignedSubmitter,
-        set.serviceProviderOrg,
+        setAssignedSubmitter,
+        getRespondingParty(set),
         set.stakeholders?.submitterOrg,
         ...setSubmitters(set).map((submitter) => submitter.organization),
       );
     }
-    return Boolean(set.assignedSubmitter);
+    return Boolean(setAssignedSubmitter);
   }
 
   if (persona === "Verifier") {
+    const setAssignedVerifier = getSetAssignedVerifier(set);
     if (user) {
-      return assigneeMatchesUser(set.assignedVerifier, user);
+      return assigneeMatchesUser(setAssignedVerifier, user);
     }
     if (organization) {
-      return pilotPartyMatches(organization, set.assignedVerifier, set.stakeholders?.verifierOrg);
+      return pilotPartyMatches(organization, setAssignedVerifier, set.stakeholders?.verifierOrg);
     }
-    return Boolean(set.assignedVerifier);
+    return Boolean(setAssignedVerifier);
   }
 
   if (persona === "Inspector") {
+    const setAssignedInspector = getSetAssignedInspector(set);
     if (user) {
-      return assigneeMatchesUser(set.assignedInspector, user);
+      return assigneeMatchesUser(setAssignedInspector, user);
     }
     if (organization) {
-      return pilotPartyMatches(organization, set.assignedInspector, set.stakeholders?.inspectorOrg);
+      return pilotPartyMatches(organization, setAssignedInspector, set.stakeholders?.inspectorOrg);
     }
-    return Boolean(set.assignedInspector);
+    return Boolean(setAssignedInspector);
   }
 
   if (persona === "Approver") {
+    const setAssignedApprover = getSetAssignedApprover(set);
     if (user) {
-      return assigneeMatchesUser(set.assignedApprover, user);
+      return assigneeMatchesUser(setAssignedApprover, user);
     }
     if (organization) {
-      return pilotPartyMatches(organization, set.assignedApprover, set.stakeholders?.approverOrg);
+      return pilotPartyMatches(organization, setAssignedApprover, set.stakeholders?.approverOrg);
     }
-    return Boolean(set.assignedApprover);
+    return Boolean(setAssignedApprover);
   }
 
   return false;
@@ -416,7 +424,7 @@ export function getAssuranceSetWorkflowTab(
       const isAssigned =
         (Boolean(r.verifierId) && Boolean(user?.id) && r.verifierId === user?.id) ||
         assigneeMatchesUser(r.assignedVerifier, user) ||
-        assigneeMatchesUser(set.assignedVerifier, user);
+        assigneeMatchesUser(getSetAssignedVerifier(set), user);
       if (!isAssigned) return false;
       return (
         r.isFulfilled &&
@@ -436,7 +444,7 @@ export function getAssuranceSetWorkflowTab(
       const isAssigned =
         (Boolean(r.submitterId) && Boolean(user?.id) && r.submitterId === user?.id) ||
         assigneeMatchesUser(r.assignedSubmitter, user) ||
-        assigneeMatchesUser(set.assignedSubmitter, user);
+        assigneeMatchesUser(getSetAssignedSubmitter(set), user);
       if (!isAssigned) return false;
       return !r.isFulfilled || r.verifierStatus === 'Correction Requested' || r.verifierStatus === 'Rejected';
     });
@@ -537,8 +545,11 @@ export function isAssuranceSetsReadOnlyPersona(persona: UserRolePersona): boolea
   with what file: src/utils/rbacHelpers.ts used by getAssuranceSetRoleActions here and DocumentReviewDrawer.tsx.
 */
 export function isAssuranceSetCreatedByCAdmin(
-  set: Pick<AssuranceSet, "createdByPersona" | "initiatorRole">,
+  set: SetStakeholdersInput,
 ): boolean {
+  const createdBy = getSetCreatedBy(set);
+  if (createdBy.persona === "C Admin") return true;
+  if (createdBy.persona === "Administrator") return false;
   if (set.createdByPersona === "C Admin") return true;
   if (set.createdByPersona === "Administrator") return false;
   return (
@@ -568,9 +579,10 @@ export function getAssuranceSetRoleActions(
   const canUpload = (persona === "Administrator" || persona === "Submitter") && isAssigned;
 
   /* the client admin verifies the documents the provider uploads on a set the client admin created */
+  const requestingParty = getRequestingParty(set);
   const isClientOrg =
     !organization ||
-    pilotPartyMatches(organization, set.clientOrg, set.charterer, set.initiatorOrg);
+    (Boolean(requestingParty) && orgFieldMatches(organization, requestingParty!));
 
   const isClientVerifier =
     persona === "C Admin" &&
@@ -607,7 +619,7 @@ export function getAssuranceSetRoleActions(
 */
 export function isClientUser(
   user: Pick<UserProfile, "id" | "name" | "organization" | "roles"> | undefined,
-  set?: Pick<AssuranceSet, "clientOrg" | "charterer" | "initiatorOrg" | "serviceProviderOrg">,
+  set?: SetPartiesInput & Pick<AssuranceSet, "parties">,
   persona?: UserRolePersona,
 ): boolean {
   if (persona === "C Admin") return true;
@@ -616,15 +628,13 @@ export function isClientUser(
 
   /* vendor roles or service provider organizations are never client users */
   if (persona === "Administrator" || persona === "Submitter") return false;
-  if (set?.serviceProviderOrg && orgFieldMatches(user.organization, set.serviceProviderOrg)) {
+  const providerOrg = set ? getRespondingParty(set) : undefined;
+  if (providerOrg && orgFieldMatches(user.organization, providerOrg)) {
     return false;
   }
 
-  const clientOrg = set?.clientOrg || set?.charterer;
+  const clientOrg = set ? getRequestingParty(set) : undefined;
   if (clientOrg && orgFieldMatches(user.organization, clientOrg)) {
-    return true;
-  }
-  if (set?.initiatorOrg && orgFieldMatches(user.organization, set.initiatorOrg)) {
     return true;
   }
   return false;
@@ -716,13 +726,21 @@ export function isDocumentVisibleToOrganization(
   const owners = documentClientOrganizations(documentId, sets);
   if (owners.length === 0 || !viewerOrganization.trim()) return true;
   if (owners.some((owner) => orgFieldMatches(viewerOrganization, owner))) return true;
-  const viewerIsClient = sets.some((set) => orgFieldMatches(viewerOrganization, set.clientOrg || set.charterer || ''));
+  const viewerIsClient = sets.some((set) => {
+    const client = getRequestingParty(set);
+    return Boolean(client) && orgFieldMatches(viewerOrganization, client!);
+  });
   if (!viewerIsClient) return true;
-  const viewerIsProvider = sets.some(
-    (set) =>
-      owners.some((owner) => orgFieldMatches(owner, set.clientOrg || set.charterer || '')) &&
-      orgFieldMatches(viewerOrganization, set.serviceProviderOrg || ''),
-  );
+  const viewerIsProvider = sets.some((set) => {
+    const client = getRequestingParty(set);
+    const provider = getRespondingParty(set);
+    return (
+      Boolean(client) &&
+      owners.some((owner) => orgFieldMatches(owner, client!)) &&
+      Boolean(provider) &&
+      orgFieldMatches(viewerOrganization, provider!)
+    );
+  });
   return viewerIsProvider;
 }
 
@@ -790,14 +808,15 @@ export function canEditAssuranceSetStakeholders(
   }
   if (user && persona === 'Administrator' && 'requirements' in assuranceSet) {
     const s = assuranceSet as AssuranceSet;
+    const creator = getSetCreatedBy(s);
     const isCreator = Boolean(
-      (s.createdByUserId && user.id && s.createdByUserId === user.id) ||
-      (s.createdByName && user.name && assigneeMatchesUser(s.createdByName, user))
+      (creator.userId && user.id && creator.userId === user.id) ||
+      (creator.name && user.name && assigneeMatchesUser(creator.name, user))
     );
     const isSubmitter = setSubmitters(s).some((submitter) => assigneeMatchesUser(submitter.assignee, user));
     if (!isCreator && !isSubmitter) return false;
   }
-  if (organization && ('requirements' in assuranceSet || 'initiatorOrg' in assuranceSet || 'vesselId' in assuranceSet)) {
+  if (organization && ('requirements' in assuranceSet || 'parties' in assuranceSet || 'assuranceObjects' in assuranceSet)) {
     return isAssuranceSetAssignedToPersona(assuranceSet as AssuranceSet, persona, organization, user);
   }
   return true;
@@ -904,15 +923,17 @@ export function isVesselCharteredByCAdmin(
 ): boolean {
   /* no C Admin identity is known here, so this keeps the broad organization check isAssuranceSetAssignedToPersona
      used before it started requiring one (ADR 0037's strict match applies once an identity is in hand) */
-  const isLegacyCAdminSet = (set: AssuranceSet): boolean =>
-    set.initiatorRole === 'C Admin · Client Created' ||
-    set.initiatorOrg === 'Chevron Australia Pty Ltd' ||
-    set.charterer === 'Chevron Australia Pty Ltd' ||
-    set.charterer === 'Southern Basin Energy Pty Ltd' ||
-    set.initiatorOrg === 'Southern Basin Energy Pty Ltd';
+  const isLegacyCAdminSet = (set: AssuranceSet): boolean => {
+    const req = getRequestingParty(set);
+    return (
+      getSetCreatedBy(set).persona === 'C Admin' ||
+      req === 'Chevron Australia Pty Ltd' ||
+      req === 'Southern Basin Energy Pty Ltd'
+    );
+  };
   return (
     vessel.status === 'Under Charter' ||
-    assuranceSets.some((set) => set.vesselId === vessel.id && isLegacyCAdminSet(set))
+    assuranceSets.some((set) => getSetVesselId(set) === vessel.id && isLegacyCAdminSet(set))
   );
 }
 
@@ -1049,10 +1070,10 @@ export function filterVesselsForPersona(
   );
 
   const assignedSetVesselIds = new Set(
-    assignedSets.map((set) => set.vesselId).filter(Boolean),
+    assignedSets.map((set) => getSetVesselId(set)).filter(Boolean),
   );
   const assignedSetVesselNames = new Set(
-    assignedSets.map((set) => set.vesselName?.toLowerCase().trim()).filter(Boolean),
+    assignedSets.map((set) => getSetVesselName(set)?.toLowerCase().trim()).filter(Boolean),
   );
 
   return vessels.filter(
@@ -1561,25 +1582,37 @@ export function matchesVesselSearch(
   }
 
   // 3. Linked Assurance Sets & Requirements
-  const linkedSets = assuranceSets.filter(
-    (s) =>
-      s.vesselId === vessel.id ||
-      (vessel.name && s.vesselName?.toLowerCase() === vessel.name.toLowerCase()) ||
-      (vessel.imoNumber && s.imoNumber === vessel.imoNumber)
-  );
+  const linkedSets = assuranceSets.filter((s) => {
+    const v = getSetVessel(s);
+    if (!v) return false;
+    const imo = getSetImoNumber(s);
+    return (
+      v.id === vessel.id ||
+      (vessel.name && v.name.toLowerCase() === vessel.name.toLowerCase()) ||
+      Boolean(vessel.imoNumber && imo === vessel.imoNumber)
+    );
+  });
 
   const matchesAssuranceSets = linkedSets.some((s) => {
+    const req = getRequestingParty(s)?.toLowerCase() || '';
+    const resp = getRespondingParty(s)?.toLowerCase() || '';
+    const sub = getSetAssignedSubmitter(s)?.toLowerCase() || '';
+    const ver = getSetAssignedVerifier(s)?.toLowerCase() || '';
+    const ins = getSetAssignedInspector(s)?.toLowerCase() || '';
+    const app = getSetAssignedApprover(s)?.toLowerCase() || '';
+    const creator = getSetCreatedBy(s).name?.toLowerCase() || '';
+
     if (
       s.id?.toLowerCase().includes(term) ||
       s.title?.toLowerCase().includes(term) ||
-      s.charterer?.toLowerCase().includes(term) ||
+      req.includes(term) ||
+      resp.includes(term) ||
       s.stage?.toLowerCase().includes(term) ||
-      s.initiatorOrg?.toLowerCase().includes(term) ||
-      s.initiatorRole?.toLowerCase().includes(term) ||
-      s.assignedSubmitter?.toLowerCase().includes(term) ||
-      s.assignedVerifier?.toLowerCase().includes(term) ||
-      s.assignedInspector?.toLowerCase().includes(term) ||
-      s.assignedApprover?.toLowerCase().includes(term) ||
+      creator.includes(term) ||
+      sub.includes(term) ||
+      ver.includes(term) ||
+      ins.includes(term) ||
+      app.includes(term) ||
       s.approverNotes?.toLowerCase().includes(term)
     ) {
       return true;
@@ -1666,12 +1699,13 @@ export function matchesVesselSearch(
  * organization (ADR 0037). Without an organization, only a person with one membership is found.
  */
 export function findAssuranceSetCreatorUser(
-  set: Pick<AssuranceSet, 'createdByUserId' | 'createdByName' | 'createdByPersona' | 'initiatorRole' | 'initiatorOrg'>,
+  set: SetStakeholdersInput & SetPartiesInput,
   users: UserProfile[],
 ): UserProfile | undefined {
   const active = users.filter((u) => u.status === 'Active');
-  if (set.createdByUserId) {
-    const byId = active.find((u) => u.id === set.createdByUserId);
+  const createdBy = getSetCreatedBy(set);
+  if (createdBy.userId) {
+    const byId = active.find((u) => u.id === createdBy.userId);
     if (byId) return byId;
   }
   const creator = getAssuranceSetCreator(set, users);
@@ -1690,15 +1724,16 @@ export function findAssuranceSetCreatorUser(
   with what file: src/utils/rbacHelpers.ts used by AssuranceTable.tsx and AssuranceDetailView.tsx.
 */
 export function getAssuranceSetCreator(
-  set: Pick<AssuranceSet, 'createdByName' | 'createdByPersona' | 'initiatorRole' | 'initiatorOrg'>,
+  set: SetStakeholdersInput & SetPartiesInput,
   users: (Pick<UserProfile, 'name' | 'roles' | 'organization'> & { status?: UserProfile['status'] })[],
 ): { name?: string; organization: string } {
-  const organization = set.initiatorOrg || '';
-  if (set.createdByName) return { name: set.createdByName, organization };
+  const organization = getRequestingParty(set) || '';
+  const createdBy = getSetCreatedBy(set);
+  if (createdBy.name) return { name: createdBy.name, organization };
 
   const role: UserRolePersona | undefined =
-    set.createdByPersona === 'Administrator' || set.createdByPersona === 'C Admin'
-      ? set.createdByPersona
+    createdBy.persona === 'Administrator' || createdBy.persona === 'C Admin'
+      ? (createdBy.persona as UserRolePersona)
       : set.initiatorRole === 'C Admin · Client Created' || set.initiatorRole === 'Client Admin'
         ? 'C Admin'
         : set.initiatorRole === 'Vessel Provider Admin' ||
@@ -1727,7 +1762,7 @@ export function getAssuranceSetCreator(
   with what file: src/utils/rbacHelpers.ts used by AssuranceTable.tsx.
 */
 export function getAssuranceSetCreatedByLabel(
-  set: Pick<AssuranceSet, 'createdByName' | 'createdByPersona' | 'initiatorRole' | 'initiatorOrg'>,
+  set: SetStakeholdersInput & SetPartiesInput,
   users: Pick<UserProfile, 'name' | 'roles' | 'organization'>[],
   persona: UserRolePersona,
   viewerOrganization?: string,
@@ -1746,14 +1781,14 @@ export function getAssuranceSetCreatedByLabel(
   with what file: src/utils/rbacHelpers.ts used by AssuranceTable.tsx for the organization tab.
 */
 export function isAssuranceSetOwnedOrInitiatedByOrganization(
-  set: Pick<AssuranceSet, 'initiatorOrg' | 'clientOrg' | 'charterer'>,
+  set: SetPartiesInput & { parties?: { organization: string; role?: string }[] },
   organization: string | undefined,
 ): boolean {
   if (!organization || !organization.trim()) return false;
-  const ownerOrg = set.clientOrg || set.charterer;
-  return [set.initiatorOrg, ownerOrg].some(
-    (field) => Boolean(field) && orgFieldMatches(organization, field as string),
-  );
+  const clientOrg = getRequestingParty(set);
+  if (clientOrg && orgFieldMatches(organization, clientOrg)) return true;
+  const orgs = getSetOrganizations(set);
+  return orgs.some((org) => orgFieldMatches(organization, org));
 }
 
 /**
@@ -1771,9 +1806,9 @@ export function filterVesselAdminChartered(
     (vessel) =>
       !isVesselOwnedByAdmin(vessel) &&
       assuranceSets.some((set) => {
-        const client = set.clientOrg || set.charterer;
+        const client = getRequestingParty(set);
         return (
-          set.vesselId === vessel.id &&
+          getSetVesselId(set) === vessel.id &&
           (!set.assuranceType || set.assuranceType === 'Vessel') &&
           Boolean(client) &&
           orgFieldMatches(organization, client as string)
@@ -1807,12 +1842,9 @@ export function isProjectOwnerWithoutSubSetGroup(
 
   // 2. Check set client, provider, initiator, charterer, requesting party, responding party
   const setDirectOrgs = [
-    set.clientOrg,
-    set.charterer,
-    set.initiatorOrg,
-    set.serviceProviderOrg,
-    set.requestingParty,
-    set.respondingParty,
+    getRequestingParty(set),
+    getRespondingParty(set),
+    ...getSetOrganizations(set),
   ];
   if (setDirectOrgs.some(matchesViewer)) return false;
 
@@ -1821,7 +1853,7 @@ export function isProjectOwnerWithoutSubSetGroup(
   if (setObjects.some((obj) => matchesViewer(obj.ownerOrganization))) return false;
 
   // 4. Check stakeholders mappings
-  const stakeholdersList = [set.stakeholders, set.assignedStakeholders];
+  const stakeholdersList = [set.stakeholders];
   const hasStakeholderOrg = stakeholdersList.some((s) =>
     Boolean(
       matchesViewer(s?.submitterOrg) ||
@@ -1839,10 +1871,10 @@ export function isProjectOwnerWithoutSubSetGroup(
   // 6. Check user assignments if user is passed
   if (user?.name) {
     const isNamed = [
-      set.assignedSubmitter,
-      set.assignedVerifier,
-      set.assignedInspector,
-      set.assignedApprover,
+      getSetAssignedSubmitter(set),
+      getSetAssignedVerifier(set),
+      getSetAssignedInspector(set),
+      getSetAssignedApprover(set),
     ].some((assigned) => assigneeMatchesUser(assigned, user));
     if (isNamed) return false;
   }

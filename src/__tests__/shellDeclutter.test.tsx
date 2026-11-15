@@ -52,12 +52,11 @@ describe('Shell header and sidebar declutter suite', () => {
   it('displays real dynamic count on Verification Queue badge when > 0 and hides when 0', () => {
     const testSet: AssuranceSet = {
       ...MOCK_ASSURANCE_SETS[0],
-      serviceProviderOrg: 'Northwind Marine Pty Ltd',
-      initiatorOrg: 'Chevron Australia Pty Ltd',
-      clientOrg: 'Chevron Australia Pty Ltd',
-      createdByUserId: 'USR-221',
-      createdByName: 'C. Henderson',
-      createdByPersona: 'C Admin',
+      parties: [
+        { organization: 'Chevron Australia Pty Ltd', role: 'Requesting party' },
+        { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      ],
+      createdBy: { userId: 'USR-221', name: 'C. Henderson', persona: 'C Admin' },
       requirements: [
         {
           id: 'REQ-VQ-1',
@@ -120,7 +119,7 @@ describe('Shell header and sidebar declutter suite', () => {
     const fontaineSet: AssuranceSet = {
       ...MOCK_ASSURANCE_SETS[0],
       id: 'AS-FONTAINE',
-      assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
+      stakeholders: { verifierName: 'A. Fontaine', verifierOrg: 'Bureau Veritas Inspectorate' },
       requirements: [
         {
           id: 'REQ-F',
@@ -137,7 +136,7 @@ describe('Shell header and sidebar declutter suite', () => {
     const otherSet: AssuranceSet = {
       ...MOCK_ASSURANCE_SETS[0],
       id: 'AS-OTHER',
-      assignedVerifier: 'M. Chen (Bureau Veritas Inspectorate)',
+      stakeholders: { verifierName: 'M. Chen', verifierOrg: 'Bureau Veritas Inspectorate' },
       requirements: [
         {
           id: 'REQ-O',

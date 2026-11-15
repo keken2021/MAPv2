@@ -5,6 +5,7 @@ import { InspectorWorkspaceView } from '../views/InspectorWorkspaceView';
 import { MOCK_ASSURANCE_SETS, MOCK_DOCUMENTS, MOCK_VESSELS } from '../store/mockData';
 import { PROJECT_SEED_ASSURANCE_SETS } from '../store/projectMockData';
 import { isAssuranceSetAssignedToPersona } from '../utils/rbacHelpers';
+import { getSetAssignedInspector } from '../utils/setStakeholders';
 
 describe('session workspace queues', () => {
   it('shows Bureau Veritas inspector N. Technical named sets instead of every inspector set', () => {
@@ -28,7 +29,7 @@ describe('session workspace queues', () => {
           organization: 'Bureau Veritas Inspectorate',
           roles: ['Inspector'],
         }) &&
-        Boolean(set.assignedInspector?.includes('N. Technical')),
+        Boolean(getSetAssignedInspector(set)?.includes('N. Technical')),
     );
     expect(withoutUser.length).toBe(0);
     expect(coworker.length).toBe(0);

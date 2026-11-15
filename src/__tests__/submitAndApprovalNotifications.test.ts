@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { useMapStore } from '../store/useMapStore';
 import { filterNotificationsForUser, resolveNotificationRecipient } from '../utils/notificationHelpers';
 import { isClosedAssuranceSet } from '../utils/documentVersionSnapshot';
+import { getSetAssignedApprover, getSetAssignedVerifier } from '../utils/setStakeholders';
 import type { AssuranceSet } from '../types/assurance';
 
 const initialState = useMapStore.getState();
@@ -20,8 +21,8 @@ function staffedOpenSet(): AssuranceSet {
     (s) =>
       !isClosedAssuranceSet(s) &&
       s.requirements.length > 1 &&
-      resolveNotificationRecipient(s.assignedVerifier, users) &&
-      resolveNotificationRecipient(s.assignedApprover, users),
+      resolveNotificationRecipient(getSetAssignedVerifier(s), users) &&
+      resolveNotificationRecipient(getSetAssignedApprover(s), users),
   )!;
 }
 
@@ -37,7 +38,7 @@ describe('submit and approval notifications', () => {
 
   it('tells the verifier as soon as a document is submitted on a requirement', () => {
     const set = staffedOpenSet();
-    const verifier = resolveNotificationRecipient(set.assignedVerifier, useMapStore.getState().users)!;
+    const verifier = resolveNotificationRecipient(getSetAssignedVerifier(set), useMapStore.getState().users)!;
     const doc = {
       ...useMapStore.getState().documents[0],
       id: 'MAP-VES-2026-STAT-SUBMIT1',
@@ -53,7 +54,7 @@ describe('submit and approval notifications', () => {
 
   it('tells the verifier when a new version is submitted for one requirement', () => {
     const set = staffedOpenSet();
-    const verifier = resolveNotificationRecipient(set.assignedVerifier, useMapStore.getState().users)!;
+    const verifier = resolveNotificationRecipient(getSetAssignedVerifier(set), useMapStore.getState().users)!;
     const docId = set.requirements[0].documentId!;
 
     useMapStore.getState().addDocumentVersion(docId, 'v7.0', 'renewed.pdf', 1024, 'Renewed.', undefined, {
@@ -65,7 +66,7 @@ describe('submit and approval notifications', () => {
   });
 
   it('sends nothing when the set has no verifier', () => {
-    const set = { ...staffedOpenSet(), assignedVerifier: undefined } as unknown as AssuranceSet;
+    const set = { ...staffedOpenSet(), assignedVerifier: undefined, stakeholders: null } as unknown as AssuranceSet;
     useMapStore.setState({
       assuranceSets: useMapStore.getState().assuranceSets.map((s) => (s.id === set.id ? set : s)),
     });
@@ -96,14 +97,14 @@ describe('submit and approval notifications', () => {
         { ...second, isMandatory: true, documentId: docs[1].id, verifierStatus: 'Pending', isFulfilled: false },
       ],
     };
-    const verifier = resolveNotificationRecipient(set.assignedVerifier, useMapStore.getState().users)!;
+    const verifier = resolveNotificationRecipient(getSetAssignedVerifier(set), useMapStore.getState().users)!;
     useMapStore.setState({
       activePersona: 'Verifier',
       activeDemoOrganization: verifier.organization,
       activeSessionUserId: verifier.id,
       assuranceSets: useMapStore.getState().assuranceSets.map((s) => (s.id === set.id ? set : s)),
     });
-    const approver = resolveNotificationRecipient(set.assignedApprover, useMapStore.getState().users)!;
+    const approver = resolveNotificationRecipient(getSetAssignedApprover(set), useMapStore.getState().users)!;
     const approvalNotices = () =>
       inboxOf(approver.id).filter((n) => n.type === 'approval_requested' && n.assuranceSetId === set.id).length;
     const before = approvalNotices();

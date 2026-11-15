@@ -42,7 +42,7 @@ function makeDocument(overrides: Partial<MasterDocument>): MasterDocument {
 }
 
 function makeSet(overrides: Partial<AssuranceSet>): AssuranceSet {
-  return { ...baseSet, charterWindowEnd: '2027-01-31', ...overrides };
+  return { ...baseSet, endDate: '2027-01-31', ...overrides };
 }
 
 describe('document renewal: reason', () => {
@@ -206,7 +206,11 @@ describe('document renewal: renewals due', () => {
 
 describe('document renewal: wording and recipient', () => {
   const document = makeDocument({ title: 'IOPP Certificate', certificateNo: 'DNV-IOPP-77', expiryDate: '2026-11-22' });
-  const vesselSet = makeSet({ assuranceType: 'Vessel', subtypes: ['Vessel'], vesselName: 'MV Pacific Endeavour' });
+  const vesselSet = makeSet({
+    assuranceType: 'Vessel',
+    subtypes: ['Vessel'],
+    assuranceObjects: [{ id: 'V-1', type: 'vessel', name: 'MV Pacific Endeavour', ownerOrganization: 'Northwind Marine Pty Ltd' }],
+  });
 
   it('names the reason, its date and the asset in the subject', () => {
     expect(getRenewalSubject('expired', { ...document, expiryDate: '2026-09-30' }, vesselSet, TODAY)).toBe(
@@ -225,13 +229,16 @@ describe('document renewal: wording and recipient', () => {
 
   it('names the provider by the asset type the set covers', () => {
     expect(getRenewalMessage('expired', document, vesselSet)).toContain('as the Vessel Provider of MV Pacific Endeavour');
-    const crewSet = makeSet({ assuranceType: 'Crew', subtypes: ['Crew'], crewId: 'CREW-001', crewName: 'Capt. James Stirling' });
+    const crewSet = makeSet({
+      assuranceType: 'Crew',
+      subtypes: ['Crew'],
+      assuranceObjects: [{ id: 'CREW-001', type: 'crew', name: 'Capt. James Stirling', ownerOrganization: 'Northwind Marine Pty Ltd' }],
+    });
     expect(getRenewalMessage('expired', document, crewSet)).toContain('as the Crew Provider of Capt. James Stirling');
     const equipmentSet = makeSet({
       assuranceType: 'Equipment',
       subtypes: ['Equipment'],
-      equipmentId: 'EQP-003',
-      equipmentName: 'Free-Fall Lifeboat #1',
+      assuranceObjects: [{ id: 'EQP-003', type: 'equipment', name: 'Free-Fall Lifeboat #1', ownerOrganization: 'Northwind Marine Pty Ltd' }],
     });
     expect(getRenewalMessage('expired', document, equipmentSet)).toContain('as the Equipment Provider of Free-Fall Lifeboat #1');
   });
@@ -427,13 +434,12 @@ describe('store: document renewal notifications', () => {
       ...source,
       id: 'AS-DOCR-TEST-002',
       visibility: 'organization',
-      initiatorOrg: 'Northwind Marine Pty Ltd',
-      initiatorRole: 'Vessel Provider Admin',
-      serviceProviderOrg: 'Northwind Marine Pty Ltd',
-      assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
-      createdByPersona: 'Administrator',
-      createdByUserId: 'USR-101',
-      createdByName: 'K. Osei',
+      parties: [
+        { organization: 'Northwind Marine Pty Ltd', role: 'Requesting party' },
+        { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      ],
+      submitters: [{ organization: 'Northwind Marine Pty Ltd', assignee: 'M. Chen (Northwind Marine Pty Ltd)' }],
+      createdBy: { userId: 'USR-101', name: 'K. Osei', persona: 'Administrator' },
       requirements: [{ ...source.requirements[0], id: 'req-expired', documentId: expiredDoc.id, assignedSubmitter: undefined }],
     };
     useMapStore.setState({
@@ -471,8 +477,8 @@ describe('store: document renewal notifications', () => {
     const orphan: AssuranceSet = {
       ...source,
       id: 'AS-DOCR-TEST-001',
-      assignedSubmitter: 'Pending Admin Assignment',
-      createdByName: 'K. Osei',
+      submitters: [{ organization: 'Northwind Marine Pty Ltd', assignee: 'Pending Admin Assignment' }],
+      createdBy: { userId: 'USR-101', name: 'K. Osei', persona: 'Administrator' },
       requirements: source.requirements.map((r) => ({ ...r, assignedSubmitter: undefined })),
     };
     useMapStore.setState({ assuranceSets: [...state.assuranceSets, orphan] });

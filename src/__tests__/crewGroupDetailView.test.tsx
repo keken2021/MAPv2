@@ -109,11 +109,11 @@ describe('CrewGroupDetailView - Two Tabs & Master Roster Management (Task 5340)'
         {
           ...initialState.assuranceSets[0],
           id: 'AS-CG-RO-TEST',
-          createdByUserId: 'USR-221',
-          createdByName: 'C. Henderson',
-          createdByPersona: 'C Admin',
-          initiatorOrg: 'Chevron Australia Pty Ltd',
-          clientOrg: 'Chevron Australia Pty Ltd',
+          createdBy: { userId: 'USR-221', name: 'C. Henderson', persona: 'C Admin' },
+          parties: [
+            { organization: 'Chevron Australia Pty Ltd', role: 'Requesting party' },
+            { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+          ],
           crewGroups: [
             {
               groupId: 'CG-001',

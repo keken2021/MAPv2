@@ -4,12 +4,13 @@
   role in system: consumed by CreateAssuranceSetView, useMapStore (addAssuranceSet), and project composition services.
 */
 
-import { AssuranceRequirement, AssuranceSet, AssuranceSubtype } from '../types/assurance';
+import { AssuranceRequirement, AssuranceSubtype } from '../types/assurance';
 import { MasterDocument } from '../types/document';
 import { VesselInformation, StatutoryCertificateSummary } from '../types/vessel';
 import { CrewMember, STCWDocumentItem } from '../types/crew';
 import { EquipmentAsset } from '../types/equipment';
 import { isReusableLibraryDocument } from './documentOwnershipHelpers';
+import { SetPartiesInput } from './setParties';
 
 export interface AssetMatchingContext {
   documents: MasterDocument[];
@@ -24,10 +25,7 @@ export interface AssetMatchingContext {
   selectedVesselId?: string;
   targetSubtype?: AssuranceSubtype;
   /** when set, vault library reuse follows A16 (Vendor-owned evidence only) */
-  reuseSet?: Pick<
-    AssuranceSet,
-    'clientOrg' | 'charterer' | 'serviceProviderOrg' | 'respondingParty' | 'parties'
-  >;
+  reuseSet?: SetPartiesInput;
 }
 
 export interface MatchedDocumentResult {

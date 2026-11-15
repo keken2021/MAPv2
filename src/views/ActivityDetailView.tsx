@@ -18,6 +18,8 @@ import { setsUsingObject } from './AssuranceObjectsView';
 import { setsForObjectDrawer, verificationsForViewer } from '../components/drawers/AssuranceObjectDrawer';
 import { isMarketplacePersona, orgFieldMatches } from '../utils/rbacHelpers';
 import { useSessionUser } from '../utils/useSessionUser';
+import { getRequestingParty } from '../utils/setParties';
+import { getSetEndDate } from '../utils/setDates';
 import { Eye } from 'lucide-react';
 
 export type ActivityDetailTab = 'overview' | 'documents' | 'assurance' | 'audit';
@@ -145,8 +147,8 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({ activity
                 id: docId,
                 title: req.title,
                 certificateNo: docId,
-                issuingAuthority: req.responsibleParty || set.clientOrg || 'Issuing Authority',
-                expiryDate: set.charterWindowEnd || '',
+                issuingAuthority: req.responsibleParty || getRequestingParty(set) || 'Issuing Authority',
+                expiryDate: getSetEndDate(set) || '',
                 verificationStatus: req.verifierStatus === 'Verified' ? 'Internally verified' : 'Uploaded',
                 documentType: 'Certificate',
                 category: req.category,
@@ -497,7 +499,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({ activity
                         <td>
                           <span className="badge bg-light text-dark border">{set.stage}</span>
                         </td>
-                        <td className="small">{set.initiatorOrg || set.clientOrg || '—'}</td>
+                        <td className="small">{getRequestingParty(set) || '—'}</td>
                         <td className="text-end">
                           <button
                             type="button"

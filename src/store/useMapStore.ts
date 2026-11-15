@@ -60,6 +60,42 @@ import {
   isDuplicateCampaignTitle,
   generateUniqueAssuranceSetId,
 } from "../utils/validation";
+import {
+  getRequestingParty,
+  getRespondingParty,
+  getThirdParties,
+  getSetOrganizations,
+  isInternalDeployment,
+  isProjectClient,
+} from "../utils/setParties";
+import {
+  getSetStartDate,
+  getSetEndDate,
+  getSetDeadline,
+  getSetDateHistory,
+  getSetProjectName,
+  getSetProjectWindow,
+  getSetProjectClient,
+} from "../utils/setDates";
+import {
+  getSetVessel,
+  getSetCrew,
+  getSetEquipment,
+  getSetVesselId,
+  getSetVesselName,
+  getSetImoNumber,
+  getSetCrewIds,
+  getSetCrewNames,
+  getSetEquipmentId,
+  getSetEquipmentName,
+} from "../utils/setObjects";
+import {
+  getSetAssignedSubmitter,
+  getSetAssignedVerifier,
+  getSetAssignedInspector,
+  getSetAssignedApprover,
+  getSetCreatedBy,
+} from "../utils/setStakeholders";
 import { isInspectionDue } from "../utils/inspectionTask";
 import {
   canEditAssuranceSetStakeholders,
@@ -324,7 +360,10 @@ export interface MapStoreState {
       "id" | "projectId" | "addedAt" | "addedByPersona"
     >,
   ) => { success: boolean; message?: string };
-  removeAssetFromProject: (projectId: string, linkId: string) => void;
+  removeAssetFromProject: (
+    projectId: string,
+    linkId: string,
+  ) => { success: boolean; message?: string };
   /** adds an orphaned assurance set to a project roster; a set belongs to at most one project */
   attachAssuranceSetToProject: (
     assuranceSetId: string,
@@ -659,12 +698,9 @@ export interface MapStoreState {
 const BRD_PERMISSION_DEFAULTS = buildBrdRolePermissionDefaults();
 
 const ASSURANCE_DATE_FIELDS = [
-  "charterWindowStart",
-  "charterWindowEnd",
-  "complianceDeadline",
-  "targetDate",
-  "projectWindowStart",
-  "projectWindowEnd",
+  "startDate",
+  "endDate",
+  "deadline",
 ] as const;
 
 /**
@@ -718,7 +754,8 @@ function notifyInspectionDueIfNeeded(
   const state = get();
   const set = state.assuranceSets.find((s) => s.id === setId);
   if (!set || !isInspectionDue(set)) return;
-  if (!set.assignedInspector?.trim()) return;
+  const inspector = getSetAssignedInspector(set);
+  if (!inspector?.trim()) return;
 
   const existingNotification = state.notifications.find(
     (n) =>
@@ -731,7 +768,7 @@ function notifyInspectionDueIfNeeded(
   notifyAssuranceSetUser(
     get,
     set,
-    set.assignedInspector,
+    inspector,
     {
       type: "stakeholder_assigned",
       assignedRole: "Inspector",
@@ -752,18 +789,79 @@ function logAssuranceSetAuditDiff(
   previousSet: AssuranceSet,
   nextSet: AssuranceSet,
 ) {
-  for (const field of ASSURANCE_DATE_FIELDS) {
-    const oldValue = previousSet[field] ?? "";
-    const newValue = nextSet[field] ?? "";
-    if (oldValue === newValue) continue;
+  const diffFields: Array<{
+    field: string;
+    oldVal: string;
+    newVal: string;
+    label: string;
+  }> = [];
+
+  const oldStart = previousSet.startDate || (previousSet as any).charterWindowStart || "";
+  const newStart = nextSet.startDate || (nextSet as any).charterWindowStart || "";
+  if (oldStart !== newStart) {
+    const fieldKey =
+      nextSet.startDate
+        ? "startDate"
+        : (nextSet as any).charterWindowStart &&
+          (nextSet as any).charterWindowStart !== (previousSet as any).charterWindowStart
+          ? "charterWindowStart"
+          : "startDate";
+    diffFields.push({
+      field: fieldKey,
+      oldVal: oldStart,
+      newVal: newStart,
+      label: "Start date",
+    });
+  }
+
+  const oldEnd = previousSet.endDate || (previousSet as any).charterWindowEnd || "";
+  const newEnd = nextSet.endDate || (nextSet as any).charterWindowEnd || "";
+  if (oldEnd !== newEnd) {
+    const fieldKey =
+      nextSet.endDate
+        ? "endDate"
+        : (nextSet as any).charterWindowEnd &&
+          (nextSet as any).charterWindowEnd !== (previousSet as any).charterWindowEnd
+          ? "charterWindowEnd"
+          : "endDate";
+    diffFields.push({
+      field: fieldKey,
+      oldVal: oldEnd,
+      newVal: newEnd,
+      label: "End date",
+    });
+  }
+
+  const oldDeadline = previousSet.deadline || (previousSet as any).complianceDeadline || (previousSet as any).targetDate || "";
+  const newDeadline = nextSet.deadline || (nextSet as any).complianceDeadline || (nextSet as any).targetDate || "";
+  if (oldDeadline !== newDeadline) {
+    const fieldKey =
+      nextSet.deadline
+        ? "deadline"
+        : (nextSet as any).complianceDeadline &&
+          (nextSet as any).complianceDeadline !== (previousSet as any).complianceDeadline
+          ? "complianceDeadline"
+          : (nextSet as any).targetDate &&
+            (nextSet as any).targetDate !== (previousSet as any).targetDate
+            ? "targetDate"
+            : "deadline";
+    diffFields.push({
+      field: fieldKey,
+      oldVal: oldDeadline,
+      newVal: newDeadline,
+      label: fieldKey === "targetDate" ? "Target date" : fieldKey === "complianceDeadline" ? "Compliance deadline" : "Deadline",
+    });
+  }
+
+  for (const item of diffFields) {
     get().logAuditEvent({
       action: "Changed date",
       targetAsset: `${nextSet.id} (${nextSet.title})`,
-      target: { kind: "date", setId: nextSet.id, dateField: field },
+      target: { kind: "date", setId: nextSet.id, dateField: item.field },
       fieldDelta: {
-        fieldName: field === "targetDate" ? "Target date" : auditDateFieldLabel(field),
-        oldValue: oldValue || "—",
-        newValue: newValue || "—",
+        fieldName: item.label,
+        oldValue: item.oldVal || "—",
+        newValue: item.newVal || "—",
       },
     });
   }
@@ -835,16 +933,16 @@ function logAssuranceSetAuditDiff(
     notifyVendorOfTaskChange(get, previousSet, "removed", task.title);
   }
 
-  const stakeholderRoles: Array<{ key: keyof AssuranceSet; role: string }> = [
-    { key: "assignedSubmitter", role: "Submitter" },
-    { key: "assignedVerifier", role: "Verifier" },
-    { key: "assignedInspector", role: "Inspector" },
-    { key: "assignedApprover", role: "Approver" },
+  const stakeholderRoles = [
+    { role: "Submitter", getOld: () => getSetAssignedSubmitter(previousSet), getNew: () => getSetAssignedSubmitter(nextSet) },
+    { role: "Verifier", getOld: () => getSetAssignedVerifier(previousSet), getNew: () => getSetAssignedVerifier(nextSet) },
+    { role: "Inspector", getOld: () => getSetAssignedInspector(previousSet), getNew: () => getSetAssignedInspector(nextSet) },
+    { role: "Approver", getOld: () => getSetAssignedApprover(previousSet), getNew: () => getSetAssignedApprover(nextSet) },
   ];
 
-  for (const { key, role } of stakeholderRoles) {
-    const oldAssignee = (previousSet[key] as string) || "";
-    const newAssignee = (nextSet[key] as string) || "";
+  for (const { role, getOld, getNew } of stakeholderRoles) {
+    const oldAssignee = getOld();
+    const newAssignee = getNew();
     if (oldAssignee !== newAssignee) {
       get().logAuditEvent({
         action: oldAssignee ? "Reassigned stakeholder" : "Assigned stakeholder",
@@ -865,45 +963,45 @@ function logAssuranceSetAuditDiff(
     }
   }
 
-  if (previousSet.requestingParty !== nextSet.requestingParty) {
-    const oldParty = previousSet.requestingParty || "";
-    const newParty = nextSet.requestingParty || "";
+  const oldReqParty = getRequestingParty(previousSet) || "";
+  const newReqParty = getRequestingParty(nextSet) || "";
+  if (oldReqParty !== newReqParty) {
     get().logAuditEvent({
       action: "Changed party",
       targetAsset: `${nextSet.id} · Requesting Party`,
       target: {
         kind: "party",
         setId: nextSet.id,
-        organization: newParty || undefined,
+        organization: newReqParty || undefined,
         partyRole: "Requesting Party",
       },
       fieldDelta: {
         fieldName: "Requesting Party",
-        oldValue: oldParty || "—",
-        newValue: newParty || "—",
+        oldValue: oldReqParty || "—",
+        newValue: newReqParty || "—",
       },
-      justificationNotes: `Requesting party changed from ${oldParty || "—"} to ${newParty || "—"}.`,
+      justificationNotes: `Requesting party changed from ${oldReqParty || "—"} to ${newReqParty || "—"}.`,
     });
   }
 
-  if (previousSet.respondingParty !== nextSet.respondingParty) {
-    const oldParty = previousSet.respondingParty || "";
-    const newParty = nextSet.respondingParty || "";
+  const oldRespParty = getRespondingParty(previousSet) || "";
+  const newRespParty = getRespondingParty(nextSet) || "";
+  if (oldRespParty !== newRespParty) {
     get().logAuditEvent({
       action: "Changed party",
       targetAsset: `${nextSet.id} · Responding Party`,
       target: {
         kind: "party",
         setId: nextSet.id,
-        organization: newParty || undefined,
+        organization: newRespParty || undefined,
         partyRole: "Responding Party",
       },
       fieldDelta: {
         fieldName: "Responding Party",
-        oldValue: oldParty || "—",
-        newValue: newParty || "—",
+        oldValue: oldRespParty || "—",
+        newValue: newRespParty || "—",
       },
-      justificationNotes: `Responding party changed from ${oldParty || "—"} to ${newParty || "—"}.`,
+      justificationNotes: `Responding party changed from ${oldRespParty || "—"} to ${newRespParty || "—"}.`,
     });
   }
 }
@@ -949,13 +1047,13 @@ function notifyAssuranceSetUser(
   const sender = options.systemSent
     ? undefined
     : getSessionUserForPersona(
-        state.activePersona,
-        state.users,
-        getDemoSessionContext(state),
-      );
+      state.activePersona,
+      state.users,
+      getDemoSessionContext(state),
+    );
   const project = getProjectForAssuranceSet(assuranceSet, state.projects);
   return state.pushNotification({
-    vesselName: assuranceSet.vesselName || undefined,
+    vesselName: getSetVesselName(assuranceSet) || undefined,
     ...content,
     recipientUserId: recipient.id,
     senderUserId: sender?.id,
@@ -985,19 +1083,21 @@ function notifyVendorOfTaskChange(
   const state = get();
   const notifiedUserIds = new Set<string>();
 
-  const submitterRecipient = resolveNotificationRecipient(assuranceSet.assignedSubmitter, state.users);
+  const assignedSubmitter = getSetAssignedSubmitter(assuranceSet);
+  const submitterRecipient = resolveNotificationRecipient(assignedSubmitter, state.users);
   if (submitterRecipient) {
     notifiedUserIds.add(submitterRecipient.id);
-    notifyAssuranceSetUser(get, assuranceSet, assuranceSet.assignedSubmitter, {
+    notifyAssuranceSetUser(get, assuranceSet, assignedSubmitter, {
       type: "review_requested",
       subject: `Task ${action}: ${taskTitle} · ${assuranceSet.id}`,
       message: `A task on assurance set ${assuranceSet.title} was ${action}: ${taskTitle}.`,
     });
   }
 
+  const creatorIdentity = getSetCreatedBy(assuranceSet);
   const creatorUser =
-    (assuranceSet.createdByUserId &&
-      state.users.find((u) => u.id === assuranceSet.createdByUserId)) ||
+    (creatorIdentity.userId &&
+      state.users.find((u) => u.id === creatorIdentity.userId)) ||
     findAssuranceSetCreatorUser(assuranceSet, state.users);
   if (
     creatorUser &&
@@ -1013,7 +1113,7 @@ function notifyVendorOfTaskChange(
       recipientUserId: creatorUser.id,
       senderName: state.activePersona,
       assuranceSetId: assuranceSet.id,
-      vesselName: assuranceSet.vesselName || undefined,
+      vesselName: getSetVesselName(assuranceSet) || undefined,
     });
   }
 }
@@ -1093,11 +1193,13 @@ function canAccessCapaInSession(
     return activePersona !== "Inspector" || Boolean(exactSet.mandatoryInspectionRequired);
   }
   return state.assuranceSets.some((s) => {
+    const setVesselId = getSetVesselId(s);
+    const setVesselName = getSetVesselName(s);
     const matchesVessel =
-      (Boolean(capa.vesselId) && s.vesselId === capa.vesselId) ||
+      (Boolean(capa.vesselId) && setVesselId === capa.vesselId) ||
       (Boolean(capa.vesselName) &&
-        Boolean(s.vesselName) &&
-        s.vesselName!.trim().toLowerCase() === capa.vesselName!.trim().toLowerCase());
+        Boolean(setVesselName) &&
+        setVesselName.trim().toLowerCase() === capa.vesselName.trim().toLowerCase());
     if (!matchesVessel) return false;
     if (!isAssuranceSetAssignedToPersona(s, activePersona, activeDemoOrganization, sessionUser, state.users)) {
       return false;
@@ -1142,7 +1244,7 @@ function notifySubmittedForReview(
   if (!set) return;
   const requirement = set.requirements.find((r) => r.id === requirementId);
   const document = get().documents.find((d) => d.id === documentId);
-  notifyAssuranceSetUser(get, set, set.assignedVerifier, {
+  notifyAssuranceSetUser(get, set, getSetAssignedVerifier(set), {
     type: "review_requested",
     subject: `Document submitted: ${requirement?.title || document?.title || documentId}`,
     documentId,
@@ -1164,9 +1266,9 @@ function closeDocumentRenewalNotifications(
   set((state) => ({
     notifications: state.notifications.map((n) =>
       n.type === "document_renewal" &&
-      n.status !== "actioned" &&
-      n.documentId === documentId &&
-      (!assuranceSetId || n.assuranceSetId === assuranceSetId)
+        n.status !== "actioned" &&
+        n.documentId === documentId &&
+        (!assuranceSetId || n.assuranceSetId === assuranceSetId)
         ? { ...n, status: "actioned" as const, readAt: n.readAt || now, actionedAt: now }
         : n,
     ),
@@ -1190,14 +1292,14 @@ function notifyAssignedStakeholders(
       role: "Submitter" as UserRolePersona,
       label: submitter.assignee,
     })),
-    { role: "Verifier", label: assuranceSet.assignedVerifier },
+    { role: "Verifier", label: getSetAssignedVerifier(assuranceSet) },
     {
       role: "Inspector",
       label: assuranceSet.mandatoryInspectionRequired
-        ? assuranceSet.assignedInspector
+        ? getSetAssignedInspector(assuranceSet)
         : undefined,
     },
-    { role: "Approver", label: assuranceSet.assignedApprover },
+    { role: "Approver", label: getSetAssignedApprover(assuranceSet) },
   ];
 
   const remember = (label: string | undefined) => {
@@ -1299,7 +1401,7 @@ function redirectIfViewBlocked(
         const targetSet = state.assuranceSets.find((s) => s.id === currentId);
         return Boolean(
           targetSet &&
-            !isAssuranceSetAssignedToPersona(targetSet, persona, organization, sessionUser, state.users),
+          !isAssuranceSetAssignedToPersona(targetSet, persona, organization, sessionUser, state.users),
         );
       })()) ||
     (currentView === "project" &&
@@ -1309,15 +1411,15 @@ function redirectIfViewBlocked(
         const targetProject = state.projects.find((p) => p.id === currentId);
         return Boolean(
           targetProject &&
-            !isProjectAccessibleToUser(
-              targetProject,
-              persona,
-              state.users,
-              state.assuranceSets,
-              organization,
-              sessionUser,
-              state.notifications,
-            ),
+          !isProjectAccessibleToUser(
+            targetProject,
+            persona,
+            state.users,
+            state.assuranceSets,
+            organization,
+            sessionUser,
+            state.notifications,
+          ),
         );
       })());
 
@@ -1711,7 +1813,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       suggestedScopes.length === 1
         ? suggestedScopes[0]
         : input.suggestedScope ||
-          (assetScopeTypes.length === 1 ? assetScopeTypes[0] : undefined);
+        (assetScopeTypes.length === 1 ? assetScopeTypes[0] : undefined);
 
     const sender = get().users.find((u) => u.id === input.senderUserId);
     const senderOrganization =
@@ -1769,14 +1871,14 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       notifications: state.notifications.map((n) =>
         n.id === notificationId
           ? {
-              ...n,
-              status: "actioned" as const,
-              readAt: n.readAt || new Date().toISOString(),
-              actionedAt: new Date().toISOString(),
-              request: n.request
-                ? { ...n.request, createdAssuranceSetId: assuranceSetId }
-                : n.request,
-            }
+            ...n,
+            status: "actioned" as const,
+            readAt: n.readAt || new Date().toISOString(),
+            actionedAt: new Date().toISOString(),
+            request: n.request
+              ? { ...n.request, createdAssuranceSetId: assuranceSetId }
+              : n.request,
+          }
           : n,
       ),
     }));
@@ -1940,6 +2042,13 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       return { success: false, message: "You are not authorized to modify this project." };
     }
 
+    if (!isProjectClient(sessionUser, project)) {
+      return {
+        success: false,
+        message: "Only the project's client organization may add roster assets.",
+      };
+    }
+
     const duplicate = project.assetLinks.some(
       (l) =>
         l.assetType === linkInput.assetType && l.assetId === linkInput.assetId,
@@ -2029,27 +2138,115 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       return { success: false, message: "You are not authorized to attach this assurance set to this project." };
     }
 
-    if (
-      project.charterWindowStart &&
-      project.charterWindowEnd &&
-      !isAssuranceSetWithinProjectWindow(
-        target,
-        project.charterWindowStart,
-        project.charterWindowEnd,
-      )
-    ) {
-      return {
-        success: false,
-        message: `Contract Period must be inside the project window (${project.charterWindowStart} to ${project.charterWindowEnd}).`,
-      };
+    let updatedTarget = target;
+    const projStart = project.charterWindowStart;
+    const projEnd = project.charterWindowEnd;
+    if (projStart && projEnd) {
+      const origStart = getSetStartDate(target);
+      const origEnd = getSetEndDate(target);
+      const origDeadline = getSetDeadline(target) || origStart;
+
+      let newStart = origStart;
+      let newEnd = origEnd;
+      let newDeadline = origDeadline;
+
+      if (origStart < projStart) {
+        newStart = projStart;
+      } else if (origStart > projEnd) {
+        newStart = projEnd;
+      }
+
+      if (origEnd > projEnd) {
+        newEnd = projEnd;
+      } else if (origEnd < newStart) {
+        newEnd = newStart;
+      }
+
+      if (newDeadline > newStart) {
+        newDeadline = newStart;
+      }
+
+      const movedRecords: TargetDateChangeRecord[] = [];
+      const now = new Date().toISOString();
+      if (newStart !== origStart) {
+        movedRecords.push({
+          id: `DCR-${Date.now()}-1`,
+          setId: assuranceSetId,
+          scope: 'set',
+          oldDate: origStart,
+          newDate: newStart,
+          changedBy: sessionUser.name,
+          changedAt: now,
+          reason: `Adjusted start date to fit project window (${projStart} to ${projEnd}) upon linking to ${project.name}`,
+        });
+        get().logAuditEvent({
+          action: "Adjusted Assurance Set Dates to Project Window",
+          targetAsset: `Assurance Set ${assuranceSetId}`,
+          justificationNotes: `Start date shifted from ${origStart} to ${newStart} to fit project window of ${project.name}.`,
+        });
+      }
+      if (newEnd !== origEnd) {
+        movedRecords.push({
+          id: `DCR-${Date.now()}-2`,
+          setId: assuranceSetId,
+          scope: 'set',
+          oldDate: origEnd,
+          newDate: newEnd,
+          changedBy: sessionUser.name,
+          changedAt: now,
+          reason: `Adjusted end date to fit project window (${projStart} to ${projEnd}) upon linking to ${project.name}`,
+        });
+        get().logAuditEvent({
+          action: "Adjusted Assurance Set Dates to Project Window",
+          targetAsset: `Assurance Set ${assuranceSetId}`,
+          justificationNotes: `End date shifted from ${origEnd} to ${newEnd} to fit project window of ${project.name}.`,
+        });
+      }
+      if (newDeadline !== origDeadline) {
+        movedRecords.push({
+          id: `DCR-${Date.now()}-3`,
+          setId: assuranceSetId,
+          scope: 'set',
+          oldDate: origDeadline,
+          newDate: newDeadline,
+          changedBy: sessionUser.name,
+          changedAt: now,
+          reason: `Clamped compliance deadline to new start date (${newStart}) upon linking to ${project.name}`,
+        });
+        get().logAuditEvent({
+          action: "Adjusted Assurance Set Dates to Project Window",
+          targetAsset: `Assurance Set ${assuranceSetId}`,
+          justificationNotes: `Compliance deadline shifted from ${origDeadline} to ${newDeadline} to be on or before start date.`,
+        });
+      }
+
+      if (movedRecords.length > 0) {
+        updatedTarget = {
+          ...target,
+          startDate: newStart,
+          endDate: newEnd,
+          deadline: newDeadline,
+          charterWindowStart: newStart,
+          charterWindowEnd: newEnd,
+          complianceDeadline: newDeadline,
+          targetDate: newDeadline,
+          dateHistory: [...(target.dateHistory || []), ...movedRecords],
+          targetDateHistory: [...((target as any).targetDateHistory || target.dateHistory || []), ...movedRecords],
+        } as unknown as AssuranceSet;
+      }
     }
 
     if (project.assetLinks.some((l) => l.assuranceSetId === assuranceSetId)) {
+      if (updatedTarget !== target) {
+        set({
+          assuranceSets: get().assuranceSets.map((s) => (s.id === assuranceSetId ? updatedTarget : s)),
+        });
+      }
       return { success: true };
     }
 
     const draftLink = buildDraftAssetLinkFromAssuranceSet(
-      target,
+      updatedTarget,
       get().vessels,
       get().crew,
       get().equipment,
@@ -2068,7 +2265,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     if (assetAlreadyOnProject) {
       const stampedSets = get().assuranceSets.map((s) =>
         s.id === assuranceSetId
-          ? { ...s, projectId, projectName: project.name }
+          ? { ...updatedTarget, projectId, projectName: project.name }
           : s,
       );
       const syncedProjects = syncProjectFromAssuranceSets(
@@ -2080,6 +2277,12 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       return { success: true };
     }
 
+    if (updatedTarget !== target) {
+      set({
+        assuranceSets: get().assuranceSets.map((s) => (s.id === assuranceSetId ? updatedTarget : s)),
+      });
+    }
+
     return get().addAssetToProject(projectId, draftLink);
   },
 
@@ -2087,7 +2290,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     const state = get();
     const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(state);
     const project = state.projects.find((p) => p.id === projectId);
-    if (!project) return;
+    if (!project) return { success: false, message: "Project not found." };
     if (
       !sessionUser ||
       (activePersona !== "Administrator" && activePersona !== "C Admin") ||
@@ -2101,7 +2304,14 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         state.notifications,
       )
     ) {
-      return;
+      return { success: false, message: "You are not authorized to modify this project." };
+    }
+
+    if (!isProjectClient(sessionUser, project)) {
+      return {
+        success: false,
+        message: "Only the project's client organization may remove roster assets.",
+      };
     }
 
     const removedSetId = project.assetLinks.find(
@@ -2130,6 +2340,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     );
 
     set({ projects: syncedProjects, assuranceSets: releasedSets });
+    return { success: true };
   },
 
   linkAssuranceSetToProjectAsset: (projectId, linkId, assuranceSetId) => {
@@ -2228,8 +2439,8 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       vesselStatusHistory: [
         ...state.vesselStatusHistory.map((entry) =>
           entry.vesselId === params.vesselId &&
-          entry.dimension === params.dimension &&
-          !entry.effectiveTo
+            entry.dimension === params.dimension &&
+            !entry.effectiveTo
             ? { ...entry, effectiveTo: now }
             : entry,
         ),
@@ -2305,26 +2516,29 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         v.id === updatedVessel.id ? updatedVessel : v,
       ),
       /* synchronize vessel name and imo across all linked assurance sets */
-      assuranceSets: curr.assuranceSets.map((s) =>
-        s.vesselId === updatedVessel.id
-          ? {
-              ...s,
-              vesselName: updatedVessel.name,
-              imoNumber: updatedVessel.imoNumber,
-            }
-          : s,
-      ),
+      assuranceSets: curr.assuranceSets.map((s) => {
+        const hasVessel = s.assuranceObjects?.some((o) => o.id === updatedVessel.id);
+        if (!hasVessel) return s;
+        return {
+          ...s,
+          assuranceObjects: (s.assuranceObjects || []).map((o) =>
+            o.id === updatedVessel.id
+              ? { ...o, name: updatedVessel.name, identifier: updatedVessel.imoNumber }
+              : o,
+          ),
+        };
+      }),
       /* synchronize vessel attributes in linked master documents */
       documents: curr.documents.map((d) =>
         d.vesselId === updatedVessel.id && d.vesselAttributes
           ? {
-              ...d,
-              vesselAttributes: {
-                ...d.vesselAttributes,
-                vesselName: updatedVessel.name,
-                imoNumber: updatedVessel.imoNumber,
-              },
-            }
+            ...d,
+            vesselAttributes: {
+              ...d.vesselAttributes,
+              vesselName: updatedVessel.name,
+              imoNumber: updatedVessel.imoNumber,
+            },
+          }
           : d,
       ),
     }));
@@ -2539,8 +2753,8 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       : undefined;
     const isAuthorizedRequest = Boolean(
       sessionUser &&
-        requestNotification &&
-        canOpenAssuranceRequestWizard(requestNotification, sessionUser),
+      requestNotification &&
+      canOpenAssuranceRequestWizard(requestNotification, sessionUser),
     );
     if (
       !sessionUser ||
@@ -2625,10 +2839,10 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       : undefined;
     const isAuthorizedRequestCreation = Boolean(
       sessionCreator &&
-        requestNotification &&
-        canOpenAssuranceRequestWizard(requestNotification, sessionCreator) &&
-        newSet.projectId &&
-        requestNotification.projectId === newSet.projectId,
+      requestNotification &&
+      canOpenAssuranceRequestWizard(requestNotification, sessionCreator) &&
+      newSet.projectId &&
+      requestNotification.projectId === newSet.projectId,
     );
     if (
       !sessionCreator ||
@@ -2654,8 +2868,11 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       ? generateUniqueAssuranceSetId(existingSets)
       : newSet.id || generateUniqueAssuranceSetId(existingSets);
 
+    const newSetVessel = getSetVessel(newSet);
+    const newSetCrew = getSetCrew(newSet);
+    const newSetEq = getSetEquipment(newSet);
     const matchingVessel = state.vessels.find(
-      (v) => v.id === newSet.vesselId || v.name === newSet.vesselName,
+      (v) => v.id === newSetVessel?.id || (newSetVessel?.name && v.name === newSetVessel.name),
     );
     const autoAttachedRequirements = autoAttachDocumentsToRequirements(
       newSet.requirements || [],
@@ -2664,11 +2881,11 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         vessel: matchingVessel,
         vessels: state.vessels,
         crew: state.crew,
-        selectedCrewId: newSet.crewId,
-        selectedCrewIds: getAssuranceSetCrewIds(newSet),
+        selectedCrewId: newSetCrew[0]?.id,
+        selectedCrewIds: getSetCrewIds(newSet),
         equipment: state.equipment,
-        selectedEquipmentId: newSet.equipmentId,
-        selectedVesselId: newSet.vesselId,
+        selectedEquipmentId: newSetEq[0]?.id,
+        selectedVesselId: newSetVessel?.id,
         targetSubtype: newSet.assuranceType,
       },
     );
@@ -2681,24 +2898,18 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
     /* normalizes set assets and assurance objects via toSingleAssetSet (ADR 0029: multi-object sets preserve all objects) */
 
-    const matchesCreatorOrg =
-      (!newSet.initiatorOrg || orgFieldMatches(sessionCreator.organization, newSet.initiatorOrg)) &&
-      (!newSet.createdByPersona || newSet.createdByPersona === state.activePersona);
+    const effectiveCreatedBy = {
+      userId: newSet.createdBy?.userId ?? sessionCreator?.id ?? '',
+      name: newSet.createdBy?.name ?? sessionCreator?.name ?? '',
+      persona: newSet.createdBy?.persona ?? state.activePersona,
+    };
 
     const computedSet = recalculateSetReadiness(
       toSingleAssetSet({
         ...newSet,
         id: uniqueId,
         stage: newSet.stage || "Initiated",
-        createdByUserId:
-          newSet.createdByUserId ??
-          (matchesCreatorOrg ? sessionCreator?.id : undefined),
-        createdByName:
-          newSet.createdByName ??
-          (matchesCreatorOrg ? sessionCreator?.name : undefined),
-        createdByPersona:
-          newSet.createdByPersona ??
-          (matchesCreatorOrg ? state.activePersona : newSet.createdByPersona),
+        createdBy: effectiveCreatedBy,
         requirements: sanitizedRequirements,
       }),
     );
@@ -2736,7 +2947,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     get().logAuditEvent({
       action: "Initiated Assurance Set",
       targetAsset: `${computedSet.id} (${computedSet.title})`,
-      justificationNotes: `Created assurance set for vessel ${computedSet.vesselName}`,
+      justificationNotes: `Created assurance set for vessel ${getSetVesselName(computedSet) || 'set'}`,
     });
 
     // Log one audit event per reused slot (overriding E3 for reused documents)
@@ -2768,13 +2979,60 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     if (!roleActions.canManage && !roleActions.canChangeDates && !canSubmitSectionsOnly) {
       return;
     }
+    const prevDeadline = prevSet.deadline || (prevSet as any).complianceDeadline || (prevSet as any).targetDate || "";
+    const prevStart = prevSet.startDate || (prevSet as any).charterWindowStart || "";
+    const prevEnd = prevSet.endDate || (prevSet as any).charterWindowEnd || "";
+
+    const updatedTargetDate = (updatedSet as any).targetDate;
+    const updatedComplianceDeadline = (updatedSet as any).complianceDeadline;
+    const updatedDeadline = updatedSet.deadline;
+
+    const resolvedDeadline =
+      updatedDeadline && updatedDeadline !== prevSet.deadline
+        ? updatedDeadline
+        : updatedComplianceDeadline && updatedComplianceDeadline !== (prevSet as any).complianceDeadline
+          ? updatedComplianceDeadline
+          : updatedTargetDate && updatedTargetDate !== (prevSet as any).targetDate
+            ? updatedTargetDate
+            : updatedDeadline || updatedComplianceDeadline || updatedTargetDate || prevDeadline;
+
+    const updatedCharterStart = (updatedSet as any).charterWindowStart;
+    const updatedStartDate = updatedSet.startDate;
+    const resolvedStartDate =
+      updatedStartDate && updatedStartDate !== prevSet.startDate
+        ? updatedStartDate
+        : updatedCharterStart && updatedCharterStart !== (prevSet as any).charterWindowStart
+          ? updatedCharterStart
+          : updatedStartDate || updatedCharterStart || prevStart;
+
+    const updatedCharterEnd = (updatedSet as any).charterWindowEnd;
+    const updatedEndDate = updatedSet.endDate;
+    const resolvedEndDate =
+      updatedEndDate && updatedEndDate !== prevSet.endDate
+        ? updatedEndDate
+        : updatedCharterEnd && updatedCharterEnd !== (prevSet as any).charterWindowEnd
+          ? updatedCharterEnd
+          : updatedEndDate || updatedCharterEnd || prevEnd;
+
     const targetInputSet: AssuranceSet =
       roleActions.canManage || roleActions.canChangeDates
-        ? updatedSet
-        : { ...prevSet, sections: updatedSet.sections };
+        ? ({
+          ...prevSet,
+          ...updatedSet,
+          deadline: resolvedDeadline,
+          startDate: resolvedStartDate,
+          endDate: resolvedEndDate,
+          createdBy: updatedSet.createdBy ?? prevSet.createdBy,
+          parties: updatedSet.parties ?? prevSet.parties,
+          assuranceObjects: updatedSet.assuranceObjects ?? prevSet.assuranceObjects,
+        } as unknown as AssuranceSet)
+        : ({ ...prevSet, sections: updatedSet.sections } as unknown as AssuranceSet);
 
+    const targetVessel = getSetVessel(targetInputSet);
+    const targetCrew = getSetCrew(targetInputSet);
+    const targetEq = getSetEquipment(targetInputSet);
     const matchingVessel = state.vessels.find(
-      (v) => v.id === targetInputSet.vesselId || v.name === targetInputSet.vesselName,
+      (v) => v.id === targetVessel?.id || (targetVessel?.name && v.name === targetVessel.name),
     );
     const autoAttachedRequirements = autoAttachDocumentsToRequirements(
       targetInputSet.requirements || [],
@@ -2783,11 +3041,11 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         vessel: matchingVessel,
         vessels: state.vessels,
         crew: state.crew,
-        selectedCrewId: targetInputSet.crewId,
-        selectedCrewIds: getAssuranceSetCrewIds(targetInputSet),
+        selectedCrewId: targetCrew[0]?.id,
+        selectedCrewIds: getSetCrewIds(targetInputSet),
         equipment: state.equipment,
-        selectedEquipmentId: targetInputSet.equipmentId,
-        selectedVesselId: targetInputSet.vesselId,
+        selectedEquipmentId: targetEq[0]?.id,
+        selectedVesselId: targetVessel?.id,
         targetSubtype: targetInputSet.assuranceType,
       },
     );
@@ -2798,42 +3056,50 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         r.documentId || r.linkedDocumentId ? r.ocrConfidence || 95 : 0,
     }));
 
+    const resolvedHistory = (() => {
+      const prev = state.assuranceSets.find((s) => s.id === targetInputSet.id);
+      const prevDate = prev?.deadline || (prev as any)?.targetDate || (prev as any)?.complianceDeadline;
+      let ledger = targetInputSet.dateHistory ?? (targetInputSet as any).targetDateHistory ?? prev?.dateHistory ?? (prev as any)?.targetDateHistory ?? [];
+      if (
+        prev &&
+        resolvedDeadline &&
+        prevDate &&
+        prevDate !== resolvedDeadline &&
+        !ledger.some((h: any) => (h.scope === "set" || h.targetType === "set") && h.newDate === resolvedDeadline)
+      ) {
+        ledger = [
+          ...ledger,
+          {
+            id: `TDC-${Date.now()}-set`,
+            setId: targetInputSet.id,
+            scope: "set",
+            targetType: "set",
+            oldDate: prevDate,
+            newDate: resolvedDeadline,
+            changedBy:
+              state.users.find((u) => u.id === state.activeSessionUserId)?.name ||
+              state.activePersona ||
+              "Client Admin",
+            changedAt: new Date().toISOString(),
+          },
+        ];
+      }
+      return ledger;
+    })();
+
     const computedSet = recalculateSetReadiness(
       toSingleAssetSet({
         ...targetInputSet,
-        targetDate: targetInputSet.targetDate || targetInputSet.complianceDeadline,
+        startDate: resolvedStartDate,
+        charterWindowStart: resolvedStartDate,
+        endDate: resolvedEndDate,
+        charterWindowEnd: resolvedEndDate,
+        deadline: resolvedDeadline,
+        targetDate: resolvedDeadline,
+        complianceDeadline: resolvedDeadline,
         datePermissionGrants: targetInputSet.datePermissionGrants ?? state.assuranceSets.find((s) => s.id === targetInputSet.id)?.datePermissionGrants ?? [],
-        targetDateHistory: (() => {
-          const prev = state.assuranceSets.find((s) => s.id === targetInputSet.id);
-          const resolved = targetInputSet.targetDate || targetInputSet.complianceDeadline;
-          const prevDate = prev?.targetDate || prev?.complianceDeadline;
-          let ledger = targetInputSet.targetDateHistory ?? prev?.targetDateHistory ?? [];
-          if (
-            prev &&
-            resolved &&
-            prevDate &&
-            prevDate !== resolved &&
-            !ledger.some((h) => h.scope === "set" && h.newDate === resolved)
-          ) {
-            ledger = [
-              ...ledger,
-              {
-                id: `TDC-${Date.now()}-set`,
-                setId: targetInputSet.id,
-                scope: "set",
-                targetType: "set",
-                oldDate: prevDate,
-                newDate: resolved,
-                changedBy:
-                  state.users.find((u) => u.id === state.activeSessionUserId)?.name ||
-                  state.activePersona ||
-                  "Client Admin",
-                changedAt: new Date().toISOString(),
-              },
-            ];
-          }
-          return ledger;
-        })(),
+        dateHistory: resolvedHistory,
+        targetDateHistory: resolvedHistory,
         requirements: sanitizedRequirements,
       }),
     );
@@ -3051,12 +3317,12 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         isFulfilled: false,
         ocrConfidence: 0,
         verifierStatus: "Pending",
-        targetDate: taskInput.targetDate || setTarget.targetDate || setTarget.complianceDeadline,
+        targetDate: taskInput.targetDate || setTarget.deadline,
         assignedSubmitter: party,
         responsibleParty: party,
         responsibleParties: parties,
         requirementGroupId: groupId,
-        assignedVerifier: taskInput.assignedVerifier || setTarget.assignedVerifier,
+        assignedVerifier: taskInput.assignedVerifier || getSetAssignedVerifier(setTarget),
         isSpecialized: taskInput.isSpecialized,
         isOtherDocument: taskInput.isOtherDocument,
         sectionId: taskInput.sectionId,
@@ -3074,7 +3340,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       return { success: true, requirement: newRequirements[0] };
     }
 
-    const singleParty = parties?.[0] || taskInput.responsibleParty || taskInput.assignedSubmitter || setTarget.assignedSubmitter;
+    const singleParty = parties?.[0] || taskInput.responsibleParty || taskInput.assignedSubmitter || getSetAssignedSubmitter(setTarget);
     const newRequirement: AssuranceRequirement = {
       id: newTaskId,
       category: taskInput.category,
@@ -3084,12 +3350,12 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       isFulfilled: false,
       ocrConfidence: 0,
       verifierStatus: "Pending",
-      targetDate: taskInput.targetDate || setTarget.targetDate || setTarget.complianceDeadline,
+      targetDate: taskInput.targetDate || setTarget.deadline,
       assignedSubmitter: singleParty,
       responsibleParty: singleParty,
       responsibleParties: parties || (singleParty ? [singleParty] : undefined),
       requirementGroupId: taskInput.requirementGroupId || newTaskId,
-      assignedVerifier: taskInput.assignedVerifier || setTarget.assignedVerifier,
+      assignedVerifier: taskInput.assignedVerifier || getSetAssignedVerifier(setTarget),
       isSpecialized: taskInput.isSpecialized,
       isOtherDocument: taskInput.isOtherDocument,
       sectionId: taskInput.sectionId,
@@ -3211,7 +3477,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     ) {
       return { success: false, message: "Date change permission is required." };
     }
-    const setDeadline = setTarget.targetDate || setTarget.complianceDeadline || "";
+    const setDeadline = setTarget.deadline || "";
     if (setDeadline && targetDate > setDeadline) {
       return { success: false, message: "Task target date cannot be after the assurance set target date." };
     }
@@ -3239,8 +3505,9 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     const updatedSet: AssuranceSet = {
       ...setTarget,
       requirements: updatedRequirements,
-      targetDateHistory: [...(setTarget.targetDateHistory || []), historyRow],
-    };
+      dateHistory: [...(setTarget.dateHistory || []), historyRow],
+      targetDateHistory: [...((setTarget as any).targetDateHistory || setTarget.dateHistory || []), historyRow],
+    } as unknown as AssuranceSet;
     get().updateAssuranceSet(updatedSet);
     raiseTargetDateNotices(get, updatedSet, {
       scope: "task",
@@ -3263,7 +3530,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     ) {
       return { success: false, message: "Only assigned set managers can revise completion dates." };
     }
-    const oldDeadline = setTarget.revisedCompletionDate || setTarget.targetDate || setTarget.complianceDeadline || "—";
+    const oldDeadline = setTarget.revisedCompletionDate || getSetDeadline(setTarget) || "—";
     const historyRow: TargetDateChangeRecord = {
       id: `TDC-${Date.now()}-set`,
       setId,
@@ -3278,9 +3545,12 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     const updatedSet: AssuranceSet = {
       ...setTarget,
       revisedCompletionDate: revisedDate,
+      deadline: revisedDate,
       targetDate: revisedDate,
-      targetDateHistory: [...(setTarget.targetDateHistory || []), historyRow],
-    };
+      complianceDeadline: revisedDate,
+      dateHistory: [...(setTarget.dateHistory || []), historyRow],
+      targetDateHistory: [...((setTarget as any).targetDateHistory || setTarget.dateHistory || []), historyRow],
+    } as unknown as AssuranceSet;
     get().updateAssuranceSet(updatedSet);
     raiseTargetDateNotices(get, updatedSet, {
       scope: "set",
@@ -3345,8 +3615,9 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     const updatedSet: AssuranceSet = {
       ...setTarget,
       requirements: updatedRequirements,
-      targetDateHistory: [...(setTarget.targetDateHistory || []), ...historyRows],
-    };
+      dateHistory: [...(setTarget.dateHistory || []), ...historyRows],
+      targetDateHistory: [...((setTarget as any).targetDateHistory || setTarget.dateHistory || []), ...historyRows],
+    } as unknown as AssuranceSet;
     get().updateAssuranceSet(updatedSet);
     for (const taskId of taskIds) {
       const task = setTarget.requirements.find((r) => r.id === taskId);
@@ -3571,30 +3842,40 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     const fillPendingTasks = (requirements: AssuranceRequirement[]) =>
       role === "Submitter"
         ? requirements.map((r) =>
-            r.assignedSubmitter === PENDING_ASSIGNMENT && isOwnTask(r) ? { ...r, assignedSubmitter: assigneeName } : r,
-          )
+          r.assignedSubmitter === PENDING_ASSIGNMENT && isOwnTask(r) ? { ...r, assignedSubmitter: assigneeName } : r,
+        )
         : role === "Verifier"
           ? requirements.map((r) =>
-              r.assignedVerifier === PENDING_ASSIGNMENT ? { ...r, assignedVerifier: assigneeName } : r,
-            )
+            r.assignedVerifier === PENDING_ASSIGNMENT ? { ...r, assignedVerifier: assigneeName } : r,
+          )
           : requirements;
 
     set((state) => ({
       assuranceSets: state.assuranceSets.map((s) => {
         if (s.id !== setId) return s;
         if (role === "Submitter") {
-          /* the first submitter is the one older views read */
-          const named = s.submitters?.map((submitter, index) =>
-            (submitterOrganization
-              ? submitter.organization.toLowerCase() === submitterOrganization.toLowerCase()
-              : index === 0)
-              ? { ...submitter, assignee: assigneeName }
-              : submitter,
-          );
+          let named = s.submitters;
+          if (!named || named.length === 0) {
+            const org = submitterOrganization || getRespondingParty(s) || "";
+            named = [{ organization: org, assignee: assigneeName }];
+          } else {
+            named = named.map((submitter, index) =>
+              (submitterOrganization
+                ? submitter.organization.toLowerCase() === submitterOrganization.toLowerCase()
+                : index === 0)
+                ? { ...submitter, assignee: assigneeName }
+                : submitter,
+            );
+          }
           return {
             ...s,
             submitters: named,
             assignedSubmitter: named?.[0]?.assignee ?? assigneeName,
+            stakeholders: {
+              ...(s.stakeholders || {}),
+              submitterName: assigneeName,
+              submitterOrg: submitterOrganization || s.stakeholders?.submitterOrg || getRespondingParty(s),
+            },
             requirements: fillPendingTasks(s.requirements),
           };
         }
@@ -3602,6 +3883,10 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
           return {
             ...s,
             assignedVerifier: assigneeName,
+            stakeholders: {
+              ...(s.stakeholders || {}),
+              verifierName: assigneeName,
+            },
             verificationRequired: true,
             requirements: fillPendingTasks(s.requirements),
           };
@@ -3610,6 +3895,10 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
           return {
             ...s,
             assignedInspector: assigneeName,
+            stakeholders: {
+              ...(s.stakeholders || {}),
+              inspectorName: assigneeName,
+            },
             mandatoryInspectionRequired: true,
           };
         }
@@ -3617,6 +3906,10 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
           return {
             ...s,
             assignedApprover: assigneeName,
+            stakeholders: {
+              ...(s.stakeholders || {}),
+              approverName: assigneeName,
+            },
             formalApprovalRequired: true,
           };
         }
@@ -3626,13 +3919,13 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     const previousAssignee =
       role === "Submitter"
         ? submitters.find((submitter) => submitter.organization === submitterOrganization)?.assignee ??
-          assuranceSet.assignedSubmitter
+        getSetAssignedSubmitter(assuranceSet)
         : role === "Verifier"
-          ? assuranceSet.assignedVerifier
+          ? getSetAssignedVerifier(assuranceSet)
           : role === "Inspector"
-            ? assuranceSet.assignedInspector
+            ? getSetAssignedInspector(assuranceSet)
             : role === "Approver"
-              ? assuranceSet.assignedApprover
+              ? getSetAssignedApprover(assuranceSet)
               : undefined;
     get().logAuditEvent({
       action: `Assigned Vessel ${role}`,
@@ -3667,7 +3960,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     const completedIds = state.assuranceSets
       .filter(
         (s) =>
-          s.vesselName?.trim().toLowerCase() === name &&
+          getSetVesselName(s)?.trim().toLowerCase() === name &&
           s.mandatoryInspectionRequired &&
           !s.inspectionCompleted &&
           s.stage === "Inspection" &&
@@ -3734,7 +4027,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     get()
       .assuranceSets.filter((s) => completedIds.includes(s.id) && s.stage === "Approval")
       .forEach((s) => {
-        notifyAssuranceSetUser(get, s, s.assignedApprover, {
+        notifyAssuranceSetUser(get, s, getSetAssignedApprover(s), {
           type: "approval_requested",
           subject: `Approval requested: ${s.title}`,
         });
@@ -3848,12 +4141,13 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     });
 
     const updatedSet = get().assuranceSets.find((s) => s.id === setId);
-    if (isDenial && updatedSet?.assignedApprover) {
-      const requirement = updatedSet.requirements.find((r) => r.id === reqId);
+    const assignedApprover = getSetAssignedApprover(updatedSet);
+    if (isDenial && assignedApprover) {
+      const requirement = updatedSet?.requirements.find((r) => r.id === reqId);
       notifyAssuranceSetUser(
         get,
-        updatedSet,
-        updatedSet.assignedApprover,
+        updatedSet!,
+        assignedApprover,
         {
           type: "document_correction",
           subject: `Task sent back for review: ${requirement?.title || reqId}`,
@@ -3975,12 +4269,13 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     });
 
     const updatedSet = get().assuranceSets.find((s) => s.id === setId);
-    if (updatedSet?.assignedApprover) {
-      const requirement = updatedSet.requirements.find((r) => r.id === reqId);
+    const assignedApproverForDenial = getSetAssignedApprover(updatedSet);
+    if (assignedApproverForDenial) {
+      const requirement = updatedSet?.requirements.find((r) => r.id === reqId);
       notifyAssuranceSetUser(
         get,
-        updatedSet,
-        updatedSet.assignedApprover,
+        updatedSet!,
+        assignedApproverForDenial,
         {
           type: "document_correction",
           subject: `Task sent back for review: ${requirement?.title || requirementTitle}`,
@@ -4038,30 +4333,30 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         if (s.id !== setId) return s;
         const updatedReqs: AssuranceRequirement[] = isDenial
           ? s.requirements.map((r) => {
-              return {
-                ...r,
-                verifierStatus: mappedStatus,
-                decisionTime: new Date().toISOString(),
-                isFulfilled: false,
-                verifiedVersion: undefined,
-                notes:
-                  notes ||
-                  `Campaign returned to verification stage by Executive Approver.`,
-              };
-            })
+            return {
+              ...r,
+              verifierStatus: mappedStatus,
+              decisionTime: new Date().toISOString(),
+              isFulfilled: false,
+              verifiedVersion: undefined,
+              notes:
+                notes ||
+                `Campaign returned to verification stage by Executive Approver.`,
+            };
+          })
           : decision === "Approved"
             ? s.requirements.map((r) => {
-                if (!r.isMandatory && r.verifierStatus !== "Verified" && r.verifierStatus !== "Waived" && r.verifierStatus !== "Not Done") {
-                  closedOptionalTasks.push(r);
-                  return {
-                    ...r,
-                    verifierStatus: "Not Done" as const,
-                    isFulfilled: false,
-                    notes: "Closed as not done upon set closure.",
-                  };
-                }
-                return r;
-              })
+              if (!r.isMandatory && r.verifierStatus !== "Verified" && r.verifierStatus !== "Waived" && r.verifierStatus !== "Not Done") {
+                closedOptionalTasks.push(r);
+                return {
+                  ...r,
+                  verifierStatus: "Not Done" as const,
+                  isFulfilled: false,
+                  notes: "Closed as not done upon set closure.",
+                };
+              }
+              return r;
+            })
             : s.requirements;
 
         let candidateSet: AssuranceSet = {
@@ -4182,7 +4477,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
     const reviewSet = get().assuranceSets.find((s) => s.id === setId);
     if (reviewSet) {
-      notifyAssuranceSetUser(get, reviewSet, reviewSet.assignedVerifier, {
+      notifyAssuranceSetUser(get, reviewSet, getSetAssignedVerifier(reviewSet), {
         type: "review_requested",
         subject: `Review requested: ${reviewSet.title}`,
       });
@@ -4285,15 +4580,15 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       ...(ownerOrganization ? { ownerOrganization } : {}),
       ...(resolvedTarget
         ? {
-            targetObjectType: doc.targetObjectType || resolvedTarget.type,
-            targetObjectId: doc.targetObjectId || resolvedTarget.id,
-            targetObjectName: doc.targetObjectName || resolvedTarget.name,
-            entityType: doc.entityType || getEntityTypeForObjectType(resolvedTarget.type),
-            vesselId:
-              resolvedTarget.type === "vessel"
-                ? doc.vesselId || resolvedTarget.id
-                : doc.vesselId,
-          }
+          targetObjectType: doc.targetObjectType || resolvedTarget.type,
+          targetObjectId: doc.targetObjectId || resolvedTarget.id,
+          targetObjectName: doc.targetObjectName || resolvedTarget.name,
+          entityType: doc.entityType || getEntityTypeForObjectType(resolvedTarget.type),
+          vesselId:
+            resolvedTarget.type === "vessel"
+              ? doc.vesselId || resolvedTarget.id
+              : doc.vesselId,
+        }
         : {}),
     };
     /* the validation rules run on upload, so the reviewer sees results, not "not checked" */
@@ -4325,10 +4620,10 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
           targetObjectName: resolvedName,
           vesselAttributes: d.vesselAttributes
             ? {
-                ...d.vesselAttributes,
-                vesselName: vesselName || d.vesselAttributes.vesselName,
-                imoNumber: imoNumber || d.vesselAttributes.imoNumber,
-              }
+              ...d.vesselAttributes,
+              vesselName: vesselName || d.vesselAttributes.vesselName,
+              imoNumber: imoNumber || d.vesselAttributes.imoNumber,
+            }
             : undefined,
         };
       }),
@@ -4472,24 +4767,30 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
             ownerOrganization: reqObj.ownerOrganization,
           };
         }
-      } else if (previousSet.equipmentId) {
-        resolvedTarget = {
-          type: "equipment",
-          id: previousSet.equipmentId,
-          name: previousSet.equipmentName || previousSet.equipmentId,
-        };
-      } else if (previousSet.crewId) {
-        resolvedTarget = {
-          type: "person",
-          id: previousSet.crewId,
-          name: previousSet.crewName || previousSet.crewId,
-        };
-      } else if (previousSet.vesselId) {
-        resolvedTarget = {
-          type: "vessel",
-          id: previousSet.vesselId,
-          name: previousSet.vesselName || previousSet.vesselId,
-        };
+      } else {
+        const eq = getSetEquipment(previousSet);
+        const crew = getSetCrew(previousSet);
+        const vessel = getSetVessel(previousSet);
+        if (eq.length > 0) {
+          resolvedTarget = {
+            type: "equipment",
+            id: eq[0].id,
+            name: eq[0].name || eq[0].id,
+          };
+        } else if (crew.length > 0) {
+          const crewName = 'fullName' in crew[0] ? crew[0].fullName : crew[0].name;
+          resolvedTarget = {
+            type: "person",
+            id: crew[0].id,
+            name: crewName || crew[0].id,
+          };
+        } else if (vessel) {
+          resolvedTarget = {
+            type: "vessel",
+            id: vessel.id,
+            name: vessel.name || vessel.id,
+          };
+        }
       }
     }
 
@@ -4515,14 +4816,14 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       ownerOrganization: doc.ownerOrganization?.trim() || effectiveOrg,
       ...(resolvedTarget
         ? {
-            targetObjectType: doc.targetObjectType || resolvedTarget.type,
-            targetObjectId: doc.targetObjectId || resolvedTarget.id,
-            targetObjectName: doc.targetObjectName || resolvedTarget.name,
-            vesselId:
-              resolvedTarget.type === "vessel"
-                ? doc.vesselId || resolvedTarget.id
-                : doc.vesselId,
-          }
+          targetObjectType: doc.targetObjectType || resolvedTarget.type,
+          targetObjectId: doc.targetObjectId || resolvedTarget.id,
+          targetObjectName: doc.targetObjectName || resolvedTarget.name,
+          vesselId:
+            resolvedTarget.type === "vessel"
+              ? doc.vesselId || resolvedTarget.id
+              : doc.vesselId,
+        }
         : {}),
     };
     set((state) => {
@@ -4863,7 +5164,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     noticeSetIds.forEach((noticeSetId) => {
       const noticeSet = get().assuranceSets.find((s) => s.id === noticeSetId);
       if (!noticeSet) return;
-      notifyAssuranceSetUser(get, noticeSet, noticeSet.assignedVerifier, {
+      notifyAssuranceSetUser(get, noticeSet, getSetAssignedVerifier(noticeSet), {
         type: "document_new_version",
         subject: `New version ${newVersionLabel} available: ${versionedDoc?.title || docId}`,
         message: "This set keeps its own decision on the version it reviewed.",
@@ -4894,7 +5195,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     /* a decision belongs to one requirement on one set; without a requirement nothing on any set changes */
     const reviewedSetId = requirementId
       ? assuranceSetId ||
-        setsBeforeVerification.find((s) => s.requirements.some((r) => r.id === requirementId))?.id
+      setsBeforeVerification.find((s) => s.requirements.some((r) => r.id === requirementId))?.id
       : undefined;
     const isDenialDecision = status === "Correction Requested" || status === "Rejected";
     if (reviewedSetId) {
@@ -5043,11 +5344,12 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
       /* a denied document goes back to the submitter, or to the set creator when no submitter is named */
       if (isDenial) {
-        const submitter = resolveNotificationRecipient(s.assignedSubmitter, get().users);
+        const assignedSubmitter = getSetAssignedSubmitter(s);
+        const submitter = resolveNotificationRecipient(assignedSubmitter, get().users);
         notifyAssuranceSetUser(
           get,
           s,
-          submitter ? s.assignedSubmitter : getAssuranceSetCreator(s, get().users).name,
+          submitter ? assignedSubmitter : getAssuranceSetCreator(s, get().users).name,
           {
             type: "document_correction",
             subject: `${status === "Rejected" ? "Rejected" : "Correction requested"}: ${verifiedDoc?.title || docId}`,
@@ -5055,12 +5357,13 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
             documentId: docId,
           },
         );
-        if (s.assignedApprover) {
+        const assignedApprover = getSetAssignedApprover(s);
+        if (assignedApprover) {
           const req = s.requirements.find((r) => r.id === requirementId);
           notifyAssuranceSetUser(
             get,
             s,
-            s.assignedApprover,
+            assignedApprover,
             {
               type: "document_correction",
               subject: `Task sent back for review: ${req?.title || verifiedDoc?.title || docId}`,
@@ -5078,7 +5381,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         logStageTransitionAudit(get, s, previousStage, s.stage);
       }
       if (s.stage === "Approval" && previousStage !== "Approval") {
-        notifyAssuranceSetUser(get, s, s.assignedApprover, {
+        notifyAssuranceSetUser(get, s, getSetAssignedApprover(s), {
           type: "approval_requested",
           subject: `Approval requested: ${s.title}`,
         });
@@ -5547,11 +5850,11 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
             vesselId: vesselId || "",
             crewAttributes: d.crewAttributes
               ? {
-                  ...d.crewAttributes,
-                  assignedVessel: vessel
-                    ? `${vessel.name} (IMO ${vessel.imoNumber})`
-                    : "",
-                }
+                ...d.crewAttributes,
+                assignedVessel: vessel
+                  ? `${vessel.name} (IMO ${vessel.imoNumber})`
+                  : "",
+              }
               : undefined,
           };
         }
@@ -5847,96 +6150,96 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       const existingDoc = state.documents.find((d) => d.id === doc.id);
       const updatedDocuments = existingDoc
         ? state.documents.map((d) => {
-            if (d.id !== doc.id) return d;
-            const nextVer = getNextVersionLabel(d.versions, d.currentVersion);
-            return {
-              ...d,
-              title: `${doc.title} — ${targetCrew.fullName}`,
-              targetObjectType: "person" as const,
-              targetObjectId: targetCrew.id,
-              targetObjectName: targetCrew.fullName,
-              ownerOrganization: d.ownerOrganization || effectiveOrg || targetCrew.organization,
-              certificateNo: doc.certificateNo,
-              issuingAuthority: doc.issuingAuthority,
-              expiryDate: doc.expiryDate,
-              complianceState: isExpired
-                ? ("Expired" as const)
-                : doc.verificationStatus === "Expiring"
-                  ? ("Expiring < 6 Mos" as const)
-                  : ("Valid" as const),
-              verificationStatus: isExpired
-                ? ("Correction Requested" as const)
-                : ("Pending" as const),
-              currentVersion: nextVer,
-              versions: [
-                {
-                  versionLabel: nextVer,
-                  uploadedAt: new Date().toISOString(),
-                  uploadedBy: activePersona || "Crewing Administrator",
-                  fileSizeBytes: doc.fileSizeBytes || 1500000,
-                  fileName:
-                    doc.fileName ||
-                    d.versions[0]?.fileName ||
-                    "updated_cert.pdf",
-                  changeSummary: `Reuploaded / updated ${doc.layer} certificate.`,
-                },
-                ...d.versions,
-              ],
-            };
-          })
-        : [
-            {
-              id: doc.id,
-              title: `${doc.title} — ${targetCrew.fullName}`,
-              entityType: "Crew Certificate" as const,
-              vesselId: targetCrew.currentVesselId || "",
-              ownerOrganization: effectiveOrg || targetCrew.organization || targetCrew.manningAgency,
-              targetObjectType: "person" as const,
-              targetObjectId: targetCrew.id,
-              targetObjectName: targetCrew.fullName,
-              certificateNo: doc.certificateNo,
-              issuingAuthority: doc.issuingAuthority,
-              expiryDate: doc.expiryDate,
-              ocrConfidence: 98.5,
-              complianceState: isExpired
-                ? ("Expired" as const)
+          if (d.id !== doc.id) return d;
+          const nextVer = getNextVersionLabel(d.versions, d.currentVersion);
+          return {
+            ...d,
+            title: `${doc.title} — ${targetCrew.fullName}`,
+            targetObjectType: "person" as const,
+            targetObjectId: targetCrew.id,
+            targetObjectName: targetCrew.fullName,
+            ownerOrganization: d.ownerOrganization || effectiveOrg || targetCrew.organization,
+            certificateNo: doc.certificateNo,
+            issuingAuthority: doc.issuingAuthority,
+            expiryDate: doc.expiryDate,
+            complianceState: isExpired
+              ? ("Expired" as const)
+              : doc.verificationStatus === "Expiring"
+                ? ("Expiring < 6 Mos" as const)
                 : ("Valid" as const),
-              currentVersion: "v1.0",
-              versions: [
-                {
-                  versionLabel: "v1.0",
-                  uploadedAt: new Date().toISOString(),
-                  uploadedBy: activePersona || "Crewing Administrator",
-                  fileSizeBytes: doc.fileSizeBytes || 1500000,
-                  fileName: doc.fileName || "cert.pdf",
-                  changeSummary: `Uploaded ${doc.layer} certificate.`,
-                },
-              ],
-              crewAttributes: {
-                crewName: targetCrew.fullName,
-                passportId: targetCrew.passportNo,
-                rank: targetCrew.rank,
-                certType: doc.stcwRegulation || doc.title,
-                issuingCenter: doc.issuingAuthority,
-                issueDate: doc.issueDate,
-                expiryDate: doc.expiryDate,
-                assignedVessel: targetCrew.currentVesselName || "",
-                nationality: targetCrew.nationality,
-                trainingDate: doc.issueDate,
-                ocrConfidence: 98.5,
+            verificationStatus: isExpired
+              ? ("Correction Requested" as const)
+              : ("Pending" as const),
+            currentVersion: nextVer,
+            versions: [
+              {
+                versionLabel: nextVer,
+                uploadedAt: new Date().toISOString(),
+                uploadedBy: activePersona || "Crewing Administrator",
+                fileSizeBytes: doc.fileSizeBytes || 1500000,
+                fileName:
+                  doc.fileName ||
+                  d.versions[0]?.fileName ||
+                  "updated_cert.pdf",
+                changeSummary: `Reuploaded / updated ${doc.layer} certificate.`,
               },
-              validationRules: {
-                charterBufferPassed: !isExpired,
-                assetMatch100Percent: true,
-                iacsAuthorityValid: true,
-                overallValid: !isExpired,
+              ...d.versions,
+            ],
+          };
+        })
+        : [
+          {
+            id: doc.id,
+            title: `${doc.title} — ${targetCrew.fullName}`,
+            entityType: "Crew Certificate" as const,
+            vesselId: targetCrew.currentVesselId || "",
+            ownerOrganization: effectiveOrg || targetCrew.organization || targetCrew.manningAgency,
+            targetObjectType: "person" as const,
+            targetObjectId: targetCrew.id,
+            targetObjectName: targetCrew.fullName,
+            certificateNo: doc.certificateNo,
+            issuingAuthority: doc.issuingAuthority,
+            expiryDate: doc.expiryDate,
+            ocrConfidence: 98.5,
+            complianceState: isExpired
+              ? ("Expired" as const)
+              : ("Valid" as const),
+            currentVersion: "v1.0",
+            versions: [
+              {
+                versionLabel: "v1.0",
+                uploadedAt: new Date().toISOString(),
+                uploadedBy: activePersona || "Crewing Administrator",
+                fileSizeBytes: doc.fileSizeBytes || 1500000,
+                fileName: doc.fileName || "cert.pdf",
+                changeSummary: `Uploaded ${doc.layer} certificate.`,
               },
-              verificationStatus: isExpired
-                ? ("Correction Requested" as const)
-                : ("Pending" as const),
+            ],
+            crewAttributes: {
+              crewName: targetCrew.fullName,
+              passportId: targetCrew.passportNo,
+              rank: targetCrew.rank,
+              certType: doc.stcwRegulation || doc.title,
+              issuingCenter: doc.issuingAuthority,
+              issueDate: doc.issueDate,
+              expiryDate: doc.expiryDate,
+              assignedVessel: targetCrew.currentVesselName || "",
+              nationality: targetCrew.nationality,
+              trainingDate: doc.issueDate,
+              ocrConfidence: 98.5,
             },
-            ...state.documents,
-          ];
+            validationRules: {
+              charterBufferPassed: !isExpired,
+              assetMatch100Percent: true,
+              iacsAuthorityValid: true,
+              overallValid: !isExpired,
+            },
+            verificationStatus: isExpired
+              ? ("Correction Requested" as const)
+              : ("Pending" as const),
+          },
+          ...state.documents,
+        ];
 
       return {
         crew: updatedCrew,
@@ -6145,19 +6448,19 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       capaItems: state.capaItems.map((item) =>
         item.id === capaId
           ? {
-              ...item,
-              status,
-              closedDate,
-              inspectorNotes:
-                inspectorNotes !== undefined
-                  ? inspectorNotes
-                  : item.inspectorNotes,
-              lastInspectedDate: new Date().toLocaleDateString("en-GB", {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-              }),
-            }
+            ...item,
+            status,
+            closedDate,
+            inspectorNotes:
+              inspectorNotes !== undefined
+                ? inspectorNotes
+                : item.inspectorNotes,
+            lastInspectedDate: new Date().toLocaleDateString("en-GB", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            }),
+          }
           : item,
       ),
     }));
@@ -6167,10 +6470,10 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         (s) =>
           (current.assuranceSetId
             ? s.id === current.assuranceSetId
-            : (Boolean(current.vesselId) && s.vesselId === current.vesselId) ||
-              (Boolean(current.vesselName) &&
-                Boolean(s.vesselName) &&
-                s.vesselName.trim().toLowerCase() === current.vesselName.trim().toLowerCase())) &&
+            : (Boolean(current.vesselId) && getSetVesselId(s) === current.vesselId) ||
+            (Boolean(current.vesselName) &&
+              Boolean(getSetVesselName(s)) &&
+              getSetVesselName(s)!.trim().toLowerCase() === current.vesselName.trim().toLowerCase())) &&
           isAssuranceSetAssignedToPersona(
             s,
             activePersona,
@@ -6239,9 +6542,9 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       capaItems: state.capaItems.map((item) =>
         item.id === capaId
           ? {
-              ...item,
-              evidences: item.evidences.filter((ev) => ev.id !== evidenceId),
-            }
+            ...item,
+            evidences: item.evidences.filter((ev) => ev.id !== evidenceId),
+          }
           : item,
       ),
     }));
@@ -6262,19 +6565,19 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       capaItems: state.capaItems.map((item) =>
         item.id === capaId
           ? {
-              ...item,
-              status: "Under Re-Inspection",
-              closedDate: undefined,
-              flaggedForReinspection: true,
-              cadminFlagReason:
-                reason?.trim() ||
-                "Re-inspection requested by C Admin charterer",
-              flaggedByCAdminDate: new Date().toLocaleDateString("en-GB", {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-              }),
-            }
+            ...item,
+            status: "Under Re-Inspection",
+            closedDate: undefined,
+            flaggedForReinspection: true,
+            cadminFlagReason:
+              reason?.trim() ||
+              "Re-inspection requested by C Admin charterer",
+            flaggedByCAdminDate: new Date().toLocaleDateString("en-GB", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            }),
+          }
           : item,
       ),
     }));
@@ -6293,10 +6596,10 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         (s) =>
           (capa.assuranceSetId
             ? s.id === capa.assuranceSetId
-            : (Boolean(capa.vesselId) && s.vesselId === capa.vesselId) ||
-              (Boolean(capa.vesselName) &&
-                Boolean(s.vesselName) &&
-                s.vesselName.trim().toLowerCase() === capa.vesselName.trim().toLowerCase())) &&
+            : (Boolean(capa.vesselId) && getSetVesselId(s) === capa.vesselId) ||
+            (Boolean(capa.vesselName) &&
+              Boolean(getSetVesselName(s)) &&
+              getSetVesselName(s).trim().toLowerCase() === capa.vesselName.trim().toLowerCase())) &&
           isAssuranceSetAssignedToPersona(
             s,
             activePersona,
@@ -6304,10 +6607,10 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
             sessionUser,
             stateAfter.users,
           ) &&
-          Boolean(resolveNotificationRecipient(s.assignedInspector, stateAfter.users)),
+          Boolean(resolveNotificationRecipient(getSetAssignedInspector(s), stateAfter.users)),
       );
       if (inspectedSet) {
-        notifyAssuranceSetUser(get, inspectedSet, inspectedSet.assignedInspector, {
+        notifyAssuranceSetUser(get, inspectedSet, getSetAssignedInspector(inspectedSet), {
           type: "capa_reinspection",
           subject: `Re-inspection requested: ${capa.id}`,
           message: reason?.trim() || undefined,
@@ -6343,14 +6646,14 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       capaItems: state.capaItems.map((item) =>
         item.id === capaId
           ? {
-              ...item,
-              status: "Under Re-Inspection",
-              closedDate: undefined,
-              flaggedForReinspection: true,
-              submitterResponse: cleanNotes || "Corrective action submitted for verification.",
-              respondedBy: sessionUser.name,
-              respondedAt: formattedDate,
-            }
+            ...item,
+            status: "Under Re-Inspection",
+            closedDate: undefined,
+            flaggedForReinspection: true,
+            submitterResponse: cleanNotes || "Corrective action submitted for verification.",
+            respondedBy: sessionUser.name,
+            respondedAt: formattedDate,
+          }
           : item,
       ),
     }));
@@ -6368,10 +6671,10 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         (s) =>
           (capa.assuranceSetId
             ? s.id === capa.assuranceSetId
-            : (Boolean(capa.vesselId) && s.vesselId === capa.vesselId) ||
-              (Boolean(capa.vesselName) &&
-                Boolean(s.vesselName) &&
-                s.vesselName.trim().toLowerCase() === capa.vesselName.trim().toLowerCase())) &&
+            : (Boolean(capa.vesselId) && getSetVesselId(s) === capa.vesselId) ||
+            (Boolean(capa.vesselName) &&
+              Boolean(getSetVesselName(s)) &&
+              getSetVesselName(s).trim().toLowerCase() === capa.vesselName.trim().toLowerCase())) &&
           isAssuranceSetAssignedToPersona(
             s,
             activePersona,
@@ -6379,10 +6682,10 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
             sessionUser,
             stateAfter.users,
           ) &&
-          Boolean(resolveNotificationRecipient(s.assignedInspector, stateAfter.users)),
+          Boolean(resolveNotificationRecipient(getSetAssignedInspector(s), stateAfter.users)),
       );
       if (inspectedSet) {
-        notifyAssuranceSetUser(get, inspectedSet, inspectedSet.assignedInspector, {
+        notifyAssuranceSetUser(get, inspectedSet, getSetAssignedInspector(inspectedSet), {
           type: "capa_reinspection",
           subject: `Remediation submitted: ${capa.id}`,
           message: cleanNotes || undefined,

@@ -58,7 +58,7 @@ export const PipelineStepper: React.FC<PipelineStepperProps> = ({
       ? workflowConfig.verificationRequired
       : assuranceSet?.verificationRequired !== undefined
         ? assuranceSet.verificationRequired
-        : Boolean(assuranceSet?.assignedVerifier || true);
+        : true;
 
   const isInspectionRequired =
     workflowConfig?.mandatoryInspectionRequired !== undefined
@@ -72,7 +72,7 @@ export const PipelineStepper: React.FC<PipelineStepperProps> = ({
       ? workflowConfig.formalApprovalRequired
       : assuranceSet?.formalApprovalRequired !== undefined
         ? assuranceSet.formalApprovalRequired
-        : Boolean(assuranceSet?.assignedApprover || true);
+        : true;
 
   /* build dynamic workflow stages */
   const stages: { stage: AssuranceStage; label: string; num: number }[] = [];

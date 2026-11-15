@@ -15,6 +15,7 @@ import type {
 } from '../types/assurance';
 import type { UserRolePersona } from '../types/audit';
 import { getAssuranceSetObjects } from './assuranceTemplates';
+import { getSetVessel } from './setObjects';
 
 export interface ObjectDatasheetField {
   key: string;
@@ -312,8 +313,9 @@ export function captureDatasheetSnapshotsForSet(
     byId.set(obj.id, { id: obj.id, type: obj.type, name: obj.name || obj.id });
   });
 
-  if (set.vesselId && !byId.has(set.vesselId)) {
-    byId.set(set.vesselId, { id: set.vesselId, type: 'vessel', name: set.vesselName || set.vesselId });
+  const setVessel = getSetVessel(set);
+  if (setVessel && !byId.has(setVessel.id)) {
+    byId.set(setVessel.id, { id: setVessel.id, type: 'vessel', name: setVessel.name || setVessel.id });
   }
 
   (set.requirements || []).forEach((req) => {

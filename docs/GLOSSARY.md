@@ -27,8 +27,8 @@ A planned role above organizations that sets what each organization's Administra
 _Avoid_: Super Administrator, platform admin
 
 **Client**:
-The part an organization plays on an Assurance Set when the set is carried out for it.
-_Avoid_: Charterer, client organization as a fixed type of organization
+The organization that owns and administers a Project on the platform (ADR 0042). "Client" is not an Assurance Set role; an Assurance Set knows only Requesting party, Responding party, and Third party.
+_Avoid_: Charterer, client organization as an assurance set role
 
 **Vessel Provider**:
 The part an organization plays on an Assurance Set when it provides the vessel the set covers.
@@ -67,8 +67,8 @@ A time-limited assignment of a role to a user on one Assurance Set or one asset.
 _Avoid_: Grant for this meaning, role grant
 
 **Assurance set party role**:
-The commercial or contractual relationship an organization holds on a requested assurance set: Requesting party (the organization asking for the assurance set) or Responding party (the organization requested to create and fulfill the set). Held by an organization, not a Role assignment.
-_Avoid_: Platform role, workflow role, stakeholder role
+The role an organization holds on an Assurance Set: Requesting party (the organization asking for the set), Responding party (the organization fulfilling the set and providing the covered objects), or Third party (an independent reviewer or authority organization). Exactly one Requesting party and one Responding party per set (ADR 0042).
+_Avoid_: Client as an assurance set role, platform role, workflow role, stakeholder role
 
 **Grant**:
 A Scope given to one user for a time, on top of the Scopes of the user's role.

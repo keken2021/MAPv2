@@ -107,7 +107,7 @@ export const VersionHistoryDrawer: React.FC<VersionHistoryDrawerProps> = ({ docu
     : false;
 
   const linkedCharterWindowEnd = linkedSets
-    .map((set) => set.charterWindowEnd)
+    .map((set) => set.endDate)
     .find((end) => end && documentExpiresBeforeContractEnd(document!, end));
 
   const linkedReqVerifierStatus = linkedSets

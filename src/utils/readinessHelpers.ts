@@ -4,13 +4,16 @@
   role in system: consumed by useMapStore, VesselTable, AssuranceTable, DashboardView, VesselDetailView, and AssuranceDetailView.
 */
 
-import { AssuranceRequirement, AssuranceSet, AssuranceStage, TaskSection } from '../types/assurance';
+import { AssuranceObject, AssuranceRequirement, AssuranceSet, AssuranceStage, TaskSection } from '../types/assurance';
 import { CrewComplianceStatus, CrewMember } from '../types/crew';
 import { MasterDocument } from '../types/document';
 import { EquipmentAsset } from '../types/equipment';
 import { VesselInformation } from '../types/vessel';
 import { CapaItem } from '../types/capa';
 import { isComplianceDeadlineOverdue } from './validation';
+import { getSetEndDate } from './setDates';
+import { getSetVesselId, getSetVesselName, getSetEquipmentId, getSetEquipment } from './setObjects';
+import { getAssuranceSetScopes } from './assuranceTemplates';
 
 /**
   dynamic stage percentage weights as specified in compliance calculation rules:
@@ -193,7 +196,10 @@ export function calculateVesselReadiness(
 ): number {
   /* find assurance sets linked to this vessel */
   const linkedSets = assuranceSets.filter(
-    (s) => s.vesselId === vessel.id || (vessel.name && s.vesselName?.toLowerCase() === vessel.name.toLowerCase())
+    (s) =>
+      getAssuranceSetScopes(s).includes('Vessel') &&
+      (getSetVesselId(s) === vessel.id ||
+        (vessel.name && getSetVesselName(s)?.toLowerCase() === vessel.name.toLowerCase())),
   );
 
   if (linkedSets.length > 0) {
@@ -241,13 +247,17 @@ export function getVesselAssuringSets(
   today: Date = new Date(),
 ): AssuranceSet[] {
   const todayIso = today.toISOString().slice(0, 10);
-  return assuranceSets.filter(
-    (s) =>
-      (s.vesselId === vessel.id || Boolean(vessel.name && s.vesselName?.toLowerCase() === vessel.name.toLowerCase())) &&
+  return assuranceSets.filter((s) => {
+    const vId = getSetVesselId(s);
+    const vName = getSetVesselName(s);
+    const end = getSetEndDate(s);
+    return (
+      (vId === vessel.id || Boolean(vessel.name && vName?.toLowerCase() === vessel.name.toLowerCase())) &&
       (s.stage === 'Approved' || s.stage === 'Certified' || s.approverDecision === 'Approved') &&
-      Boolean(s.charterWindowEnd) &&
-      s.charterWindowEnd.slice(0, 10) >= todayIso,
-  );
+      Boolean(end) &&
+      end.slice(0, 10) >= todayIso
+    );
+  });
 }
 
 /**
@@ -431,7 +441,12 @@ export function calculateEquipmentReadiness(
   equipment: Pick<EquipmentAsset, 'id'>,
   assuranceSets: AssuranceSet[] = [],
 ): number | null {
-  const linkedSets = assuranceSets.filter((s) => s.equipmentId === equipment.id);
+  const linkedSets = assuranceSets.filter(
+    (s) =>
+      getAssuranceSetScopes(s).includes('Equipment') &&
+      (getSetEquipmentId(s) === equipment.id ||
+        getSetEquipment(s).some((e) => e.id === equipment.id)),
+  );
   if (linkedSets.length === 0) return null;
   const total = linkedSets.reduce((sum, s) => sum + calculateAssuranceSetReadiness(s, assuranceSets), 0);
   return Math.round(total / linkedSets.length);
@@ -585,14 +600,16 @@ export function getAssuranceSetOnTimeStatus(
   with what file: src/utils/readinessHelpers.ts used by DashboardView and AssuranceDetailView.
 */
 export function getAssuranceSetOpenFindings(
-  set: Pick<AssuranceSet, 'id' | 'vesselId' | 'vesselName'>,
+  set: Pick<AssuranceSet, 'id'> & { vesselId?: string; vesselName?: string; assuranceObjects?: AssuranceObject[] },
   capaItems: CapaItem[] = [],
 ): CapaItem[] {
+  const vesselId = set.vesselId || getSetVesselId(set);
+  const vesselName = set.vesselName || getSetVesselName(set);
   return capaItems.filter((c) => {
     if (c.status === 'Verified & Closed') return false;
     if (c.assuranceSetId && c.assuranceSetId === set.id) return true;
-    if (set.vesselId && c.vesselId === set.vesselId) return true;
-    if (set.vesselName && c.vesselName && c.vesselName.toLowerCase() === set.vesselName.toLowerCase()) return true;
+    if (vesselId && c.vesselId === vesselId) return true;
+    if (vesselName && c.vesselName && c.vesselName.toLowerCase() === vesselName.toLowerCase()) return true;
     return false;
   });
 }
@@ -608,7 +625,7 @@ export function doFindingsBlockSet(set: Pick<AssuranceSet, 'mandatoryInspectionR
   with what file: src/utils/readinessHelpers.ts used by DashboardView and AssuranceDetailView.
 */
 export function getAssuranceSetOpenFindingsCount(
-  set: Pick<AssuranceSet, 'id' | 'vesselId' | 'vesselName'>,
+  set: Pick<AssuranceSet, 'id'> & { vesselId?: string; vesselName?: string; assuranceObjects?: AssuranceObject[] },
   capaItems: CapaItem[] = [],
 ): number {
   return getAssuranceSetOpenFindings(set, capaItems).length;

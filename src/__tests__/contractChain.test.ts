@@ -67,8 +67,8 @@ describe('contract chain and organization groups', () => {
     expect(project?.onHireDate).toBe('2026-11-15');
 
     const after = useMapStore.getState().assuranceSets.find((set) => set.id === OIL_CO_SS01_ID);
-    expect(after?.charterWindowStart).toBe(before?.charterWindowStart);
-    expect(after?.charterWindowEnd).toBe(before?.charterWindowEnd);
+    expect(after?.startDate).toBe(before?.startDate);
+    expect(after?.endDate).toBe(before?.endDate);
   });
 
   it('shows the Oil Company LNG chain and each set organization group', () => {

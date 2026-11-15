@@ -274,11 +274,11 @@ export function validateComplianceDeadline(
   with what file: src/utils/validation.ts used by AssuranceDetailView.tsx.
 */
 export function isComplianceDeadlineOverdue(
-  set: { complianceDeadline?: string; stage: string; revisedCompletionDate?: string },
+  set: { deadline?: string; complianceDeadline?: string; stage: string; revisedCompletionDate?: string },
   today: Date = new Date(),
 ): boolean {
   if (set.stage === 'Approved' || set.stage === 'Certified' || set.stage === 'Cancelled') return false;
-  const effectiveDeadline = set.revisedCompletionDate || set.complianceDeadline;
+  const effectiveDeadline = set.revisedCompletionDate || set.deadline || set.complianceDeadline;
   if (!effectiveDeadline) return false;
   return effectiveDeadline < toIsoLocalDate(today);
 }

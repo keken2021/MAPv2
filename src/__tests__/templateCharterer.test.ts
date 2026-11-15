@@ -7,6 +7,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useMapStore } from '../store/useMapStore';
 import { AssuranceSet } from '../types/assurance';
+import { getRequestingParty, getRespondingParty } from '../utils/setParties';
+import { getSetVesselName } from '../utils/setObjects';
+import { getSetStartDate, getSetEndDate, getSetDeadline } from '../utils/setDates';
 
 /**
   what: test suite verifying that template-based assurance set creation includes charterer details.
@@ -22,40 +25,42 @@ describe('Assurance Set Template Charterer Inclusion', () => {
   it('should include the template charterer in a newly created assurance set', () => {
     const store = useMapStore.getState();
     const templateSet = store.assuranceSets[0];
-    const templateCharterer = templateSet.charterer || templateSet.initiatorOrg;
+    const templateCharterer = getRequestingParty(templateSet);
 
     expect(templateCharterer).toBeDefined();
 
     /* construct new assurance set from template with Charterer org in title and Northwind Marine initiator org for admin */
     const newSetFromTemplate: AssuranceSet = {
       id: 'AS-2026-999',
-      title: `${templateCharterer} - ${templateSet.vesselName} Charter Vetting`,
-      vesselId: templateSet.vesselId,
-      vesselName: templateSet.vesselName,
-      imoNumber: templateSet.imoNumber,
-      initiatorOrg: 'Northwind Marine Pty Ltd',
-      initiatorRole: 'Vessel Provider Admin',
-      charterer: templateCharterer,
-      charterWindowStart: templateSet.charterWindowStart,
-      complianceDeadline: templateSet.complianceDeadline,
-      charterWindowEnd: templateSet.charterWindowEnd,
+      title: `${templateCharterer} - ${getSetVesselName(templateSet)} Charter Vetting`,
+      parties: [
+        { organization: templateCharterer || '', role: 'Requesting party' },
+        { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      ],
+      assuranceObjects: templateSet.assuranceObjects,
+      startDate: getSetStartDate(templateSet),
+      endDate: getSetEndDate(templateSet),
+      deadline: getSetDeadline(templateSet),
+      dateHistory: [],
       stage: 'Initiated',
       readinessScore: 10,
       mandatoryInspectionRequired: templateSet.mandatoryInspectionRequired,
       inspectionCompleted: false,
       requirements: templateSet.requirements,
-      stakeholders: undefined,
-      assignedStakeholders: undefined,
-      createdByPersona: ''
+      createdBy: {
+        userId: 'USR-ADMIN-01',
+        name: 'Vessel Provider Admin',
+        persona: 'Administrator',
+      },
     };
 
     store.addAssuranceSet(newSetFromTemplate);
 
     const addedSet = useMapStore.getState().assuranceSets.find((s) => s.id === 'AS-2026-999');
     expect(addedSet).toBeDefined();
-    expect(addedSet?.charterer).toBe(templateCharterer);
-    expect(addedSet?.initiatorOrg).toBe('Northwind Marine Pty Ltd');
-    expect(addedSet?.title).toBe(`${templateCharterer} - ${templateSet.vesselName} Charter Vetting`);
+    expect(getRequestingParty(addedSet)).toBe(templateCharterer);
+    expect(getRespondingParty(addedSet)).toBe('Northwind Marine Pty Ltd');
+    expect(addedSet?.title).toBe(`${templateCharterer} - ${getSetVesselName(templateSet)} Charter Vetting`);
     expect(addedSet?.title).not.toContain('(C Admin Charter Vetting)');
   });
 });

@@ -14,20 +14,27 @@ describe('AssuranceDetailView Task Dialogs Section and Predecessor', () => {
     const baseSet: AssuranceSet = {
       id: setIdWithSections,
       title: 'Deepwater Drilling Campaign Set',
-      vesselName: 'Deepwater Champion',
-      vesselId: 'VES-001',
-      imoNumber: '9456789',
-      initiatorOrg: 'Client Org',
-      initiatorRole: 'Client Admin',
-      createdByUserId: 'USR-CLIENT-01',
-      createdByName: 'Client Admin',
-      createdByPersona: 'C Admin',
-      serviceProviderOrg: 'Vendor Org',
-      assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
-      charterWindowStart: '2026-11-10',
-      charterWindowEnd: '2026-12-10',
-      complianceDeadline: '2026-11-09',
-      targetDate: '2026-11-09',
+      parties: [
+        { organization: 'Client Org', role: 'Requesting party' },
+        { organization: 'Vendor Org', role: 'Responding party' },
+      ],
+      assuranceObjects: [
+        {
+          id: 'VES-001',
+          type: 'vessel',
+          name: 'Deepwater Champion',
+          identifier: '9456789',
+          ownerOrganization: 'Vendor Org',
+        },
+      ],
+      createdBy: { userId: 'USR-CLIENT-01', name: 'Client Admin', persona: 'C Admin' },
+      stakeholders: {
+        verifierName: 'A. Fontaine (Bureau Veritas Inspectorate)',
+      },
+      startDate: '2026-11-10',
+      endDate: '2026-12-10',
+      deadline: '2026-11-09',
+      dateHistory: [],
       stage: 'Initiated',
       readinessScore: 65,
       mandatoryInspectionRequired: false,
@@ -327,8 +334,7 @@ describe('AssuranceDetailView Task Dialogs Section and Predecessor', () => {
   it('defaults the date permission window to 14 days and blocks deadline revision save when reason is empty', () => {
     const overdueSet: AssuranceSet = {
       ...useMapStore.getState().assuranceSets.find((s) => s.id === setIdWithSections)!,
-      complianceDeadline: '2020-01-01',
-      targetDate: '2020-01-01',
+      deadline: '2020-01-01',
     };
     useMapStore.setState({
       ...useMapStore.getState(),

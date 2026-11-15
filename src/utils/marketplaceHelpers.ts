@@ -28,6 +28,8 @@ import { calculateCrewComplianceScore, calculateEquipmentReadiness, calculateVes
 import { formatReadinessScore, getStatusDisplayLabel, NOT_ASSESSED_LABEL } from './formatters';
 import { getAssuranceSetCrewIds, getAssuranceSetScopes } from './assuranceTemplates';
 import { toIsoLocalDate } from './validation';
+import { getSetStartDate, getSetEndDate } from './setDates';
+import { getSetVesselId, getSetEquipmentId } from './setObjects';
 
 const DEFAULT_CONTACT_AVATAR =
   'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80';
@@ -546,16 +548,18 @@ export function isMarketplaceItemAvailableOnDate(
 
   return !assuranceSets.some((set) => {
     if (set.visibility === 'draft') return false;
-    if (!set.charterWindowStart || !set.charterWindowEnd) return false;
+    const start = getSetStartDate(set);
+    const end = getSetEndDate(set);
+    if (!start || !end) return false;
     /* every set carries a vessel id, so a vessel is only contracted by a set whose scopes include Vessel */
     const occupies =
       kind === 'vessel'
-        ? set.vesselId === assetId && getAssuranceSetScopes(set).includes('Vessel')
+        ? getSetVesselId(set) === assetId && getAssuranceSetScopes(set).includes('Vessel')
         : kind === 'crew'
           ? getAssuranceSetCrewIds(set).includes(assetId)
-          : set.equipmentId === assetId;
+          : getSetEquipmentId(set) === assetId;
     if (!occupies) return false;
-    return set.charterWindowStart <= date && date < set.charterWindowEnd;
+    return start <= date && date < end;
   });
 }
 

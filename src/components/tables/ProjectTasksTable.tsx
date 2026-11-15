@@ -18,6 +18,15 @@ import type { UserProfile } from '../../types/user';
 import { DEFAULT_PAGE_SIZE, paginate } from '../../utils/paginationHelpers';
 import { RbacSessionUser } from '../../utils/rbacHelpers';
 import { getDemoSessionContext, getSessionUserForPersona } from '../../utils/userRoleHelpers';
+import { getSetVessel, getSetCrew, getSetEquipment, getSetImoNumber } from '../../utils/setObjects';
+import { getRequestingParty, getRespondingParty } from '../../utils/setParties';
+import { getSetDeadline } from '../../utils/setDates';
+import {
+  getSetAssignedSubmitter,
+  getSetAssignedVerifier,
+  getSetAssignedInspector,
+  getSetAssignedApprover,
+} from '../../utils/setStakeholders';
 import {
   ProjectTaskRow,
   getTaskRowActionLabel,
@@ -125,25 +134,38 @@ function resolveTargetObject(
       (set.assuranceObjects || []).find((o) => o.id === req.targetObjectId) ||
       assuranceObjects.find((o) => o.id === req.targetObjectId);
     if (matched) {
-      return { name: matched.name, identifier: matched.identifier, type: matched.type };
+      const identifier =
+        matched.type === 'vessel' && matched.identifier && !matched.identifier.startsWith('IMO')
+          ? `IMO ${matched.identifier}`
+          : matched.identifier;
+      return { name: matched.name, identifier, type: matched.type };
     }
   }
   if (set.assuranceObjects && set.assuranceObjects.length === 1) {
     const obj = set.assuranceObjects[0];
-    return { name: obj.name, identifier: obj.identifier, type: obj.type };
+    const identifier =
+      obj.type === 'vessel' && obj.identifier && !obj.identifier.startsWith('IMO')
+        ? `IMO ${obj.identifier}`
+        : obj.identifier;
+    return { name: obj.name, identifier, type: obj.type };
   }
-  if (set.vesselName) {
+  const v = getSetVessel(set);
+  if (v) {
+    const imo = getSetImoNumber(set);
     return {
-      name: set.vesselName,
-      identifier: set.imoNumber ? `IMO ${set.imoNumber}` : undefined,
+      name: v.name,
+      identifier: imo ? `IMO ${imo}` : undefined,
       type: 'Vessel',
     };
   }
-  if (set.crewName) {
-    return { name: set.crewName, type: 'Crew' };
+  const crew = getSetCrew(set);
+  if (crew.length > 0) {
+    const crewName = 'fullName' in crew[0] ? crew[0].fullName : crew[0].name;
+    return { name: crewName, type: 'Crew' };
   }
-  if (set.equipmentName) {
-    return { name: set.equipmentName, type: 'Equipment' };
+  const eq = getSetEquipment(set);
+  if (eq.length > 0) {
+    return { name: eq[0].name, type: 'Equipment' };
   }
   return { name: 'General' };
 }
@@ -161,11 +183,13 @@ function resolveAssignee(
   if (req.assignedVerifier?.trim()) {
     return req.assignedVerifier.trim();
   }
-  if (set.assignedSubmitter?.trim()) {
-    return set.assignedSubmitter.trim();
+  const submitter = getSetAssignedSubmitter(set);
+  if (submitter?.trim()) {
+    return submitter.trim();
   }
-  if (set.serviceProviderOrg?.trim()) {
-    return set.serviceProviderOrg.trim();
+  const responding = getRespondingParty(set);
+  if (responding?.trim()) {
+    return responding.trim();
   }
   return 'Unassigned';
 }
@@ -176,7 +200,7 @@ function resolveStatusAndDates(
   today: Date,
 ) {
   if (req.reuploadRequested) {
-    const targetDate = req.targetDate || set.targetDate || set.complianceDeadline;
+    const targetDate = req.targetDate || getSetDeadline(set);
     const todayIso = today.toISOString().split('T')[0];
     const isOverdue = Boolean(targetDate) && targetDate! < todayIso;
     const isBlocking = true;
@@ -195,7 +219,7 @@ function resolveStatusAndDates(
     set.stage === 'Approved' ||
     set.stage === 'Certified';
 
-  const targetDate = req.targetDate || set.targetDate || set.complianceDeadline;
+  const targetDate = req.targetDate || getSetDeadline(set);
   const todayIso = today.toISOString().split('T')[0];
   const isOverdue = !isCompleted && Boolean(targetDate) && targetDate! < todayIso;
   const isBlocking =
@@ -205,9 +229,9 @@ function resolveStatusAndDates(
 
   const hasDocument = Boolean(
     req.documentId ||
-      req.linkedDocumentId ||
-      req.fulfillmentType === 'assurance_set' ||
-      req.isFulfilled,
+    req.linkedDocumentId ||
+    req.fulfillmentType === 'assurance_set' ||
+    req.isFulfilled,
   );
 
   let status: TaskStatus;
@@ -250,11 +274,12 @@ function resolveTaskOrganization(
     if (parenMatch && parenMatch[1].trim()) return parenMatch[1].trim();
     return req.assignedVerifier.trim();
   }
-  if (set.assignedSubmitter) {
-    const parenMatch = set.assignedSubmitter.match(/\(([^)]+)\)/);
+  const submitter = getSetAssignedSubmitter(set);
+  if (submitter) {
+    const parenMatch = submitter.match(/\(([^)]+)\)/);
     if (parenMatch && parenMatch[1].trim()) return parenMatch[1].trim();
   }
-  return set.serviceProviderOrg || set.clientOrg || '';
+  return getRespondingParty(set) || getRequestingParty(set) || '';
 }
 
 function checkMatchesMyOrg(
@@ -319,23 +344,23 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
     sessionUser !== undefined
       ? sessionUser
       : getSessionUserForPersona(
-          store.activePersona,
-          allUsers,
-          getDemoSessionContext({
-            activeDemoOrganization: resolvedOrg,
-            activeSessionUserId: store.activeSessionUserId,
-          }),
-        ) ?? null;
+        store.activePersona,
+        allUsers,
+        getDemoSessionContext({
+          activeDemoOrganization: resolvedOrg,
+          activeSessionUserId: store.activeSessionUserId,
+        }),
+      ) ?? null;
   const resolvedSessionUser: RbacSessionUser | null = rawSessionUser
     ? ((rawSessionUser.id ? allUsers.find((u) => u.id === rawSessionUser.id) : undefined) ?? {
-        id: rawSessionUser.id ?? '',
-        name: rawSessionUser.name ?? '',
-        organization: rawSessionUser.organization ?? resolvedOrg ?? '',
-        roles:
-          rawSessionUser.roles && rawSessionUser.roles.length > 0
-            ? rawSessionUser.roles
-            : [store.activePersona],
-      })
+      id: rawSessionUser.id ?? '',
+      name: rawSessionUser.name ?? '',
+      organization: rawSessionUser.organization ?? resolvedOrg ?? '',
+      roles:
+        rawSessionUser.roles && rawSessionUser.roles.length > 0
+          ? rawSessionUser.roles
+          : [store.activePersona],
+    })
     : null;
   const handleOpenSet = onOpenSet ?? ((set: AssuranceSet) => store.setCurrentHashView?.('assurance-sets', set.id));
 
@@ -430,7 +455,8 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
           if (targetUser) {
             needles.push(targetUser.id.toLowerCase(), targetUser.name.toLowerCase(), targetUser.email.toLowerCase());
           }
-          const haystacks = [set.assignedInspector].filter(Boolean).map((h) => String(h).toLowerCase());
+          const assignedInspector = getSetAssignedInspector(set);
+          const haystacks = [assignedInspector].filter(Boolean).map((h) => String(h).toLowerCase());
           matchesUser = needles.some((needle) => haystacks.some((h) => h.includes(needle)));
         }
 
@@ -440,8 +466,9 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
             set,
             assuranceObjects,
           );
-          const assignee = set.assignedInspector?.trim() || 'Unassigned';
-          const targetDate = set.targetDate || set.complianceDeadline;
+          const assignedInspector = getSetAssignedInspector(set);
+          const assignee = assignedInspector?.trim() || 'Unassigned';
+          const targetDate = getSetDeadline(set);
           const todayIso = today.toISOString().split('T')[0];
           const isOverdue = Boolean(targetDate && targetDate < todayIso);
           const isDone = inspectionStatusInfo.status === 'Done';
@@ -455,7 +482,7 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
             ocrConfidence: 100,
             verifierStatus: isDone ? 'Verified' : 'Pending',
             targetDate,
-            responsibleParty: set.assignedInspector,
+            responsibleParty: assignedInspector,
           };
           list.push({
             id: `${set.id}-INSPECTION`,
@@ -491,7 +518,8 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
           if (targetUser) {
             needles.push(targetUser.id.toLowerCase(), targetUser.name.toLowerCase(), targetUser.email.toLowerCase());
           }
-          const haystacks = [set.assignedApprover].filter(Boolean).map((h) => String(h).toLowerCase());
+          const assignedApprover = getSetAssignedApprover(set);
+          const haystacks = [assignedApprover].filter(Boolean).map((h) => String(h).toLowerCase());
           matchesUser = needles.some((needle) => haystacks.some((h) => h.includes(needle)));
         }
 
@@ -501,8 +529,9 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
             set,
             assuranceObjects,
           );
-          const assignee = set.assignedApprover?.trim() || 'Unassigned';
-          const targetDate = set.targetDate || set.complianceDeadline;
+          const assignedApprover = getSetAssignedApprover(set);
+          const assignee = assignedApprover?.trim() || 'Unassigned';
+          const targetDate = getSetDeadline(set);
           const todayIso = today.toISOString().split('T')[0];
           const isOverdue = Boolean(targetDate && targetDate < todayIso);
           const isDone = approvalStatusInfo.status === 'Done';
@@ -516,7 +545,7 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
             ocrConfidence: 100,
             verifierStatus: isDone ? 'Verified' : 'Pending',
             targetDate,
-            responsibleParty: set.assignedApprover,
+            responsibleParty: assignedApprover,
           };
           list.push({
             id: `${set.id}-APPROVAL`,
@@ -558,7 +587,7 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
             req.assignedVerifier,
             req.responsibleParty,
             ...(req.responsibleParties || []),
-            set.assignedSubmitter,
+            getSetAssignedSubmitter(set),
             assignee,
           ]
             .filter(Boolean)

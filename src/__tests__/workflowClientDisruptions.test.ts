@@ -9,6 +9,7 @@ import { useMapStore } from '../store/useMapStore';
 import { AssuranceSet } from '../types/assurance';
 import { findOverlappingAssuranceSets } from '../utils/assuranceOverlap';
 import { MasterDocument } from '../types/document';
+import { getSetVessel } from '../utils/setObjects';
 
 const initialState = useMapStore.getState();
 
@@ -36,22 +37,34 @@ describe('Real-World Operational Workflows - Client Disruptions & Date Shifts', 
     const testSet: AssuranceSet = {
       id: setId,
       title: 'Offshore Exploration Campaign',
-      vesselId: 'VESSEL-002',
-      vesselName: 'Pacific Valour',
-      imoNumber: '9234567',
-      initiatorOrg: 'Chevron Australia Pty Ltd',
-      initiatorRole: 'C Admin · Client Created',
-      charterWindowStart: '2026-12-01',
-      complianceDeadline: '2026-12-01',
-      charterWindowEnd: '2027-12-01',
+      assuranceObjects: [
+        {
+          id: 'VESSEL-002',
+          type: 'vessel',
+          name: 'Pacific Valour',
+          identifier: '9234567',
+          ownerOrganization: 'Northwind Marine Pty Ltd',
+        },
+      ],
+      parties: [
+        { organization: 'Chevron Australia Pty Ltd', role: 'Requesting party' },
+        { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      ],
+      startDate: '2026-12-01',
+      deadline: '2026-12-01',
+      endDate: '2027-12-01',
+      dateHistory: [],
+      createdBy: { userId: 'USR-221', name: 'C. Henderson', persona: 'C Admin' },
       stage: 'Verification',
       readinessScore: 45,
       verificationRequired: true,
       mandatoryInspectionRequired: false,
       formalApprovalRequired: true,
       inspectionCompleted: false,
-      assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
-      assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
+      submitters: [{ organization: 'Northwind Marine Pty Ltd', assignee: 'M. Chen (Northwind Marine Pty Ltd)' }],
+      stakeholders: {
+        verifierName: 'A. Fontaine (Bureau Veritas Inspectorate)',
+      },
       requirements: [
         {
           id: 'REQ-CANC-01',
@@ -64,9 +77,6 @@ describe('Real-World Operational Workflows - Client Disruptions & Date Shifts', 
           responsibleParty: 'Northwind Marine Pty Ltd',
         },
       ],
-      createdByPersona: 'C Admin',
-      createdByUserId: 'USR-221',
-      createdByName: 'C. Henderson',
     };
 
     store.addAssuranceSet(testSet);
@@ -111,20 +121,29 @@ describe('Real-World Operational Workflows - Client Disruptions & Date Shifts', 
       title: 'Current Active Charter',
       assuranceType: 'Vessel',
       subtypes: ['Vessel'],
-      vesselId: sharedVesselId,
-      vesselName: 'MV Dampier Transporter',
-      imoNumber: '9345678',
-      initiatorOrg: 'Chevron Australia Pty Ltd',
-      initiatorRole: 'C Admin · Client Created',
-      charterWindowStart: '2027-01-01',
-      complianceDeadline: '2027-01-01',
-      charterWindowEnd: '2027-06-01',
+      assuranceObjects: [
+        {
+          id: sharedVesselId,
+          type: 'vessel',
+          name: 'MV Dampier Transporter',
+          identifier: '9345678',
+          ownerOrganization: 'Chevron Australia Pty Ltd',
+        },
+      ],
+      parties: [
+        { organization: 'Chevron Australia Pty Ltd', role: 'Requesting party' },
+        { organization: 'Chevron Australia Pty Ltd', role: 'Responding party' },
+      ],
+      startDate: '2027-01-01',
+      deadline: '2027-01-01',
+      endDate: '2027-06-01',
+      dateHistory: [],
       stage: 'Approved',
       readinessScore: 100,
       requirements: [],
       mandatoryInspectionRequired: false,
       inspectionCompleted: false,
-      createdByPersona: 'C Admin',
+      createdBy: { userId: 'USR-221', name: 'C. Henderson', persona: 'C Admin' },
     };
 
     store.addAssuranceSet(existingSet);
@@ -154,7 +173,7 @@ describe('Real-World Operational Workflows - Client Disruptions & Date Shifts', 
 
     expect(shiftedConflicts).toHaveLength(1);
     expect(shiftedConflicts[0].set.id).toBe(existingSetId);
-    expect(shiftedConflicts[0].set.vesselId).toBe(sharedVesselId);
+    expect(getSetVessel(shiftedConflicts[0].set)?.id).toBe(sharedVesselId);
   });
 
   /**
@@ -210,23 +229,34 @@ describe('Real-World Operational Workflows - Client Disruptions & Date Shifts', 
     const testSet: AssuranceSet = {
       id: setId,
       title: 'Short Term Charter Alpha',
-      vesselId: 'VESSEL-001',
-      vesselName: 'MV Torrens Supporter',
-      imoNumber: '9123453',
-      initiatorOrg: 'Chevron Australia Pty Ltd',
-      initiatorRole: 'C Admin · Client Created',
-      charterWindowStart: '2026-11-01',
-      complianceDeadline: '2026-11-01',
-      charterWindowEnd: '2027-04-01',
+      assuranceObjects: [
+        {
+          id: 'VESSEL-001',
+          type: 'vessel',
+          name: 'MV Torrens Supporter',
+          identifier: '9123453',
+          ownerOrganization: 'Northwind Marine Pty Ltd',
+        },
+      ],
+      parties: [
+        { organization: 'Chevron Australia Pty Ltd', role: 'Requesting party' },
+        { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      ],
+      startDate: '2026-11-01',
+      deadline: '2026-11-01',
+      endDate: '2027-04-01',
+      dateHistory: [],
       stage: 'Verification',
       readinessScore: 80,
       verificationRequired: true,
       mandatoryInspectionRequired: false,
       formalApprovalRequired: true,
       inspectionCompleted: false,
-      assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
-      assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
-      assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
+      submitters: [{ organization: 'Northwind Marine Pty Ltd', assignee: 'M. Chen (Northwind Marine Pty Ltd)' }],
+      stakeholders: {
+        verifierName: 'A. Fontaine (Bureau Veritas Inspectorate)',
+        approverName: 'P. Nardelli (Marine Assurance Authority)',
+      },
       requirements: [
         {
           id: reqId,
@@ -240,9 +270,6 @@ describe('Real-World Operational Workflows - Client Disruptions & Date Shifts', 
           responsibleParty: 'Northwind Marine Pty Ltd',
         },
       ],
-      createdByPersona: 'C Admin',
-      createdByUserId: 'USR-221',
-      createdByName: 'C. Henderson',
     };
     useMapStore.setState({
       activePersona: 'C Admin',
@@ -254,7 +281,7 @@ describe('Real-World Operational Workflows - Client Disruptions & Date Shifts', 
     // Client extends charterWindowEnd to 2027-09-01 (past document expiry 2027-06-01)
     const updatedSet: AssuranceSet = {
       ...testSet,
-      charterWindowEnd: '2027-09-01',
+      endDate: '2027-09-01',
     };
     useMapStore.getState().updateAssuranceSet(updatedSet);
 

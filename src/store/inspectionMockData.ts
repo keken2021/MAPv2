@@ -4,6 +4,9 @@
   role in system: single source of truth for physical inspection workflows across VesselDetailView, InspectionChecklistView, and InspectorWorkspaceView.
 */
 
+import { getRequestingParty, SetPartiesInput } from '../utils/setParties';
+import { getSetAssignedInspector, SetStakeholdersInput } from '../utils/setStakeholders';
+
 export interface EvidenceItem {
   id: string;
   title: string;
@@ -231,13 +234,9 @@ export const PHYSICAL_INSPECTIONS: PhysicalInspectionRecord[] = [
   },
 ];
 
-export type AssuranceSetInspectionFields = {
+export type AssuranceSetInspectionFields = SetPartiesInput & SetStakeholdersInput & {
   id: string;
   title?: string;
-  assignedInspector?: string;
-  initiatorOrg?: string;
-  clientOrg?: string;
-  charterer?: string;
   inspectionCompleted?: boolean;
 };
 
@@ -254,11 +253,7 @@ export function getPhysicalInspectionsForAssuranceSets(
   for (const set of sets) {
     const seeded = PHYSICAL_INSPECTIONS.filter((row) => row.assuranceSetId === set.id);
     for (const insp of seeded) {
-      const client =
-        (set.clientOrg || '').trim() ||
-        (set.charterer || '').trim() ||
-        (set.initiatorOrg || '').trim() ||
-        insp.client;
+      const client = getRequestingParty(set) || insp.client;
       let status = insp.status;
       if (set.inspectionCompleted === false && status === 'Completed') {
         status = 'Scheduled';
@@ -270,7 +265,7 @@ export function getPhysicalInspectionsForAssuranceSets(
         title: insp.title.includes(set.title || '') || !set.title
           ? insp.title
           : `Visual Vessel Inspection & Safety Audit — ${set.title}`,
-        inspector: (set.assignedInspector || '').trim() || insp.inspector,
+        inspector: getSetAssignedInspector(set) || insp.inspector,
         client,
         status,
       });

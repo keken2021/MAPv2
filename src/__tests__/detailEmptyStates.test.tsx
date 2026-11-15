@@ -52,9 +52,10 @@ describe('detail screen EmptyState roll-out', () => {
       documents: [],
       assuranceSets: useMapStore
         .getState()
-        .assuranceSets.map((s) =>
-          s.equipmentId === item.id ? { ...s, equipmentId: undefined } : s,
-        ),
+        .assuranceSets.map((s) => ({
+          ...s,
+          assuranceObjects: (s.assuranceObjects || []).filter((obj) => obj.id !== item.id),
+        })),
     });
 
     render(<EquipmentDetailView equipmentId={item.id} />);

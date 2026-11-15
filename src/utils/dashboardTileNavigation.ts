@@ -2,6 +2,9 @@ import { DashboardKpiTile } from '../types/dashboard';
 import { AssuranceSet } from '../types/assurance';
 import { CapaItem } from '../types/capa';
 import { MasterDocument } from '../types/document';
+import { getSetDeadline, getSetEndDate } from './setDates';
+import { getSetAssignedSubmitter, getSetAssignedVerifier, getSetAssignedInspector, getSetAssignedApprover } from './setStakeholders';
+import { getSetVessel } from './setObjects';
 
 export type DashboardRole = 'Administrator as client' | 'Submitter' | 'Verifier' | 'Inspector' | 'Approver';
 
@@ -93,11 +96,11 @@ export const navigateToFilteredList = (
 };
 
 export const isSetNeedingPeople = (set: AssuranceSet): boolean => {
-  const needsInspector = set.mandatoryInspectionRequired !== false && !set.assignedInspector;
-  const needsApprover = set.formalApprovalRequired !== false && !set.assignedApprover;
+  const needsInspector = set.mandatoryInspectionRequired !== false && !getSetAssignedInspector(set);
+  const needsApprover = set.formalApprovalRequired !== false && !getSetAssignedApprover(set);
   return (
-    !set.assignedSubmitter ||
-    !set.assignedVerifier ||
+    !getSetAssignedSubmitter(set) ||
+    !getSetAssignedVerifier(set) ||
     needsInspector ||
     needsApprover
   );
@@ -105,7 +108,7 @@ export const isSetNeedingPeople = (set: AssuranceSet): boolean => {
 
 export const isSetOverdue = (set: AssuranceSet, now = new Date()): boolean => {
   if (set.stage === 'Certified' || set.stage === 'Cancelled') return false;
-  const raw = set.targetDate || set.complianceDeadline || set.charterWindowEnd || '';
+  const raw = getSetDeadline(set) || getSetEndDate(set) || '';
   if (!raw) return false;
   const deadline = new Date(raw);
   return !Number.isNaN(deadline.getTime()) && deadline.getTime() < now.getTime();
@@ -113,7 +116,7 @@ export const isSetOverdue = (set: AssuranceSet, now = new Date()): boolean => {
 
 export const isSetDueThisWeek = (set: AssuranceSet, now = new Date()): boolean => {
   if (set.stage === 'Certified' || set.stage === 'Cancelled') return false;
-  const raw = set.targetDate || set.complianceDeadline || set.charterWindowEnd || '';
+  const raw = getSetDeadline(set) || getSetEndDate(set) || '';
   if (!raw) return false;
   const deadline = new Date(raw);
   if (Number.isNaN(deadline.getTime())) return false;
@@ -200,7 +203,7 @@ export const filterAssuranceSetsByDashboardFilter = (
             capaItems.some(
               (c) =>
                 c.status !== 'Verified & Closed' &&
-                (c.assuranceSetId === s.id || (!c.assuranceSetId && c.vesselId && c.vesselId === s.vesselId)),
+                (c.assuranceSetId === s.id || (!c.assuranceSetId && c.vesselId && c.vesselId === getSetVessel(s)?.id)),
             )),
       );
     case 'in_progress':

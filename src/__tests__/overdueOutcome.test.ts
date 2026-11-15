@@ -26,18 +26,22 @@ describe('Overdue Assurance Set Outcomes', () => {
   const baseOverdueSet: AssuranceSet = {
     id: 'AS-TEST-OVERDUE-01',
     title: 'Offshore Overdue Campaign',
-    vesselId: 'VESSEL-001',
-    vesselName: 'Pacific Valour',
-    imoNumber: '9694414',
-    initiatorOrg: 'Northwind Marine Pty Ltd',
-    initiatorRole: 'Vessel Provider Admin',
-    charterer: 'Chevron Australia Pty Ltd',
-    clientOrg: 'Chevron Australia Pty Ltd',
-    serviceProviderOrg: 'Northwind Marine Pty Ltd',
-    charterWindowStart: '2026-10-15',
-    charterWindowEnd: '2027-04-15',
-    complianceDeadline: '2026-10-15',
-    targetDate: '2026-10-15',
+    parties: [
+      { organization: 'Chevron Australia Pty Ltd', role: 'Requesting party' },
+      { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+    ],
+    createdBy: {
+      userId: 'USR-101',
+      name: 'K. Osei',
+      persona: 'Administrator',
+    },
+    startDate: '2026-10-15',
+    endDate: '2027-04-15',
+    deadline: '2026-10-15',
+    dateHistory: [],
+    assuranceObjects: [
+      { type: 'vessel', id: 'VESSEL-001', name: 'Pacific Valour', identifier: '9694414', ownerOrganization: 'Northwind Marine Pty Ltd' },
+    ],
     stage: 'Verification',
     readinessScore: 50,
     mandatoryInspectionRequired: false,
@@ -117,12 +121,12 @@ describe('Overdue Assurance Set Outcomes', () => {
 
       const updated = useMapStore.getState().assuranceSets.find((s) => s.id === baseOverdueSet.id);
       expect(updated?.revisedCompletionDate).toBe('2026-11-10');
-      expect(updated?.targetDate).toBe('2026-11-10');
+      expect(updated?.deadline).toBe('2026-11-10');
 
       const today = new Date('2026-10-28');
       expect(isComplianceDeadlineOverdue(updated!, today)).toBe(false);
 
-      const historyRow = updated?.targetDateHistory?.find((h) => h.scope === 'set');
+      const historyRow = updated?.dateHistory?.find((h) => h.scope === 'set');
       expect(historyRow).toBeDefined();
       expect(historyRow?.newDate).toBe('2026-11-10');
       expect(historyRow?.changedBy).toBe('Set Manager');
@@ -155,7 +159,7 @@ describe('Overdue Assurance Set Outcomes', () => {
         grantedAt: expect.any(String),
       });
 
-      const historyRow = updated?.targetDateHistory?.find((h) => h.requirementId === 'REQ-02');
+      const historyRow = updated?.dateHistory?.find((h) => h.requirementId === 'REQ-02');
       expect(historyRow).toBeDefined();
       expect(historyRow?.newDate).toBe('2026-11-20');
       expect(historyRow?.changedBy).toBe('Port State Inspector');
@@ -261,8 +265,7 @@ describe('Overdue Assurance Set Outcomes', () => {
         ...baseOverdueSet,
         id: 'AS-SS-02-SCENARIO',
         title: 'SS-02 Vessel Delivery Assurance',
-        complianceDeadline: '2026-10-15',
-        targetDate: '2026-10-15',
+        deadline: '2026-10-15',
         stage: 'Verification',
         requirements,
       };

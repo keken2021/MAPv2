@@ -15,19 +15,21 @@ describe('Mock State Engine Triggers in useMapStore', () => {
       id: testSetId,
       title: 'Engine Trigger Test Set',
       assuranceType: 'Equipment',
-      equipmentId: 'EQ-CUSTOM-999',
-      initiatorOrg: 'Northwind Marine Pty Ltd',
-      clientOrg: 'Southern Basin Energy',
+      assuranceObjects: [{ id: 'EQ-CUSTOM-999', type: 'equipment', name: 'Engine Trigger Equipment', ownerOrganization: 'Northwind Marine Pty Ltd' }],
+      parties: [
+        { organization: 'Southern Basin Energy', role: 'Requesting party' },
+        { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      ],
       stage: 'Initiated',
       readinessScore: 0,
       verificationRequired: true,
       formalApprovalRequired: true,
-      createdByUserId: 'USR-101',
-      createdByName: 'K. Osei',
-      createdByPersona: 'Administrator',
-      assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
-      assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
-      assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
+      createdBy: { userId: 'USR-101', name: 'K. Osei', persona: 'Administrator' },
+      submitters: [{ organization: 'Northwind Marine Pty Ltd', assignee: 'M. Chen (Northwind Marine Pty Ltd)' }],
+      stakeholders: {
+        verifierName: 'A. Fontaine (Bureau Veritas Inspectorate)',
+        approverName: 'P. Nardelli (Marine Assurance Authority)',
+      },
       requirements: [
         {
           id: 'REQ-1',
@@ -48,13 +50,6 @@ describe('Mock State Engine Triggers in useMapStore', () => {
           verifierStatus: 'Pending',
         },
       ],
-      vesselId: '',
-      vesselName: '',
-      imoNumber: '',
-      initiatorRole: 'Vessel Provider Admin',
-      charterWindowStart: '',
-      complianceDeadline: '',
-      charterWindowEnd: '',
       mandatoryInspectionRequired: false,
       inspectionCompleted: false
     };
@@ -104,14 +99,15 @@ describe('Mock State Engine Triggers in useMapStore', () => {
       id: childSet1Id,
       title: 'Child Vessel Set',
       assuranceType: 'Equipment',
-      equipmentId: 'EQ-01',
-      initiatorOrg: 'Northwind Marine Pty Ltd',
+      assuranceObjects: [{ id: 'EQ-01', type: 'equipment', name: 'Child Equipment 01', ownerOrganization: 'Northwind Marine Pty Ltd' }],
+      parties: [
+        { organization: 'Northwind Marine Pty Ltd', role: 'Requesting party' },
+        { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      ],
       stage: 'Approved',
       approverDecision: 'Approved',
       readinessScore: 100,
-      createdByUserId: 'USR-101',
-      createdByName: 'K. Osei',
-      createdByPersona: 'Administrator',
+      createdBy: { userId: 'USR-101', name: 'K. Osei', persona: 'Administrator' },
       requirements: [
         {
           id: 'REQ-C1',
@@ -123,31 +119,27 @@ describe('Mock State Engine Triggers in useMapStore', () => {
           verifierStatus: 'Verified',
         },
       ],
-      vesselId: '',
-      vesselName: '',
-      imoNumber: '',
-      initiatorRole: 'Vessel Provider Admin',
-      charterWindowStart: '',
-      complianceDeadline: '',
-      charterWindowEnd: '',
       mandatoryInspectionRequired: false,
-      inspectionCompleted: false
+      inspectionCompleted: false,
     };
 
     const childSet2: AssuranceSet = {
       id: childSet2Id,
       title: 'Child Crew Set',
       assuranceType: 'Equipment',
-      equipmentId: 'EQ-02',
-      initiatorOrg: 'Northwind Marine Pty Ltd',
+      assuranceObjects: [{ id: 'EQ-02', type: 'equipment', name: 'Child Equipment 02', ownerOrganization: 'Northwind Marine Pty Ltd' }],
+      parties: [
+        { organization: 'Northwind Marine Pty Ltd', role: 'Requesting party' },
+        { organization: 'Northwind Marine Pty Ltd', role: 'Responding party' },
+      ],
       stage: 'Verification',
       readinessScore: 40,
-      createdByUserId: 'USR-101',
-      createdByName: 'K. Osei',
-      createdByPersona: 'Administrator',
-      assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
-      assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
-      assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
+      createdBy: { userId: 'USR-101', name: 'K. Osei', persona: 'Administrator' },
+      submitters: [{ organization: 'Northwind Marine Pty Ltd', assignee: 'M. Chen (Northwind Marine Pty Ltd)' }],
+      stakeholders: {
+        verifierName: 'A. Fontaine (Bureau Veritas Inspectorate)',
+        approverName: 'P. Nardelli (Marine Assurance Authority)',
+      },
       requirements: [
         {
           id: 'REQ-C2A',
@@ -168,15 +160,8 @@ describe('Mock State Engine Triggers in useMapStore', () => {
           verifierStatus: 'Pending',
         },
       ],
-      vesselId: '',
-      vesselName: '',
-      imoNumber: '',
-      initiatorRole: 'Vessel Provider Admin',
-      charterWindowStart: '',
-      complianceDeadline: '',
-      charterWindowEnd: '',
       mandatoryInspectionRequired: false,
-      inspectionCompleted: false
+      inspectionCompleted: false,
     };
 
     store.addAssuranceSet(childSet1);
