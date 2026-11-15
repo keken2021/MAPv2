@@ -185,6 +185,8 @@ export interface AssuranceRequirement {
   docTypeId?: string;
   /** whether this requirement was auto-fulfilled by reusing a valid verified document on file */
   reusedDocument?: boolean;
+  /** demo only: pre-seeded upload that auto-verifies when the set enters Verification */
+  demoPreseeded?: boolean;
   assignedSubmitter?: string;
   assignedVerifier?: string;
   submitterId?: string;

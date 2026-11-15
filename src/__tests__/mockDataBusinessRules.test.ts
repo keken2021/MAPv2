@@ -199,8 +199,11 @@ describe('Seeded projects and marketplace offerings respect asset ownership', ()
         const crew = link.assetType === 'Crew' ? MOCK_CREW.find((c) => c.id === link.assetId) : undefined;
         const equipment = link.assetType === 'Equipment' ? MOCK_EQUIPMENT.find((e) => e.id === link.assetId) : undefined;
         expect(vessel || crew || equipment, `${project.id} ${link.id} asset ${link.assetId}`).toBeDefined();
-        const linkedSet = ALL_SETS.find((s) => s.id === link.assuranceSetId);
-        expect(linkedSet, `${project.id} ${link.id} set ${link.assuranceSetId}`).toBeDefined();
+        /* links without a set are provider objects offered for a set that is created live (Oil Co AS-04 / AS-05) */
+        const linkedSet = link.assuranceSetId ? ALL_SETS.find((s) => s.id === link.assuranceSetId) : undefined;
+        if (link.assuranceSetId) {
+          expect(linkedSet, `${project.id} ${link.id} set ${link.assuranceSetId}`).toBeDefined();
+        }
         if (linkedSet?.assuranceObjects?.some((o) => o.type === 'activity')) {
           expect(isOrganizationMatch(link.providerOrganization, linkedSet.serviceProviderOrg ?? '')).toBe(true);
         } else {

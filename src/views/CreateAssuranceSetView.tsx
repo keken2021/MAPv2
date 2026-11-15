@@ -126,6 +126,7 @@ import {
 import { MasterDocument } from '../types/document';
 import { Plus, ChevronDown, ShieldCheck, FileCheck, ExternalLink, Globe, Building2, Ship, Users, Wrench, Activity, Sparkles, CheckCircle2, Trash2, AlertCircle, Pencil, Check, X, FolderPlus, Layers } from 'lucide-react';
 import { calculateAssuranceSetReadiness } from '../utils/readinessHelpers';
+import { isDemoOpenUploadSlot, isDemoPreseedTemplate } from '../utils/oilCoDemoPreseed';
 import { SearchableSelect, SearchableSelectItem } from '../components/common/SearchableSelect';
 import { Wizard, WizardStep } from '../components/wizards/Wizard';
 import { PartyRoleErrors } from '../components/wizards/PartyRoleErrors';
@@ -1906,9 +1907,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       });
     });
 
-    /* demo only: SS-04 and SS-05 start with most of their template documents already submitted and verified, so the walkthrough only needs the last few */
-    const DEMO_PREVERIFIED_TEMPLATES = ['tmpl-pub-ss04-bunkering', 'tmpl-pub-ss05-control-systems'];
-    const DEMO_OPEN_TASKS = 3;
+    /* demo only: AS-04 and AS-05 leave the first 3 template docs awaiting upload; the rest start Submitted (not Verified) */
     const demoDocuments: MasterDocument[] = [];
 
     activeSubtypes.forEach((subtype) => {
@@ -1941,16 +1940,14 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       customList.forEach((spec) => {
         const templateSpecs = customList.filter((d) => d.templateId && d.templateId === spec.templateId);
         const templatePosition = templateSpecs.indexOf(spec);
-        const isPreverified =
-          Boolean(spec.templateId) &&
-          DEMO_PREVERIFIED_TEMPLATES.includes(spec.templateId as string) &&
-          templatePosition >= 0 &&
-          templatePosition < templateSpecs.length - DEMO_OPEN_TASKS;
+        const isPreseeded =
+          isDemoPreseedTemplate(spec.templateId) &&
+          !isDemoOpenUploadSlot(templatePosition);
         const demoDocId = `DOC-DEMO-${uniqueSetId}-${templatePosition + 1}`;
         let attachedDocId = demoDocId;
         let attachedVersion = 'v1.0';
 
-        if (isPreverified) {
+        if (isPreseeded) {
           const targetType = vesselId ? 'vessel' : undefined;
           const targetId = vesselId || undefined;
           const duplicate =
@@ -1989,11 +1986,11 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                   uploadedBy: respondingParty,
                   fileSizeBytes: 420000,
                   fileName: `${spec.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.pdf`,
-                  changeSummary: 'Demo document, already submitted and verified',
+                  changeSummary: 'Demo document, already submitted',
                 },
               ],
               validationRules: { charterBufferPassed: true, assetMatch100Percent: true, iacsAuthorityValid: true, overallValid: true },
-              verificationStatus: 'Verified',
+              verificationStatus: 'Pending',
             });
           }
         }
@@ -2017,13 +2014,15 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           requirementGroupId: spec.id,
           assignedVerifier: reqAssignedVerifier,
           verifierId: undefined,
-          ...(isPreverified
+          ...(isPreseeded
             ? {
               documentId: attachedDocId,
               documentVersion: attachedVersion,
-              isFulfilled: true,
+              isFulfilled: false,
               ocrConfidence: 96,
-              verifierStatus: 'Verified' as const,
+              verifierStatus: 'Pending' as const,
+              demoPreseeded: true,
+              notes: 'Demo pre-seeded upload',
             }
             : {}),
         });

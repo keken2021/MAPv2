@@ -194,6 +194,7 @@ import {
   stampReviewedVersion,
   syncDocumentVersionLock,
 } from "../utils/documentVersionSnapshot";
+import { autoVerifyDemoPreseededRequirements } from "../utils/oilCoDemoPreseed";
 
 export interface MapStoreState {
   // Authentication State
@@ -4605,6 +4606,41 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     const updatedSet = get().assuranceSets.find((s) => s.id === setId);
     if (previousSet && updatedSet && previousSet.stage !== updatedSet.stage) {
       logStageTransitionAudit(get, updatedSet, previousSet.stage, updatedSet.stage);
+    }
+
+    /* demo: when submission completes and Verification begins, auto-verify pre-seeded uploads so only live uploads remain for the verifier */
+    if (
+      previousSet &&
+      updatedSet &&
+      previousSet.stage !== "Verification" &&
+      updatedSet.stage === "Verification" &&
+      updatedSet.requirements.some(
+        (req) => req.demoPreseeded && req.verifierStatus === "Pending" && Boolean(req.documentId),
+      )
+    ) {
+      set((state) => {
+        const target = state.assuranceSets.find((s) => s.id === setId);
+        if (!target) return state;
+        const { set: nextSet, documents: nextDocuments } = autoVerifyDemoPreseededRequirements(
+          target,
+          state.documents,
+        );
+        const { updatedProjects: syncedProjects, updatedAssuranceSets: syncedSets } =
+          syncAllAffectedProjectRollups(state.projects, state.assuranceSets.map((s) => (s.id === setId ? nextSet : s)), [
+            setId,
+          ]);
+        return {
+          documents: nextDocuments,
+          assuranceSets: syncedSets,
+          projects: syncedProjects,
+        };
+      });
+      get().logAuditEvent({
+        action: "Demo: auto-verified pre-seeded uploads",
+        targetAsset: `${setId}`,
+        justificationNotes:
+          "Pre-seeded demo uploads marked Verified on entering Verification so the verifier only reviews the live uploads.",
+      });
     }
 
     /* a submitted document goes straight to the set's verifier, when one is appointed */

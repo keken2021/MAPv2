@@ -65,7 +65,7 @@ function buildSs04(): AssuranceSet {
     projectId: OIL_CO_LNG_PROJECT_ID,
     projectName: 'Oil Company LNG Field Development',
     vesselId: 'VES-OILCO-BUNKER-BARGE',
-    vesselName: 'BB Oilco Bunker Barge 01',
+    vesselName: 'Oilco Bunker Barge Aurora Supply',
     imoNumber: '9876139',
     initiatorOrg: NORTHWIND_ORG,
     initiatorRole: 'C Admin · Client Created',

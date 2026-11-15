@@ -46,6 +46,10 @@ export const OIL_CO_SS03_ID = "AS-2026-103";
 
 export const OIL_CO_AURORA_ID = "VESSEL-013";
 export const OIL_CO_ENDEAVOUR_ID = "VESSEL-014";
+/** Oil Company–owned bunker barge for AS-04 (provider object; not Northwind's LNGC) */
+export const OIL_CO_BUNKER_BARGE_ID = "VES-OILCO-BUNKER-BARGE";
+/** Kestrel-owned integrator vessel for AS-05 */
+export const OIL_CO_KESTREL_INTEGRATOR_ID = "VES-OILCO-KESTREL-INTEGRATOR";
 
 const OIL_CO_ADMIN = "A. Okonkwo";
 const NORTHWIND_SUBMITTER = "M. Chen";
@@ -83,6 +87,8 @@ type EvidenceRow = {
   exemption?: TaskExemption;
   attemptNumber?: number;
   decisionTime?: string;
+  /** when state is correction, reason shown to the submitter for reupload */
+  reuploadReason?: string;
 };
 
 function evidenceDocument(
@@ -160,7 +166,8 @@ function evidenceDocument(
       iacsAuthorityValid: true,
       overallValid: !correction,
       exceptionDetails: correction
-        ? "Expires within 6 months of the SS-01 charter date (15 Nov 2026). An approved extension is required."
+        ? row.reuploadReason ||
+          "Returned for correction. Reupload a compliant document."
         : undefined,
     },
     verificationStatus:
@@ -170,7 +177,8 @@ function evidenceDocument(
           ? "Correction Requested"
           : "Pending",
     verificationNotes: correction
-      ? "Expires within 6 months of the charter date. Return to Northwind for an extension or renewal."
+      ? row.reuploadReason ||
+        "Returned for correction. Reupload a compliant document."
       : undefined,
   };
 }
@@ -234,6 +242,15 @@ function buildEvidence(
       exemption: row.exemption,
       attemptNumber: row.attemptNumber ?? (row.state === "correction" ? 2 : 1),
       decisionTime: row.decisionTime ?? (row.state === "verified" ? "2026-10-10T04:00:00Z" : undefined),
+      ...(row.state === "correction" && row.reuploadReason
+        ? {
+            reuploadRequested: {
+              reason: row.reuploadReason,
+              date: "2026-11-14",
+              requestedAt: "2026-11-14T08:00:00.000Z",
+            },
+          }
+        : {}),
     } satisfies AssuranceRequirement;
   });
   return { requirements, documents };
@@ -278,6 +295,7 @@ export const OIL_CO_PILOT_ASSURANCE_OBJECTS: AssuranceObject[] = [
   },
 ];
 
+/* SS-01: 19 verified; REQ-SS01-20 left as Correction Requested so the demo can reupload → verify → inspect → approve */
 const ss01Rows: EvidenceRow[] = [
   {
     id: "REQ-SS01-01",
@@ -295,7 +313,7 @@ const ss01Rows: EvidenceRow[] = [
       "Advanced liquefied gas tanker cargo operations training (STCW V/1-2)",
     source: "Flag State / approved training center",
     check: "Held by Master, officers and cargo crew as required.",
-    state: "pending",
+    state: "verified",
   },
   {
     id: "REQ-SS01-03",
@@ -303,7 +321,7 @@ const ss01Rows: EvidenceRow[] = [
     title: "Medical fitness certificates for all crew",
     source: "Approved medical examiner",
     check: "Valid for the full charter period.",
-    state: "pending",
+    state: "verified",
   },
   {
     id: "REQ-SS01-04",
@@ -311,7 +329,7 @@ const ss01Rows: EvidenceRow[] = [
     title: "Basic Safety Training and other mandatory STCW training",
     source: "Approved training center",
     check: "Valid; matches crew list.",
-    state: "pending",
+    state: "verified",
   },
   {
     id: "REQ-SS01-05",
@@ -327,7 +345,7 @@ const ss01Rows: EvidenceRow[] = [
     title: "Designated Person Ashore and Company Security Officer appointments",
     source: NORTHWIND_ORG,
     check: "Named, current and contactable.",
-    state: "pending",
+    state: "verified",
   },
   {
     id: "REQ-SS01-07",
@@ -352,7 +370,7 @@ const ss01Rows: EvidenceRow[] = [
       "International Certificate of Fitness for the Carriage of Liquefied Gases in Bulk (IGC)",
     source: "Flag State / class on its behalf",
     check: "Valid; covers LNG cargo.",
-    state: "pending",
+    state: "verified",
   },
   {
     id: "REQ-SS01-10",
@@ -360,7 +378,7 @@ const ss01Rows: EvidenceRow[] = [
     title: "SOLAS safety certificates (Construction, Equipment, Radio)",
     source: "Flag State / class",
     check: "Valid; not expiring within 6 months of the charter date.",
-    state: "pending",
+    state: "verified",
     targetDate: "2026-11-12",
     targetObjectId: OIL_CO_AURORA_ID,
   },
@@ -370,7 +388,7 @@ const ss01Rows: EvidenceRow[] = [
     title: "International Ship Security Certificate (ISSC)",
     source: "Flag State / RSO",
     check: "Valid.",
-    state: "pending",
+    state: "verified",
   },
   {
     id: "REQ-SS01-12",
@@ -378,7 +396,7 @@ const ss01Rows: EvidenceRow[] = [
     title: "IOPP, IAPP and Ballast Water Management certificates",
     source: "Flag State / class",
     check: "Valid. Procedure · Simultaneous Operations Procedure.",
-    state: "pending",
+    state: "verified",
     targetObjectId: "OBJ-PROC-SIMOPS-01",
   },
   {
@@ -387,7 +405,7 @@ const ss01Rows: EvidenceRow[] = [
     title: "Maritime Labour Certificate",
     source: "Flag State / RO",
     check: "Valid. Procedure · Helideck Operations Procedure.",
-    state: "pending",
+    state: "verified",
     targetObjectId: "OBJ-PROC-HELI-01",
   },
   {
@@ -405,8 +423,8 @@ const ss01Rows: EvidenceRow[] = [
     title: "HSE plan for the charter",
     source: NORTHWIND_ORG,
     check: "Covers LNG cargo operations and emergency response.",
-    state: "pending",
-    targetDate: "2026-11-14",
+    state: "verified",
+    targetDate: "2026-11-22",
     targetObjectId: OIL_CO_AURORA_ID,
     exemption: {
       reason: "One-week extension granted by client for vendor HSE plan review",
@@ -421,8 +439,8 @@ const ss01Rows: EvidenceRow[] = [
     title: "Safety statistics (LTIF, TRCF) for the last 3 years",
     source: NORTHWIND_ORG,
     check: "Within the client threshold.",
-    state: "pending",
-    targetDate: "2026-11-14",
+    state: "verified",
+    targetDate: "2026-11-22",
     targetObjectId: OIL_CO_AURORA_ID,
     exemption: {
       reason: "One-week extension granted by client for audited safety metrics submission",
@@ -437,7 +455,7 @@ const ss01Rows: EvidenceRow[] = [
     title: "P&I certificate of entry and Hull & Machinery insurance",
     source: "Gard P&I / insurer",
     check: "Valid for the charter period; cover meets the client minimum. Security Plan covered by this requirement and its Document Library upload.",
-    state: "pending",
+    state: "verified",
     targetObjectId: OIL_CO_AURORA_ID,
   },
   {
@@ -446,7 +464,7 @@ const ss01Rows: EvidenceRow[] = [
     title: "Management of change procedure",
     source: NORTHWIND_ORG,
     check: "Current revision; approved. Marine Warranty Certificate of Approval and Offshore Petroleum Production & Export Licence Dossier covered by this requirement and its Document Library upload.",
-    state: "pending",
+    state: "verified",
     notes: "Marine Warranty Certificate of Approval; Offshore Petroleum Production & Export Licence Dossier (Document Library)",
     targetObjectId: OIL_CO_AURORA_ID,
   },
@@ -456,20 +474,24 @@ const ss01Rows: EvidenceRow[] = [
     title: "Fremantle Port procedures",
     source: "Port / Northwind subcontractor",
     check: "Current edition; acknowledged by the Master. Procedure · LNGC Northwind Aurora Cargo Handling & Boil-Off Gas Management Procedure. Method · Aurora Field Simultaneous Operations (SIMOPS) Methodology.",
-    state: "pending",
-    targetDate: "2026-11-14",
+    state: "verified",
+    targetDate: "2026-11-22",
     targetObjectId: "OBJ-PROC-LNG-AURORA-01",
   },
   {
     id: "REQ-SS01-20",
     pillar: "Process",
     title: "Most recent third-party vetting inspection report (OCIMF SIRE 2.0)",
-    source: "Inspection program",
+    /* DNV so the IACS issuer check passes; only the short expiry (2027-03-01) fails the charter buffer */
+    source: "DNV",
     check: "Within the client age limit; observations closed.",
-    state: "pending",
-    targetDate: "2026-11-14",
+    state: "correction",
+    targetDate: "2026-11-22",
     targetObjectId: OIL_CO_AURORA_ID,
     notes: "Client updated requirement mid-set to require OCIMF SIRE 2.0 inspection format.",
+    reuploadReason:
+      "Certificate expires on 2027-03-01, before the charter ends (2027-05-14). Reupload a new version that covers the full contract period.",
+    decisionTime: "2026-11-14T08:00:00.000Z",
   },
 ];
 
@@ -717,7 +739,7 @@ const ss03Rows: EvidenceRow[] = [
   },
 ];
 
-/* SS-02 and SS-03 are already approved, so every task has a verified document. SS-01 stays with the verifier. */
+/* SS-02 and SS-03 are already approved. SS-01 keeps one Correction Requested task (REQ-SS01-20) for the reupload demo. */
 function finishedRows(rows: EvidenceRow[]): EvidenceRow[] {
   return rows.map((row) => ({ ...row, state: "verified" }));
 }
@@ -1109,7 +1131,7 @@ export const OIL_CO_PILOT_VESSELS: Vessel[] = [
     ismCompany: NORTHWIND_ORG,
     technicalManager: NORTHWIND_ORG,
     masterName: "Capt. Elena Voss",
-    complianceReadinessScore: 74,
+    complianceReadinessScore: 85,
     statutoryCertificates: [
       {
         id: "MAP-VES-2026-STAT-10107",
@@ -1197,10 +1219,10 @@ export const OIL_CO_PILOT_VESSELS: Vessel[] = [
       },
     ],
   }),
-  // Demo vessel owned by Kestrel Control Systems so SS-05 (IT / Control Systems) has Kestrel as a provider.
+  // Demo vessel owned by Kestrel Control Systems so AS-05 (IT / Control Systems) has Kestrel as a provider.
   {
     ...pilotVessel({
-      id: "VES-OILCO-KESTREL-INTEGRATOR",
+      id: OIL_CO_KESTREL_INTEGRATOR_ID,
       name: "MV Kestrel Integrator",
       imoNumber: "9876127",
       officialRegNumber: "MV-KI-2026",
@@ -1218,11 +1240,11 @@ export const OIL_CO_PILOT_VESSELS: Vessel[] = [
     }),
     ownerOrg: KESTREL_ORG,
   } as Vessel,
-  // Demo bunker barge owned by Oil Company so SS-04 (Bunkering / Fuel Supply) has Oil Company as the owner and provider of its object.
+  // Oil Company–owned bunker barge for AS-04: Northwind is requesting party / client, so the set object must be the provider's vessel (not LNGC Northwind Aurora).
   {
     ...pilotVessel({
-      id: "VES-OILCO-BUNKER-BARGE",
-      name: "BB Oilco Bunker Barge 01",
+      id: OIL_CO_BUNKER_BARGE_ID,
+      name: "Oilco Bunker Barge Aurora Supply",
       imoNumber: "9876139",
       officialRegNumber: "BB-OC-2026",
       mmsiNumber: "503812240",
@@ -1233,7 +1255,7 @@ export const OIL_CO_PILOT_VESSELS: Vessel[] = [
       technicalManager: OIL_CO_ORG,
       vesselType: "Offshore Support Vessel (OSV)",
       vesselSubtype: "Bunker barge",
-      intendedUse: "Fuel bunkering for the Oil Company LNG development",
+      intendedUse: "Fuel bunkering supply for Northwind Aurora under AS-04",
       masterName: "Capt. J. Moreno",
       complianceReadinessScore: 100,
     }),
@@ -1324,7 +1346,8 @@ export const OIL_CO_PILOT_ASSURANCE_SETS: AssuranceSet[] = [
     ],
     charterWindowEnd: "2027-05-14",
     stage: "Verification",
-    readinessScore: 48,
+    /* 19 verified @ 70% + 1 correction @ 40% → 69% */
+    readinessScore: 69,
     mandatoryInspectionRequired: true,
     inspectionCompleted: false,
     verificationRequired: true,
@@ -1495,10 +1518,13 @@ export const OIL_CO_PILOT_PROJECT: Project = {
     HARBOURLINE_ORG,
     XY_MARINE_ORG,
     AUSTRAL_ORG,
+    KESTREL_ORG,
+    COASTAL_ORG,
+    SENTINEL_ORG,
   ],
   location: "Aurora LNG Field, offshore Western Australia",
   description:
-    "Master project for the Oil Company LNG field development. SS-01 charters LNGC Northwind Aurora from Northwind Marine. SS-02 buys OSV Meridian Endeavour from Meridian Shipyards. SS-03 assures Harbourline Terminals can load that carrier. SS-04 and SS-05 are not seeded: Northwind (set client who needs bunkering) requests Oil Company (provider) to create the bunker set, and Oil Company creates the control-systems set. Helper organization scenario (AI-11: third-party vendor helper for submit-only delegation) is labeled pending stakeholder decision and is not built.",
+    "Master project for the Oil Company LNG field development. SS-01 charters LNGC Northwind Aurora from Northwind Marine. SS-02 buys OSV Meridian Endeavour from Meridian Shipyards. SS-03 assures Harbourline Terminals can load that carrier. AS-04 and AS-05 are not seeded: Northwind (requesting party / set client) uses Oil Company's bunker barge as the AS-04 provider object, and Oil Company creates AS-05 on Kestrel's integrator vessel. Helper organization scenario (AI-11: third-party vendor helper for submit-only delegation) is labeled pending stakeholder decision and is not built.",
   primaryVesselId: OIL_CO_AURORA_ID,
   riskProfile: "Elevated",
   workLocationType: "Mixed",
@@ -1519,7 +1545,7 @@ export const OIL_CO_PILOT_PROJECT: Project = {
   multiYearEnd: "2029-10-31",
   onHireDate: "2026-11-15",
   status: "Assurance In Progress",
-  readinessScore: 83,
+  readinessScore: 90,
   assetLinks: [
     {
       id: "PAL-017A",
@@ -1559,6 +1585,30 @@ export const OIL_CO_PILOT_PROJECT: Project = {
       addedAt: "2026-10-01T00:05:00Z",
       addedByPersona: "C Admin",
       notes: "Terminal / Loading Operations (AS-2026-103) on Aurora alongside PAL-017A",
+    },
+    {
+      id: "PAL-017D",
+      projectId: OIL_CO_LNG_PROJECT_ID,
+      assetType: "Vessel",
+      assetId: OIL_CO_BUNKER_BARGE_ID,
+      assetName: "Oilco Bunker Barge Aurora Supply",
+      providerOrganization: OIL_CO_ORG,
+      roleInProject: "Bunker / fuel supply barge for AS-04",
+      addedAt: "2026-10-01T00:10:00Z",
+      addedByPersona: "C Admin",
+      notes: "Provider-owned object for live AS-04 creation (Northwind requesting, Oil Company responding)",
+    },
+    {
+      id: "PAL-017E",
+      projectId: OIL_CO_LNG_PROJECT_ID,
+      assetType: "Vessel",
+      assetId: OIL_CO_KESTREL_INTEGRATOR_ID,
+      assetName: "MV Kestrel Integrator",
+      providerOrganization: KESTREL_ORG,
+      roleInProject: "Control systems integration platform for AS-05",
+      addedAt: "2026-10-01T00:10:00Z",
+      addedByPersona: "C Admin",
+      notes: "Provider-owned object for live AS-05 creation",
     },
   ],
 };
@@ -1670,20 +1720,21 @@ export const OIL_CO_PILOT_AUDIT: AuditTrailEventDraft[] = [
 export const OIL_CO_PILOT_NOTIFICATIONS: AppNotification[] = [
   {
     id: "MAP-NTF-2026-VERF-00031",
-    type: "review_requested",
-    subject: "Verify LNG Transport Charter",
+    type: "document_correction",
+    subject: "Fix expiry on SIRE 2.0 report — LNG Transport Charter",
     message:
-      "Northwind has submitted vessel, crew and ISM evidence for LNGC Northwind Aurora.",
-    recipientUserId: "USR-229",
-    senderUserId: "USR-228",
-    senderName: OIL_CO_ADMIN,
+      "XY Marine returned REQ-SS01-20: expiry 2027-03-01 does not cover the charter to 2027-05-14. Edit or reupload with a later expiry, then verification, inspection and approval can finish the set.",
+    recipientUserId: "USR-102",
+    senderUserId: "USR-229",
+    senderName: XY_VERIFIER,
     projectId: OIL_CO_LNG_PROJECT_ID,
     projectName: "Oil Company LNG Field Development",
     status: "unread",
-    createdAt: "2026-10-09T06:30:00.000Z",
+    createdAt: "2026-11-14T08:05:00.000Z",
     assuranceSetId: OIL_CO_SS01_ID,
+    documentId: ss01Evidence.requirements.find((r) => r.id === "REQ-SS01-20")?.documentId,
     vesselName: "LNGC Northwind Aurora",
-    assignedRole: "Verifier",
+    assignedRole: "Submitter",
   },
   {
     id: "MAP-NTF-2026-APRV-00033",

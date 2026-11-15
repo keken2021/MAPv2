@@ -12,7 +12,9 @@ import { calculateProjectReadiness } from '../utils/projectHelpers';
 import { calculateAssuranceSetReadiness, calculateVesselReadiness } from '../utils/readinessHelpers';
 import {
   OIL_CO_AURORA_ID,
+  OIL_CO_BUNKER_BARGE_ID,
   OIL_CO_ENDEAVOUR_ID,
+  OIL_CO_KESTREL_INTEGRATOR_ID,
   OIL_CO_LNG_PROJECT_ID,
   OIL_CO_SS01_ID,
   OIL_CO_SS02_ID,
@@ -114,9 +116,10 @@ describe('finished pilot sets stay approved', () => {
     useMapStore.setState(initialState, true);
   });
 
-  it('keeps SS-02 and SS-03 at 100, and SS-01 below 100, after SS-04 and SS-05 are created and a shared document is verified', () => {
+  it('keeps SS-02 and SS-03 at 100, and SS-01 below 100 (one SIRE correction), after SS-04 and SS-05 are created and a shared document is verified', () => {
     const before = finishedSnapshot();
     expect(before.sets[0].stage).toBe('Verification');
+    expect(before.sets[0].score).toBe(69);
     expect(before.sets[0].score).toBeLessThan(100);
     expect(before.sets.slice(1).map((set) => set.score)).toEqual([100, 100]);
 
@@ -124,8 +127,8 @@ describe('finished pilot sets stay approved', () => {
       buildLiveSet(
         'AS-2026-104',
         'SS-04 Fuel Supply and Bunkering',
-        OIL_CO_AURORA_ID,
-        'LNGC Northwind Aurora',
+        OIL_CO_BUNKER_BARGE_ID,
+        'Oilco Bunker Barge Aurora Supply',
         'tmpl-pub-ss04-bunkering',
       ),
     );
@@ -135,8 +138,8 @@ describe('finished pilot sets stay approved', () => {
       buildLiveSet(
         'AS-2026-105',
         'SS-05 Control Systems Cyber Assurance',
-        OIL_CO_ENDEAVOUR_ID,
-        'OSV Meridian Endeavour',
+        OIL_CO_KESTREL_INTEGRATOR_ID,
+        'MV Kestrel Integrator',
         'tmpl-pub-ss05-control-systems',
       ),
     );

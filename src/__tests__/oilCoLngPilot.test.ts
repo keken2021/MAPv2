@@ -11,7 +11,7 @@ import { getAssuranceSetRequestRecipients } from '../utils/assuranceRequestHelpe
 import { SUBTYPE_TEMPLATES, customRequirementFields, getThreePillarsCategory } from '../utils/assuranceTemplates';
 import { resolveAssuranceRequestSetClient, resolveRequestedServiceProviderOrg } from '../utils/notificationHelpers';
 import { ThreePillarsCategory } from '../types/assurance';
-import { MOCK_USERS } from '../store/mockData';
+import { MOCK_DOCUMENTS, MOCK_USERS } from '../store/mockData';
 import {
   AUSTRAL_ORG,
   HARBOURLINE_ORG,
@@ -24,13 +24,24 @@ import {
   OIL_CO_SS03_ID,
   OIL_CO_AURORA_ID,
   OIL_CO_ENDEAVOUR_ID,
+  OIL_CO_BUNKER_BARGE_ID,
+  OIL_CO_KESTREL_INTEGRATOR_ID,
   KESTREL_ORG,
   COASTAL_ORG,
   SENTINEL_ORG,
   XY_MARINE_ORG,
 } from '../store/oilCoLngPilotMockData';
-import { getAssuranceSetRoleActions, isAssuranceSetAssignedToPersona, orgFieldMatches } from '../utils/rbacHelpers';
+import {
+  filterCAdminAvailableToCharter,
+  getAssuranceSetRoleActions,
+  isAssuranceSetAssignedToPersona,
+  isVesselOwnedByClientOrg,
+  orgFieldMatches,
+} from '../utils/rbacHelpers';
 import { getServiceProviderSubmitterCandidates } from '../utils/userRoleHelpers';
+import { MOCK_VESSELS } from '../store/mockData';
+import { getRequestRosterObjects } from '../utils/assuranceRequestHelpers';
+import { isIacsAuthority } from '../utils/documentChecks';
 
 describe('Oil Co LNG Field Development pilot', () => {
   const project = MOCK_PROJECTS.find((item) => item.id === OIL_CO_LNG_PROJECT_ID);
@@ -108,18 +119,30 @@ describe('Oil Co LNG Field Development pilot', () => {
     expect(sets.find((set) => set.id === OIL_CO_SS02_ID)?.requirements).toHaveLength(14);
     expect(sets.find((set) => set.id === OIL_CO_SS03_ID)?.requirements).toHaveLength(15);
 
-    const solas = sets
+    const sire = sets
       .find((set) => set.id === OIL_CO_SS01_ID)
-      ?.requirements.find((req) => req.id === 'REQ-SS01-10');
-    expect(solas?.verifierStatus).toBe('Pending');
-    expect(solas?.documentId).toBeTruthy();
+      ?.requirements.find((req) => req.id === 'REQ-SS01-20');
+    expect(sire?.verifierStatus).toBe('Correction Requested');
+    expect(sire?.documentId).toBeTruthy();
+    expect(sire?.reuploadRequested?.reason).toMatch(/2027-03-01/);
+    const sireLibraryDoc = MOCK_DOCUMENTS.find((doc) => doc.id === sire?.documentId);
+    expect(sireLibraryDoc?.issuingAuthority).toBe('DNV');
+    expect(isIacsAuthority(sireLibraryDoc?.issuingAuthority)).toBe(true);
+    expect(sireLibraryDoc?.expiryDate).toBe('2027-03-01');
+    expect(sireLibraryDoc?.validationRules.iacsAuthorityValid).toBe(true);
+    expect(sireLibraryDoc?.validationRules.charterBufferPassed).toBe(false);
+    expect(
+      sets
+        .find((set) => set.id === OIL_CO_SS01_ID)
+        ?.requirements.filter((req) => req.verifierStatus !== 'Verified'),
+    ).toHaveLength(1);
 
     const ss01 = sets.find((set) => set.id === OIL_CO_SS01_ID);
     expect(ss01?.title).toBe('LNG Transport Charter');
     expect(ss01?.stage).toBe('Verification');
     expect(ss01?.approverDecision).toBe('Pending');
+    expect(ss01?.readinessScore).toBe(69);
     expect(ss01?.readinessScore).toBeLessThan(100);
-    expect(ss01?.requirements.some((req) => req.verifierStatus !== 'Verified')).toBe(true);
 
     sets
       .filter((set) => set.id === OIL_CO_SS02_ID || set.id === OIL_CO_SS03_ID)
@@ -202,9 +225,44 @@ describe('Oil Co LNG Field Development pilot', () => {
     ).toBe(NORTHWIND_ORG);
   });
 
-  it('offers Aurora and Endeavour on the project and the BRD evidence templates', () => {
-    const choices = withProjectVessels([], [{ id: OIL_CO_AURORA_ID }, { id: OIL_CO_ENDEAVOUR_ID }, { id: 'other' }], project);
-    expect(choices.map((vessel) => vessel.id)).toEqual([OIL_CO_AURORA_ID, OIL_CO_ENDEAVOUR_ID]);
+  it('seeds an Oil Company bunker barge for AS-04 so Northwind does not use its own LNGC as the provider object', () => {
+    const barge = MOCK_VESSELS.find((vessel) => vessel.id === OIL_CO_BUNKER_BARGE_ID);
+    expect(barge?.name).toBe('Oilco Bunker Barge Aurora Supply');
+    expect(isVesselOwnedByClientOrg(barge, OIL_CO_ORG)).toBe(true);
+    expect(isVesselOwnedByClientOrg(barge, NORTHWIND_ORG)).toBe(false);
+    expect(
+      filterCAdminAvailableToCharter(MOCK_VESSELS, PROJECT_SEED_ASSURANCE_SETS, NORTHWIND_ORG).some(
+        (vessel) => vessel.id === OIL_CO_BUNKER_BARGE_ID,
+      ),
+    ).toBe(true);
+    expect(
+      getRequestRosterObjects(project!, OIL_CO_ORG).some((link) => link.assetId === OIL_CO_BUNKER_BARGE_ID),
+    ).toBe(true);
+  });
+
+  it('offers Aurora, Endeavour, Oil Co bunker barge and Kestrel integrator on the project and the BRD evidence templates', () => {
+    const choices = withProjectVessels(
+      [],
+      [
+        { id: OIL_CO_AURORA_ID },
+        { id: OIL_CO_ENDEAVOUR_ID },
+        { id: OIL_CO_BUNKER_BARGE_ID },
+        { id: OIL_CO_KESTREL_INTEGRATOR_ID },
+        { id: 'other' },
+      ],
+      project,
+    );
+    expect(choices.map((vessel) => vessel.id)).toEqual([
+      OIL_CO_AURORA_ID,
+      OIL_CO_ENDEAVOUR_ID,
+      OIL_CO_BUNKER_BARGE_ID,
+      OIL_CO_KESTREL_INTEGRATOR_ID,
+    ]);
+    const bunkerLink = MOCK_PROJECTS.find((item) => item.id === OIL_CO_LNG_PROJECT_ID)?.assetLinks.find(
+      (link) => link.assetId === OIL_CO_BUNKER_BARGE_ID,
+    );
+    expect(bunkerLink?.providerOrganization).toBe(OIL_CO_ORG);
+    expect(bunkerLink?.assuranceSetId).toBeUndefined();
 
     const pillarsOf = (templateId: string) => {
       const template = SUBTYPE_TEMPLATES.find((item) => item.id === templateId);

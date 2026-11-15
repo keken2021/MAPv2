@@ -57,7 +57,7 @@ const bunkerSet = (overrides: Partial<AssuranceSet> = {}): AssuranceSet =>
     assuranceType: 'Vessel',
     subtypes: ['Vessel'],
     vesselId: 'VES-OILCO-BUNKER-BARGE',
-    vesselName: 'BB Oilco Bunker Barge 01',
+    vesselName: 'Oilco Bunker Barge Aurora Supply',
     charterWindowStart: '2026-11-18',
     charterWindowEnd: '2027-11-18',
     complianceDeadline: '2026-11-18',

@@ -65,7 +65,8 @@ export interface ProjectAssetLink {
   assetId: string;
   assetName: string;
   providerOrganization: string;
-  assuranceSetId: string;
+  /** Omitted for objects offered ahead of a not-yet-created set (e.g. Oil Co AS-04 / AS-05 live creation) */
+  assuranceSetId?: any;
   roleInProject?: string;
   addedAt: string;
   addedByPersona: string;
@@ -117,4 +118,4 @@ export interface Project extends AssuranceProject {
   workLocationType?: WorkLocationType;
   primaryVesselId?: string;
 }
-
+

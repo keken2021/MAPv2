@@ -959,7 +959,7 @@ export const SUBTYPE_TEMPLATES: SubtypeTemplate[] = [
   {
     id: 'tmpl-pub-ss04-bunkering',
     subtype: 'Vessel',
-    name: 'SS-04 Bunkering / Fuel Supply',
+    name: 'AS-04 Bunkering / Fuel Supply',
     source: 'public',
     description: 'BRD 8.6 evidence for a bunker delivery. Standard vessel certificates stay off. The 11 tasks cover People, Plant and Process.',
     recommendedDocIds: [],
@@ -968,7 +968,7 @@ export const SUBTYPE_TEMPLATES: SubtypeTemplate[] = [
   {
     id: 'tmpl-pub-ss05-control-systems',
     subtype: 'Vessel',
-    name: 'SS-05 IT / Control Systems',
+    name: 'AS-05 IT / Control Systems',
     source: 'public',
     description: 'BRD 8.7 evidence for field control and safety systems. Standard vessel certificates stay off. The 13 tasks cover People, Plant and Process.',
     recommendedDocIds: [],
@@ -1110,7 +1110,7 @@ export const SUBTYPE_TEMPLATES: SubtypeTemplate[] = [
       'act-mop-method', 'act-hazid-hazop', 'act-mooring-analysis', 'act-emergency-response', 'act-simops-matrix',
       'eq-lifting-register', 'eq-dp-fmea-trials', 'eq-rov-winch-test', 'eq-helideck-cert', 'eq-rigging-slings',
     ],
-  },
+  },
   {
     id: 'tmpl-org-santos-barossa',
     subtype: 'All',
