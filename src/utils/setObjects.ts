@@ -367,6 +367,50 @@ export function getSetObjectPool(
       });
     }
 
+    // Own crew of the Responding party (not on the external roster) is also offered
+    for (const c of storeData.crew || []) {
+      if (!c.organization || !sameOrganization(c.organization, respondingParty)) continue;
+      if (seen.has(`Crew:${c.id}`)) continue;
+      seen.add(`Crew:${c.id}`);
+      let conflictReason: string | undefined;
+      if (startDate && endDate) {
+        const conflicts = getAssetPeriodConflicts('Crew', c.id, startDate, endDate, storeData.assuranceSets, excludeId);
+        if (conflicts.length > 0) conflictReason = `Crew member has ${conflicts.length} overlapping contract period(s).`;
+      }
+      result.push({
+        id: c.id,
+        name: c.fullName,
+        type: 'person',
+        ownerOrganization: respondingParty,
+        identifier: c.rank,
+        disabled: Boolean(conflictReason),
+        conflictReason,
+        rawAsset: c,
+      });
+    }
+
+    // Own equipment of the Responding party (not on the external roster) is also offered
+    for (const e of storeData.equipment || []) {
+      if (!sameOrganization(e.owningOrganization, respondingParty)) continue;
+      if (seen.has(`Equipment:${e.id}`)) continue;
+      seen.add(`Equipment:${e.id}`);
+      let conflictReason: string | undefined;
+      if (startDate && endDate) {
+        const conflicts = getAssetPeriodConflicts('Equipment', e.id, startDate, endDate, storeData.assuranceSets, excludeId);
+        if (conflicts.length > 0) conflictReason = `Equipment has ${conflicts.length} overlapping contract period(s).`;
+      }
+      result.push({
+        id: e.id,
+        name: e.name,
+        type: 'equipment',
+        ownerOrganization: respondingParty,
+        identifier: e.equipmentIdentifier,
+        disabled: Boolean(conflictReason),
+        conflictReason,
+        rawAsset: e,
+      });
+    }
+
     return result;
   }
 

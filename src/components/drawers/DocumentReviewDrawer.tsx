@@ -284,7 +284,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
     ]
     : [
       field('1', 'CERTIFICATE NO.', document.certificateNo, 99, 94, true, 'certificateNo'),
-      field('2', 'VESSEL NAME', vessel?.vesselName, 98, 91, true, 'vesselName'),
+      field('2', 'OBJECT NAME', vessel?.vesselName, 98, 91, true, 'vesselName'),
       field('3', 'IMO NUMBER', vessel?.imoNumber, 99, 88, true, 'imoNumber'),
       field('4', 'ISSUING AUTHORITY', document.issuingAuthority, 97, 65, true, 'issuingAuthority'),
       field('5', 'EXPIRY DATE', document.expiryDate, 98, 79, true, 'expiryDate'),

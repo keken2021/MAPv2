@@ -417,8 +417,10 @@ describe('oil Co AS-04 / AS-05 demo preseed', () => {
       });
     });
 
+    expect(useMapStore.getState().assuranceSets.find((item) => item.id === set.id)!.stage).toBe('Verification');
+    /* pre-seeded uploads are marked Verified when the verifier opens the set */
+    useMapStore.getState().verifyDemoPreseededUploads(set.id);
     const after = useMapStore.getState().assuranceSets.find((item) => item.id === set.id)!;
-    expect(after.stage).toBe('Verification');
     expect(after.requirements.filter((req) => req.demoPreseeded).every((req) => req.verifierStatus === 'Verified')).toBe(
       true,
     );

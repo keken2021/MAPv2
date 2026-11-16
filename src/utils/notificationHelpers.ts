@@ -296,9 +296,15 @@ export function getNotificationAction(
 
   const guard = (action: NotificationAction): NotificationAction => {
     if (action.disabledReason || action.opensRequestWizard) return action;
-    return ctx.canAccessView(action.view, action.entityId)
-      ? action
-      : { ...action, disabledReason: 'Your role cannot open this record.' };
+    if (ctx.canAccessView(action.view, action.entityId)) return action;
+    /* an approver can open a set only once it awaits approval; say so instead of blaming the role */
+    if (action.view === 'approver' && set?.stage && set.stage !== 'Approval' && set.stage !== 'Approved') {
+      return {
+        ...action,
+        disabledReason: `Not ready yet: this set is still in ${set.stage}. You can approve it once verification and inspection are complete.`,
+      };
+    }
+    return { ...action, disabledReason: 'Your role cannot open this record.' };
   };
 
   /* opens the role workspace when the persona can reach it, otherwise the assurance set itself */

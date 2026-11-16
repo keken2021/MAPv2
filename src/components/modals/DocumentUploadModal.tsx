@@ -965,6 +965,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
       const finalFileName = fileName.trim() || `${title.replace(/\s+/g, '_')}_document.pdf`;
       const targetVesselId = selectedObjectType === 'vessel' ? selectedObjectId : (defaultVesselId || '');
       const targetVesselObj = targetVesselId ? vessels.find((v) => v.id === targetVesselId) : undefined;
+      /* equipment and crew documents name the host vessel, so vessel name and IMO are always extracted */
       const entityPrefix = entityType === 'Crew Certificate' ? 'CRW' : targetVesselId ? 'VES' : 'DOC';
       const categoryCode = entityType === 'Crew Certificate' ? 'STCW' : targetVesselId ? 'STAT' : 'UNAS';
       const newDoc: MasterDocument = {
@@ -999,24 +1000,21 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
             perFieldConfidence: { certNo: finalCertNo && !finalCertNo.includes('partially legible') ? 98 : 61, certificateNo: finalCertNo && !finalCertNo.includes('partially legible') ? 98 : 61, issuingAuthority: finalAuthority && !finalAuthority.includes('illegible') ? 97 : 44, expiryDate: finalExpiry ? 98 : 79 },
           },
         ],
-        vesselAttributes:
-          entityType === 'Vessel Certificate'
-            ? {
-              title: title.trim(),
-              certificateNumber: finalCertNo,
-              certType: 'Statutory Certificate',
-              issuingBody: finalAuthority,
-              issueDate: '',
-              expiryDate: finalExpiry,
-              vesselName: targetVesselObj?.name || (selectedObjectType === 'vessel' ? selectedObjectName : ''),
-              imoNumber: targetVesselObj?.imoNumber || '',
-              flagState: targetVesselObj?.flagState || '',
-              assetMatchFlag: false,
-              lastSurveyDate: '',
-              ocrConfidence: aiOcrConfidence || 99,
-              status: getComplianceStateForExpiry(finalExpiry),
-            }
-            : undefined,
+        vesselAttributes: {
+          title: title.trim(),
+          certificateNumber: finalCertNo,
+          certType: 'Statutory Certificate',
+          issuingBody: finalAuthority,
+          issueDate: entityType === 'Vessel Certificate' ? '' : new Date().toISOString().slice(0, 10),
+          expiryDate: finalExpiry,
+          vesselName: targetVesselObj?.name || selectedObjectName || 'N/A',
+          imoNumber: targetVesselObj?.imoNumber || 'N/A',
+          flagState: targetVesselObj?.flagState || '',
+          assetMatchFlag: false,
+          lastSurveyDate: '',
+          ocrConfidence: aiOcrConfidence || 99,
+          status: getComplianceStateForExpiry(finalExpiry),
+        },
         validationRules: {
           charterBufferPassed: false,
           assetMatch100Percent: false,

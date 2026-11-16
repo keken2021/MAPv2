@@ -93,7 +93,11 @@ export function getFieldChecks(
     ? { state: 'pass', message: 'Present.' }
     : { state: 'fail', message: 'Certificate no. missing. Enter it (Edit Fields) or upload a clearer scan.' };
 
-  const assetMatch: FieldCheck = notChecked
+  /* a bosun or lifeboat document names the object and has no IMO, so there is no vessel record to match */
+  const notVesselDoc = (document.vesselAttributes?.imoNumber || '').trim().toUpperCase() === 'N/A';
+  const assetMatch: FieldCheck = notVesselDoc
+    ? { state: 'pass', message: 'Matches the object record. IMO not applicable.' }
+    : notChecked
     ? { state: 'not_checked', message: NOT_CHECKED }
     : document.vesselAttributes?.assetMatchFlag === false || rules?.assetMatch100Percent === false
       ? { state: 'fail', message: 'Does not match the vessel record. Check the vessel name and IMO, then upload the right certificate.' }

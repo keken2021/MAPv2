@@ -72,11 +72,13 @@ export function buildDemoMasterDocument(
   const entityType: DocumentEntityType = target?.type
     ? getEntityTypeForObjectType(target.type)
     : 'Vessel Certificate';
-  const expiryDate = new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10);
+  const expiryDate = `${new Date().getFullYear() + 2}-12-31`; /* always past a contract ending next year */
   const issueDate = new Date(Date.now() - 365 * 86400000).toISOString().slice(0, 10);
   /* a vessel document carries the vessel name, IMO and every extracted field, so the review drawer has no mandatory field missing */
+  /* equipment and crew documents name their host vessel (MV Pacific Endeavour) so vessel name and IMO are always extracted */
+  const isVesselTarget = target?.type === 'vessel';
   const vesselAttributes: VesselCertAttributes | undefined =
-    target?.type === 'vessel'
+    true
       ? {
           title: req.title,
           certificateNumber: `DEMO-${index + 1}`,
@@ -84,8 +86,8 @@ export function buildDemoMasterDocument(
           issuingBody: respondingParty,
           issueDate,
           expiryDate,
-          vesselName: vesselInfo?.name || target.name || '',
-          imoNumber: vesselInfo?.imoNumber || '',
+          vesselName: vesselInfo?.name || target?.name || 'N/A',
+          imoNumber: (isVesselTarget && vesselInfo?.imoNumber) || 'N/A',
           flagState: 'Australia',
           assetMatchFlag: true,
           lastSurveyDate: issueDate,

@@ -75,11 +75,16 @@ export const CreateProjectView: React.FC = () => {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [projectType, setProjectType] =
     useState<ProjectType>("Service Engagement");
+  /* local today as YYYY-MM-DD: project dates cannot be in the past */
+  const todayIso = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  })();
   const [name, setName] = useState("");
   const [requestingOrganization, setRequestingOrganization] =
     useState(defaultOrg);
   const [location, setLocation] = useState("");
-  const [projectWindowStart, setProjectWindowStart] = useState("2026-11-01");
+  const [projectWindowStart, setProjectWindowStart] = useState(todayIso);
   const [projectWindowEnd, setProjectWindowEnd] = useState("2027-02-28");
   const [description, setDescription] = useState("");
   const [routeDescription, setRouteDescription] = useState("");
@@ -696,7 +701,8 @@ export const CreateProjectView: React.FC = () => {
                 type="date"
                 className="form-control form-control-sm"
                 value={projectWindowStart}
-                onChange={(e) => setProjectWindowStart(e.target.value)}
+                min={todayIso}
+                onChange={(e) => setProjectWindowStart(e.target.value && e.target.value < todayIso ? todayIso : e.target.value)}
               />
             </div>
             <div className="col-md-6">
@@ -707,7 +713,8 @@ export const CreateProjectView: React.FC = () => {
                 type="date"
                 className="form-control form-control-sm"
                 value={projectWindowEnd}
-                onChange={(e) => setProjectWindowEnd(e.target.value)}
+                min={projectWindowStart && projectWindowStart > todayIso ? projectWindowStart : todayIso}
+                onChange={(e) => setProjectWindowEnd(e.target.value && e.target.value < todayIso ? todayIso : e.target.value)}
               />
             </div>
 
@@ -850,7 +857,8 @@ export const CreateProjectView: React.FC = () => {
                 type="date"
                 className="form-control form-control-sm"
                 value={onHireDate}
-                onChange={(e) => setOnHireDate(e.target.value)}
+                min={todayIso}
+                onChange={(e) => setOnHireDate(e.target.value && e.target.value < todayIso ? todayIso : e.target.value)}
               />
             </div>
 

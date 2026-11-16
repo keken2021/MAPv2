@@ -33,7 +33,7 @@ describe('BRD V4.2 Scenarios Mock Data (Task 5206)', () => {
 
   describe('Scenario 1: Date change', () => {
     it('sets target date on set and tasks, with active short-term permission and history ledger', () => {
-      expect(ss01?.deadline).toBe('2026-11-15');
+      expect(ss01?.deadline).toBe('2027-10-15');
 
       // Date permission grant
       expect(ss01?.datePermissionGrants).toBeDefined();
@@ -114,8 +114,8 @@ describe('BRD V4.2 Scenarios Mock Data (Task 5206)', () => {
   describe('Scenario 4: Shared operation date', () => {
     it('holds shared on-hire date on the master project and aligns set timelines', () => {
       expect(project?.onHireDate).toBe('2026-11-15');
-      expect(ss01?.startDate).toBe('2026-11-15');
-      expect(ss01?.deadline).toBe('2026-11-15');
+      expect(ss01?.startDate).toBe('2026-12-20');
+      expect(ss01?.deadline).toBe('2027-10-15');
 
       // Additional projects with on-hire dates
       const sbeProj = MOCK_PROJECTS.find((p) => p.id === 'MAP-PROJ-2026-MARINE-009');

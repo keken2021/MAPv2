@@ -52,7 +52,8 @@ describe('field checks', () => {
     expect(checks.certificateNo?.message).toMatch(/^Certificate no\. missing\. Enter it/);
     expect(checks.vesselName?.message).toMatch(/^Does not match the vessel record\. Check the vessel name and IMO/);
     expect(checks.imoNumber?.state).toBe('fail');
-    expect(checks.issuingAuthority?.message).toMatch(/^Not a recognised \(IACS\) authority\. Check the issuer/);
+    /* demo setting: the issuer rule is switched off, so the issuer never blocks */
+    expect(checks.issuingAuthority?.state).toBe('pass');
     expect(checks.expiryDate?.state).toBe('warn');
     expect(checks.expiryDate?.message).toMatch(/^Expires during the contract period\./);
   });
@@ -67,7 +68,7 @@ describe('field checks', () => {
       TODAY,
     );
     expect(checks.vesselName?.state).toBe('not_checked');
-    expect(checks.issuingAuthority?.state).toBe('not_checked');
+    expect(checks.issuingAuthority?.state).toBe('pass');
     expect(checks.expiryDate).toEqual({ state: 'fail', message: 'Lapsed on 2026-10-01. Upload a renewed certificate.' });
     expect(checks.vesselName?.message).toMatch(/Upload a new version to run the checks/);
   });

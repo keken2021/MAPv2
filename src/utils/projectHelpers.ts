@@ -817,6 +817,23 @@ export function buildDraftAssetLinkFromAssuranceSet(
     };
   }
 
+  /* sets built in the wizard keep their objects in assuranceObjects; the first vessel, person or equipment becomes the roster asset */
+  const picked = (set.assuranceObjects || []).find(
+    (o) => o.type === 'vessel' || o.type === 'person' || o.type === 'equipment',
+  );
+  if (picked) {
+    const assetType: ProjectAssetLink['assetType'] =
+      picked.type === 'vessel' ? 'Vessel' : picked.type === 'person' ? 'Crew' : 'Equipment';
+    return {
+      assetType,
+      assetId: picked.id,
+      assetName: picked.name,
+      providerOrganization: picked.ownerOrganization || getRespondingParty(set) || getRequestingParty(set) || '',
+      assuranceSetId: set.id,
+      roleInProject: defaultRoles[assetType] || '',
+    };
+  }
+
   return null;
 }
 

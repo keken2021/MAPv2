@@ -573,7 +573,7 @@ export const MOCK_CREW: CrewMember[] = [
         certificateNo: 'ENG1-2025-112',
         issuingAuthority: 'Dr. Sarah Jenkins (AMSA Approved Medical Practitioner)',
         issueDate: '2025-08-10',
-        expiryDate: '2027-08-09',
+        expiryDate: '2028-08-09',
         verificationStatus: 'Pending',
         fileName: 'eng1_kowalski.pdf',
         fileSizeBytes: 810000,
