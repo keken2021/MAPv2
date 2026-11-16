@@ -207,8 +207,8 @@ describe('Assurance Detail Party Visibility (Task 5309)', () => {
     expect(screen.getByText('95%')).toBeDefined();
     expect(screen.getByText('88%')).toBeDefined();
 
-    // Both have PDF Review buttons
-    const reviewButtons = screen.getAllByRole('button', { name: /pdf review/i });
+    // Both have View document buttons
+    const reviewButtons = screen.getAllByRole('button', { name: /view document/i });
     expect(reviewButtons.length).toBe(2);
 
     // Both show Verified status
@@ -240,9 +240,9 @@ describe('Assurance Detail Party Visibility (Task 5309)', () => {
     expect(screen.getByText('95%')).toBeDefined();
 
     // Meridian task document is hidden:
-    // Only 1 PDF Review button exists (for Northwind task)
-    const reviewButtons = screen.getAllByRole('button', { name: /pdf review/i });
-    expect(reviewButtons.length).toBe(1);
+    // Only View document buttons for Northwind task exist (compact in Actions, full in expanded details)
+    const reviewButtons = screen.getAllByRole('button', { name: /view document/i });
+    expect(reviewButtons.length).toBe(2);
 
     // Meridian row displays 'No Document'
     expect(screen.getByText('No Document')).toBeDefined();
@@ -298,7 +298,7 @@ describe('Assurance Detail Party Visibility (Task 5309)', () => {
     // Expand rows to reveal details
     screen.getAllByTestId(/^toggle-req-/).forEach((btn) => fireEvent.click(btn));
 
-    expect(screen.getAllByRole('button', { name: /pdf review/i }).length).toBe(1);
+    expect(screen.getAllByRole('button', { name: /view document/i }).length).toBe(2);
 
     // Switch to Meridian Marine
     useMapStore.setState({
@@ -312,9 +312,9 @@ describe('Assurance Detail Party Visibility (Task 5309)', () => {
       if (btn.getAttribute('aria-expanded') !== 'true') fireEvent.click(btn);
     });
 
-    // Still only 1 PDF review button, but now Meridian's document is the visible one
-    const meridianReviewButtons = screen.getAllByRole('button', { name: /pdf review/i });
-    expect(meridianReviewButtons.length).toBe(1);
+    // Still only View document buttons for Meridian's document are visible
+    const meridianReviewButtons = screen.getAllByRole('button', { name: /view document/i });
+    expect(meridianReviewButtons.length).toBe(2);
 
     // Switch to Chevron (Client)
     useMapStore.setState({
@@ -326,7 +326,7 @@ describe('Assurance Detail Party Visibility (Task 5309)', () => {
     rerender(<AssuranceDetailView setId="AS-TEST-PARTY" />);
 
     // Now both review buttons appear
-    expect(screen.getAllByRole('button', { name: /pdf review/i }).length).toBe(2);
+    expect(screen.getAllByRole('button', { name: /view document/i }).length).toBe(2);
   });
 
   it('redacts other party documents in CSV and PDF exports for non-client viewer', () => {

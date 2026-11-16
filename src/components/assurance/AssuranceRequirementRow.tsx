@@ -1,11 +1,7 @@
-/* 
-  file summary: row component rendering a single requirement within AssuranceDetailView.
-  responsibilities: renders the primary requirement table row, expansion toggle, title, 'Reused from vault' badge, version badge, target object, verification status, action buttons, and expanded requirement details.
-  role in system: extracted from AssuranceDetailView.tsx to comply with Map Design System §12 file modularity standards.
-*/
-
+/* Row component rendering a single requirement within AssuranceDetailView. */
 import React from 'react';
 import { ChevronDown, ChevronRight, FileText, Pencil, Trash2 } from 'lucide-react';
+import { ViewDocumentButton } from './ViewDocumentButton';
 import { AssuranceRequirement, AssuranceSet } from '../../types/assurance';
 import { MasterDocument } from '../../types/document';
 import { UserProfile } from '../../types/user';
@@ -182,26 +178,18 @@ export const AssuranceRequirementRow: React.FC<AssuranceRequirementRowProps> = (
               </>
             )}
             {effectiveLinkedDoc && canViewDoc ? (
-              !isSubmitter ? (
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
-                  style={{ width: '32px', height: '32px' }}
-                  onClick={() =>
-                    setSelectedDocForReview({
-                      doc: docView?.doc || effectiveLinkedDoc,
-                      notes: req.notes,
-                      requirementId: req.id,
-                      verifierStatus: req.verifierStatus,
-                      isVersionLocked: docView?.isLocked,
-                    })
-                  }
-                  title="PDF Review"
-                  aria-label="PDF Review"
-                >
-                  <FileText size={16} />
-                </button>
-              ) : null
+              <ViewDocumentButton
+                compact
+                onClick={() =>
+                  setSelectedDocForReview({
+                    doc: docView?.doc || effectiveLinkedDoc,
+                    notes: req.notes,
+                    requirementId: req.id,
+                    verifierStatus: req.verifierStatus,
+                    isVersionLocked: docView?.isLocked,
+                  })
+                }
+              />
             ) : (
               <span className="text-secondary small">No Document</span>
             )}
@@ -267,9 +255,7 @@ export const AssuranceRequirementRow: React.FC<AssuranceRequirementRowProps> = (
               )}
               {isSubmitter && effectiveLinkedDoc && canViewDoc && (
                 <div className="d-flex align-items-center gap-2 flex-wrap">
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1.5 px-2.5 py-1"
+                  <ViewDocumentButton
                     onClick={() =>
                       setSelectedDocForReview({
                         doc: docView?.doc || effectiveLinkedDoc,
@@ -279,12 +265,7 @@ export const AssuranceRequirementRow: React.FC<AssuranceRequirementRowProps> = (
                         isVersionLocked: docView?.isLocked,
                       })
                     }
-                    title="PDF Review"
-                    aria-label="PDF Review"
-                  >
-                    <FileText size={14} />
-                    <span>PDF Review</span>
-                  </button>
+                  />
                 </div>
               )}
               <div className="d-flex align-items-center gap-3 flex-wrap">
