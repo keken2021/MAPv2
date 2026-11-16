@@ -38,6 +38,18 @@ export const DocumentCertificatePreview: React.FC<DocumentCertificatePreviewProp
   const [internalScale, setInternalScale] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
+  const hasIssuingAuthority = layout.fields.some(
+    (f) =>
+      f.value === document.issuingAuthority ||
+      f.label.toLowerCase().includes('issuing') ||
+      f.label.toLowerCase().includes('classification society'),
+  );
+  const fields = [...layout.fields];
+  if (!hasIssuingAuthority && document.issuingAuthority) {
+    const insertIdx = Math.min(6, fields.length);
+    fields.splice(insertIdx, 0, { label: 'Issuing Authority', value: document.issuingAuthority });
+  }
+
   const activeScale = externalScale !== undefined ? externalScale : internalScale;
 
   const handleZoomIn = () => setInternalScale((prev) => Math.min(Number((prev + 0.1).toFixed(2)), 1.3));
@@ -89,7 +101,7 @@ export const DocumentCertificatePreview: React.FC<DocumentCertificatePreviewProp
           lineHeight: 1.2,
         }}
       >
-        {layout.title}
+        {document.title || layout.title}
       </h2>
 
       {/* Subtitle */}
@@ -101,7 +113,9 @@ export const DocumentCertificatePreview: React.FC<DocumentCertificatePreviewProp
           lineHeight: 1.2,
         }}
       >
-        {layout.subtitle}
+        {document.title && document.title !== layout.title
+          ? `${layout.title} · ${layout.subtitle}`
+          : layout.subtitle}
       </div>
 
       {/* Divider */}
@@ -124,7 +138,7 @@ export const DocumentCertificatePreview: React.FC<DocumentCertificatePreviewProp
         }}
       >
         <tbody>
-          {layout.fields.map((f, idx) => (
+          {fields.map((f, idx) => (
             <tr
               key={idx}
               style={{
