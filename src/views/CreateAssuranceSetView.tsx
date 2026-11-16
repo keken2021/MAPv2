@@ -127,7 +127,7 @@ import {
 import { MasterDocument } from '../types/document';
 import { Plus, ChevronDown, ShieldCheck, FileCheck, ExternalLink, Globe, Building2, Ship, Users, Wrench, Activity, Sparkles, CheckCircle2, Trash2, AlertCircle, Pencil, Check, X, FolderPlus, Layers } from 'lucide-react';
 import { calculateAssuranceSetReadiness } from '../utils/readinessHelpers';
-import { attachDemoDocumentsToRequirements } from '../utils/oilCoDemoPreseed';
+import { attachDemoDocumentsToRequirements, filterNewDemoDocuments } from '../utils/oilCoDemoPreseed';
 import { SearchableSelect, SearchableSelectItem } from '../components/common/SearchableSelect';
 import { Wizard, WizardStep } from '../components/wizards/Wizard';
 import { PartyRoleErrors } from '../components/wizards/PartyRoleErrors';
@@ -1926,7 +1926,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       return;
     }
 
-    const uniqueSetId = generateUniqueAssuranceSetId(assuranceSets);
+    const uniqueSetId = editingDraftId || generateUniqueAssuranceSetId(assuranceSets);
 
     /* Determine which subtypes are active */
     const activeSubtypes = orderAssuranceScopes(selectedScopes);
@@ -2087,7 +2087,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     /* a request keeps the creating organization as initiator while the client is the project client */
     const initiatorOrg = requestContext ? defaultCharterer : ownerOrg;
 
-    const targetSetId = editingDraftId || generateUniqueAssuranceSetId(assuranceSets);
+    const targetSetId = uniqueSetId;
 
     const effectiveRequirements = finalRequirements;
 
@@ -2224,10 +2224,11 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
     newSet.readinessScore = calculateAssuranceSetReadiness(newSet);
 
+    filterNewDemoDocuments(demoDocuments, documents).forEach((doc) => addDocument(doc));
+
     if (editingDraftId) {
       updateAssuranceSet(newSet);
     } else {
-      demoDocuments.forEach((doc) => addDocument(doc));
       addAssuranceSet(newSet);
     }
 
@@ -2561,10 +2562,11 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
     draftSet.readinessScore = calculateAssuranceSetReadiness(draftSet);
 
+    filterNewDemoDocuments(demoDocuments, documents).forEach((doc) => addDocument(doc));
+
     if (editingDraftId) {
       updateAssuranceSet(draftSet);
     } else {
-      demoDocuments.forEach((doc) => addDocument(doc));
       addAssuranceSet(draftSet);
     }
     setShowCancelPrompt(false);

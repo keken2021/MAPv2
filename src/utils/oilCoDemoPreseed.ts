@@ -1,10 +1,4 @@
-/*
-  file summary: Oil Co demo helpers for assurance set template walkthroughs.
-  responsibilities: leaves the first 3 documents awaiting upload, pre-seeds the remaining requirements
-  with demo documents (or links existing documents with duplicate titles), and auto-verifies
-  pre-seeded uploads when the set enters Verification.
-  role in system: used by CreateAssuranceSetView at create and draft time, and useMapStore on stage transition.
-*/
+/* Oil Co demo helpers for assurance set template walkthroughs. */
 
 import { AssuranceRequirement, AssuranceSet } from '../types/assurance';
 import { DocumentEntityType, MasterDocument } from '../types/document';
@@ -104,6 +98,21 @@ export function buildDemoMasterDocument(
     },
     verificationStatus: 'Pending',
   };
+}
+
+/**
+ * Returns only demo documents whose id is not already present in the existing documents list.
+ * Returns an empty array when given an empty list or when all documents exist.
+ */
+export function filterNewDemoDocuments(
+  docs: MasterDocument[],
+  existing: MasterDocument[],
+): MasterDocument[] {
+  if (!docs || docs.length === 0) {
+    return [];
+  }
+  const existingIds = new Set((existing || []).map((d) => d.id));
+  return docs.filter((doc) => !existingIds.has(doc.id));
 }
 
 /* attaches demo documents to all requirements beyond the first 3 */

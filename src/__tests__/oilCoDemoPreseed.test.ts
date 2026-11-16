@@ -1,9 +1,4 @@
-/*
-  file summary: AS-04 / AS-05 demo preseed behaviour for Oil Co walkthroughs and all templates.
-  responsibilities: first 3 template docs stay open; the rest start Submitted; entering Verification auto-verifies pre-seeded rows.
-  role in system: vitest coverage for oilCoDemoPreseed helpers and the upload stage flip in useMapStore.
-*/
-
+/* AS-04 / AS-05 demo preseed behaviour for Oil Co walkthroughs and all templates. */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useMapStore } from '../store/useMapStore';
 import { AssuranceRequirement, AssuranceSet } from '../types/assurance';
@@ -14,6 +9,7 @@ import {
   DEMO_OPEN_UPLOAD_COUNT,
   attachDemoDocumentsToRequirements,
   autoVerifyDemoPreseededRequirements,
+  filterNewDemoDocuments,
 } from '../utils/oilCoDemoPreseed';
 import { derivePipelineStage } from '../utils/readinessHelpers';
 
@@ -431,5 +427,52 @@ describe('oil Co AS-04 / AS-05 demo preseed', () => {
         .every((req) => req.verifierStatus === 'Pending' && Boolean(req.documentId)),
     ).toBe(true);
     expect(after.requirements.filter((req) => req.verifierStatus === 'Pending')).toHaveLength(3);
+  });
+
+  describe('filterNewDemoDocuments', () => {
+    const makeDoc = (id: string, title = 'Doc'): MasterDocument => ({
+      id,
+      title,
+      entityType: 'Vessel Certificate',
+      certificateNo: `CERT-${id}`,
+      issuingAuthority: 'Authority',
+      expiryDate: '2027-01-01',
+      ocrConfidence: 96,
+      complianceState: 'Valid',
+      currentVersion: 'v1.0',
+      versions: [],
+      validationRules: {
+        charterBufferPassed: true,
+        assetMatch100Percent: true,
+        iacsAuthorityValid: true,
+        overallValid: true,
+      },
+      verificationStatus: 'Pending',
+    });
+
+    it('returns only documents whose id is not in existing', () => {
+      const doc1 = makeDoc('DOC-1');
+      const doc2 = makeDoc('DOC-2');
+      const doc3 = makeDoc('DOC-3');
+
+      const existing = [doc1];
+      const result = filterNewDemoDocuments([doc1, doc2, doc3], existing);
+
+      expect(result.map((d) => d.id)).toEqual(['DOC-2', 'DOC-3']);
+    });
+
+    it('returns empty array for an empty list or when template has fewer than 4 requirements', () => {
+      const existing = [makeDoc('DOC-1')];
+      expect(filterNewDemoDocuments([], existing)).toEqual([]);
+    });
+
+    it('returns empty array when saved twice and all documents already exist', () => {
+      const doc1 = makeDoc('DOC-1');
+      const doc2 = makeDoc('DOC-2');
+      const existing = [doc1, doc2];
+
+      const result = filterNewDemoDocuments([doc1, doc2], existing);
+      expect(result).toEqual([]);
+    });
   });
 });
