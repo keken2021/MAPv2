@@ -135,7 +135,7 @@ import { EmptyState } from '../components/common/EmptyState';
 import { Tabs } from '../components/common/Tabs';
 import { ListToolbar } from '../components/common/ListToolbar';
 import { StatusBadge } from '../components/common/StatusBadge';
-import { getRequirementStatusLabel } from '../utils/stageTasks';
+import { getRequirementStatusLabel, getApproverTasksCount } from '../utils/stageTasks';
 import { ReusedDocumentBadge } from '../components/common/ReusedDocumentBadge';
 import { AssuranceRequirementRow } from '../components/assurance/AssuranceRequirementRow';
 import { AuditEventTarget, AuditTrailEvent, formatAuditTarget, auditEventMatchesSearch } from '../types/audit';
@@ -2382,7 +2382,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
         : persona === 'Verifier' ? toVerify
           : persona === 'Inspector'
             ? (isInspectionDueForViewer(assuranceSet, activePersona, activeDemoOrganization, sessionUser) ? 1 : 0)
-            : persona === 'Approver' ? open
+            : persona === 'Approver'
+              ? getApproverTasksCount(assuranceSet, open, activePersona, activeDemoOrganization, sessionUser)
             : 0;
     return { total, returned, toUpload, toVerify, verified, awaitingUpload, open, mine };
   })();

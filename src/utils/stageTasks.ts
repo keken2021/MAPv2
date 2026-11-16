@@ -156,6 +156,20 @@ export function isStageTaskActionableForViewer(
 }
 
 /**
+ * Tasks tab count for the approver: open requirements plus the Approval task when it is theirs to act on.
+ */
+export function getApproverTasksCount(
+  set: AssuranceSet | null | undefined,
+  openRequirements: number,
+  persona: UserRolePersona,
+  organization?: string,
+  user?: Pick<UserProfile, 'id' | 'name' | 'organization' | 'roles'> | null,
+): number {
+  const approvalOpen = isStageTaskActionableForViewer(set, 'approval', persona, organization, user);
+  return openRequirements + (approvalOpen ? 1 : 0);
+}
+
+/**
  * Returns true if an assurance set is currently waiting on inspection:
  * 1. set.stage === 'Inspection'
  * 2. set.mandatoryInspectionRequired is true

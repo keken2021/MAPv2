@@ -673,7 +673,12 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
   }, [allRows, activeTabKey, searchTerm]);
 
   const sortedRows = useMemo(() => {
-    if (!sortField) return filteredRows;
+    if (!sortField) {
+      // Rows waiting on an inspector or approver come first; the sort is stable, so the rest keep their order.
+      const isStageTurn = (r: ProjectTaskRow) =>
+        r.status === INSPECTION_TASK_STATUS || r.status === APPROVAL_TASK_STATUS;
+      return [...filteredRows].sort((a, b) => Number(isStageTurn(b)) - Number(isStageTurn(a)));
+    }
     const direction = sortDirection === 'asc' ? 1 : -1;
 
     return [...filteredRows].sort((a, b) => {
