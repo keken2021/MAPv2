@@ -622,7 +622,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
   /* every organization on the set; the requesting party stays first and cannot be removed */
   const [organizations, setOrganizationList] = useState<string[]>(() =>
-    addObjectOwners([effectiveRequestingParty, effectiveRespondingParty].filter(Boolean), [
+    addObjectOwners([effectiveRequestingParty, effectiveRespondingParty].filter((org, index, all) => Boolean(org) && all.findIndex((other) => sameOrganization(other, org)) === index), [
       ...selectedAssuranceObjects,
       { ownerOrganization: serviceProviderOrg },
       ...(requestContext?.requestingParty ? [{ ownerOrganization: requestContext.requestingParty }] : []),
