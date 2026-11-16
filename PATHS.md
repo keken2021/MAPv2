@@ -48,6 +48,7 @@ Root: `C:\mapFiles\MAPv2`
 - `src/config/readinessScale.ts` : unified readiness scale cut-offs, tones, and CSS class helpers
 - `src/config/thresholds.ts` : centralized reminder, expiry, OCR, and at-risk thresholds (Task 5524 / A17)
 - `src/__tests__/projectOwnerSubSetVisibility.test.ts` : unit tests for master-project owner sub-set visibility and document restriction rule (Task 5529 / A37)
+- `src/__tests__/assuranceWizardDemoPreseed.test.tsx` : tests for demo documents auto-attachment across all templates and draft saving (Task 5483)
 - `src/__tests__/demoReviewInspectionGuard.test.tsx` : tests for requirement verification status mapping (Submitted / Awaiting Verifier vs To Inspect) and disabling Submit Outcome prior to Inspection stage
 - `src/__tests__/linkedObjectDatasheetDrawer.test.tsx` : tests for LinkedObjectDatasheetDrawer and eye button RBAC in AssuranceDetailView (Task 5483)
 - `src/__tests__/datasheetSignoffSnapshots.test.ts` : tests for datasheet sign-off snapshot capture and audit naming at verification, inspection, and approval (Task 5483)

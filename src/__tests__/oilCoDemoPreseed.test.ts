@@ -1,5 +1,5 @@
 /*
-  file summary: AS-04 / AS-05 demo preseed behaviour for Oil Co walkthroughs.
+  file summary: AS-04 / AS-05 demo preseed behaviour for Oil Co walkthroughs and all templates.
   responsibilities: first 3 template docs stay open; the rest start Submitted; entering Verification auto-verifies pre-seeded rows.
   role in system: vitest coverage for oilCoDemoPreseed helpers and the upload stage flip in useMapStore.
 */
@@ -9,13 +9,11 @@ import { useMapStore } from '../store/useMapStore';
 import { AssuranceRequirement, AssuranceSet } from '../types/assurance';
 import { MasterDocument } from '../types/document';
 import { getSetVessel } from '../utils/setObjects';
-import { SUBTYPE_TEMPLATES } from '../utils/assuranceTemplates';
+import { SUBTYPE_STANDARD_DOCS, SUBTYPE_TEMPLATES } from '../utils/assuranceTemplates';
 import {
   DEMO_OPEN_UPLOAD_COUNT,
-  DEMO_PRESEED_TEMPLATE_IDS,
+  attachDemoDocumentsToRequirements,
   autoVerifyDemoPreseededRequirements,
-  isDemoOpenUploadSlot,
-  isDemoPreseedTemplate,
 } from '../utils/oilCoDemoPreseed';
 import { derivePipelineStage } from '../utils/readinessHelpers';
 
@@ -29,63 +27,20 @@ function buildPreseededSet(templateId: string): {
 } {
   const template = SUBTYPE_TEMPLATES.find((item) => item.id === templateId)!;
   const tasks = template.customRequirements ?? [];
-  const documents: MasterDocument[] = [];
-  const requirements: AssuranceRequirement[] = tasks.map((task, index) => {
-    const open = isDemoOpenUploadSlot(index);
-    if (open) {
-      return {
-        id: `req-open-${index}`,
-        category: 'Process',
-        title: task.title,
-        isMandatory: true,
-        isFulfilled: false,
-        ocrConfidence: 0,
-        verifierStatus: 'Pending',
-      };
-    }
-    const docId = `DOC-DEMO-TEST-${index}`;
-    documents.push({
-      id: docId,
-      title: task.title,
-      entityType: 'Vessel Certificate',
-      vesselId: 'VES-DEMO',
-      certificateNo: `DEMO-${index}`,
-      issuingAuthority: 'Oil Company',
-      expiryDate: '2027-11-15',
-      ocrConfidence: 96,
-      complianceState: 'Valid',
-      currentVersion: 'v1.0',
-      versions: [
-        {
-          versionLabel: 'v1.0',
-          uploadedAt: '2026-11-15T00:00:00.000Z',
-          uploadedBy: 'Oil Company',
-          fileSizeBytes: 1000,
-          fileName: 'demo.pdf',
-          changeSummary: 'Demo document, already submitted',
-        },
-      ],
-      validationRules: {
-        charterBufferPassed: true,
-        assetMatch100Percent: true,
-        iacsAuthorityValid: true,
-        overallValid: true,
-      },
-      verificationStatus: 'Pending',
-    });
-    return {
-      id: `req-pre-${index}`,
-      category: 'Process',
-      title: task.title,
-      isMandatory: true,
-      isFulfilled: false,
-      ocrConfidence: 96,
-      verifierStatus: 'Pending',
-      documentId: docId,
-      documentVersion: 'v1.0',
-      demoPreseeded: true,
-      notes: 'Demo pre-seeded upload',
-    };
+  const rawRequirements: AssuranceRequirement[] = tasks.map((task, index) => ({
+    id: `req-${index}`,
+    category: 'Process',
+    title: task.title,
+    isMandatory: true,
+    isFulfilled: false,
+    ocrConfidence: 0,
+    verifierStatus: 'Pending',
+  }));
+
+  const { requirements, demoDocuments } = attachDemoDocumentsToRequirements(rawRequirements, {
+    setId: 'AS-DEMO-PRESEED',
+    respondingParty: 'Oil Company',
+    targetObject: { type: 'vessel', id: 'VES-DEMO', name: 'Demo Vessel' },
   });
 
   return {
@@ -126,7 +81,7 @@ function buildPreseededSet(templateId: string): {
         verifierName: 'N. Brooks (Coastal Fuel Testing)',
       },
     },
-    documents,
+    documents: demoDocuments,
     openTitles: tasks.slice(0, DEMO_OPEN_UPLOAD_COUNT).map((task) => task.title),
     preseededTitles: tasks.slice(DEMO_OPEN_UPLOAD_COUNT).map((task) => task.title),
   };
@@ -144,18 +99,6 @@ describe('oil Co AS-04 / AS-05 demo preseed', () => {
     expect(SUBTYPE_TEMPLATES.find((t) => t.id === 'tmpl-pub-ss05-control-systems')?.name).toBe(
       'AS-05 IT / Control Systems',
     );
-  });
-
-  it('treats only the AS-04 and AS-05 public templates as demo preseed targets', () => {
-    expect(DEMO_PRESEED_TEMPLATE_IDS).toEqual([
-      'tmpl-pub-ss04-bunkering',
-      'tmpl-pub-ss05-control-systems',
-    ]);
-    expect(isDemoPreseedTemplate('tmpl-pub-ss04-bunkering')).toBe(true);
-    expect(isDemoPreseedTemplate('tmpl-pub-imca-vessel')).toBe(false);
-    expect(isDemoOpenUploadSlot(0)).toBe(true);
-    expect(isDemoOpenUploadSlot(2)).toBe(true);
-    expect(isDemoOpenUploadSlot(3)).toBe(false);
   });
 
   it('starts with first 3 awaiting upload and the rest Submitted (not Verified)', () => {
@@ -177,6 +120,213 @@ describe('oil Co AS-04 / AS-05 demo preseed', () => {
           req.isFulfilled === false,
       ),
     ).toBe(true);
+  });
+
+  it('attaches demo documents for a non-SS-04/05 template leaving the first 3 open', () => {
+    const standardDocs = SUBTYPE_STANDARD_DOCS.Vessel.slice(0, 7);
+    const rawRequirements: AssuranceRequirement[] = standardDocs.map((doc, idx) => ({
+      id: `req-imca-${idx}`,
+      category: doc.category,
+      title: doc.title,
+      docTypeId: doc.id,
+      isMandatory: doc.isMandatory,
+      isFulfilled: false,
+      ocrConfidence: 0,
+      verifierStatus: 'Pending',
+    }));
+
+    const { requirements, demoDocuments } = attachDemoDocumentsToRequirements(rawRequirements, {
+      setId: 'AS-IMCA-DEMO',
+      respondingParty: 'Northwind Marine Pty Ltd',
+      targetObject: { type: 'vessel', id: 'VESSEL-001', name: 'Pacific Sentinel' },
+    });
+
+    expect(requirements).toHaveLength(7);
+    // First 3 open
+    expect(requirements.slice(0, 3).every((r) => !r.documentId && r.verifierStatus === 'Pending')).toBe(true);
+    // Next 4 attached
+    expect(
+      requirements.slice(3).every(
+        (r) =>
+          Boolean(r.documentId) &&
+          r.demoPreseeded === true &&
+          r.verifierStatus === 'Pending' &&
+          !r.isFulfilled &&
+          r.ocrConfidence === 96 &&
+          r.notes === 'Demo pre-seeded upload',
+      ),
+    ).toBe(true);
+    expect(demoDocuments).toHaveLength(4);
+    expect(demoDocuments.every((d) => d.verificationStatus === 'Pending' && d.ocrConfidence === 96)).toBe(true);
+  });
+
+  it('attaches demo documents to general and standard documents beyond the first 3', () => {
+    const rawRequirements: AssuranceRequirement[] = [
+      { id: 'req-gen-1', category: 'Statutory Certificate', title: 'Company ISM DOC', isMandatory: true, isFulfilled: false, ocrConfidence: 0, verifierStatus: 'Pending' },
+      { id: 'req-gen-2', category: 'Commercial & Legal', title: 'Mutual NDA', isMandatory: true, isFulfilled: false, ocrConfidence: 0, verifierStatus: 'Pending' },
+      { id: 'req-gen-3', category: 'Commercial & Legal', title: 'Master Service Agreement', isMandatory: true, isFulfilled: false, ocrConfidence: 0, verifierStatus: 'Pending' },
+      { id: 'req-gen-4', category: 'Commercial & Legal', title: 'Additional General Policy', isMandatory: true, isFulfilled: false, ocrConfidence: 0, verifierStatus: 'Pending' },
+      { id: 'req-std-1', category: 'Statutory Certificate', title: 'Certificate of Class', isMandatory: true, isFulfilled: false, ocrConfidence: 0, verifierStatus: 'Pending' },
+    ];
+
+    const { requirements, demoDocuments } = attachDemoDocumentsToRequirements(rawRequirements, {
+      setId: 'AS-GEN-STD-DEMO',
+      respondingParty: 'Northwind Marine Pty Ltd',
+      targetObject: { type: 'vessel', id: 'VESSEL-001', name: 'Pacific Sentinel' },
+    });
+
+    expect(requirements).toHaveLength(5);
+    // First 3 stay open
+    expect(requirements[0].documentId).toBeUndefined();
+    expect(requirements[1].documentId).toBeUndefined();
+    expect(requirements[2].documentId).toBeUndefined();
+    // 4th (general doc) and 5th (standard doc) get attached
+    expect(requirements[3].documentId).toBeDefined();
+    expect(requirements[3].demoPreseeded).toBe(true);
+    expect(requirements[3].notes).toBe('Demo pre-seeded upload');
+    expect(requirements[4].documentId).toBeDefined();
+    expect(requirements[4].demoPreseeded).toBe(true);
+    expect(requirements[4].notes).toBe('Demo pre-seeded upload');
+    expect(demoDocuments).toHaveLength(2);
+  });
+
+  it('leaves all documents open for a set with 3 or fewer documents', () => {
+    const rawRequirements: AssuranceRequirement[] = [
+      { id: 'req-1', category: 'Statutory Certificate', title: 'DOC', isMandatory: true, isFulfilled: false, ocrConfidence: 0, verifierStatus: 'Pending' },
+      { id: 'req-2', category: 'Commercial & Legal', title: 'NDA', isMandatory: true, isFulfilled: false, ocrConfidence: 0, verifierStatus: 'Pending' },
+      { id: 'req-3', category: 'Commercial & Legal', title: 'MSA', isMandatory: true, isFulfilled: false, ocrConfidence: 0, verifierStatus: 'Pending' },
+    ];
+
+    const { requirements, demoDocuments } = attachDemoDocumentsToRequirements(rawRequirements, {
+      setId: 'AS-SMALL-SET',
+      respondingParty: 'Northwind Marine Pty Ltd',
+      targetObject: { type: 'vessel', id: 'VESSEL-001', name: 'Pacific Sentinel' },
+    });
+
+    expect(requirements).toHaveLength(3);
+    expect(requirements.every((r) => !r.documentId && r.verifierStatus === 'Pending' && !r.isFulfilled)).toBe(true);
+    expect(demoDocuments).toEqual([]);
+  });
+
+  it('links an existing document when duplicate title is found on target object without creating another', () => {
+    const existingDoc: MasterDocument = {
+      id: 'DOC-EXISTING-001',
+      title: 'Safety Equipment Certificate',
+      entityType: 'Vessel Certificate',
+      vesselId: 'VESSEL-001',
+      targetObjectType: 'vessel',
+      targetObjectId: 'VESSEL-001',
+      targetObjectName: 'Pacific Sentinel',
+      certificateNo: 'SEC-2026-99',
+      issuingAuthority: 'DNV',
+      expiryDate: '2028-01-01',
+      ocrConfidence: 98,
+      complianceState: 'Valid',
+      currentVersion: 'v2.1',
+      versions: [
+        {
+          versionLabel: 'v2.1',
+          uploadedAt: '2026-10-01T00:00:00.000Z',
+          uploadedBy: 'Northwind Marine Pty Ltd',
+          fileSizeBytes: 420000,
+          fileName: 'safety-equipment-certificate.pdf',
+          changeSummary: 'Existing uploaded version',
+        },
+      ],
+      validationRules: { charterBufferPassed: true, assetMatch100Percent: true, iacsAuthorityValid: true, overallValid: true },
+      verificationStatus: 'Pending',
+    };
+
+    const rawRequirements: AssuranceRequirement[] = [
+      { id: 'req-1', category: 'Statutory Certificate', title: 'DOC', isMandatory: true, isFulfilled: false, ocrConfidence: 0, verifierStatus: 'Pending' },
+      { id: 'req-2', category: 'Commercial & Legal', title: 'NDA', isMandatory: true, isFulfilled: false, ocrConfidence: 0, verifierStatus: 'Pending' },
+      { id: 'req-3', category: 'Commercial & Legal', title: 'MSA', isMandatory: true, isFulfilled: false, ocrConfidence: 0, verifierStatus: 'Pending' },
+      { id: 'req-4', category: 'Statutory Certificate', title: 'Safety Equipment Certificate', isMandatory: true, isFulfilled: false, ocrConfidence: 0, verifierStatus: 'Pending' },
+    ];
+
+    const { requirements, demoDocuments } = attachDemoDocumentsToRequirements(rawRequirements, {
+      setId: 'AS-DUP-CHECK',
+      respondingParty: 'Northwind Marine Pty Ltd',
+      targetObject: { type: 'vessel', id: 'VESSEL-001', name: 'Pacific Sentinel' },
+      existingDocuments: [existingDoc],
+    });
+
+    expect(requirements[3].documentId).toBe('DOC-EXISTING-001');
+    expect(requirements[3].documentVersion).toBe('v2.1');
+    expect(requirements[3].demoPreseeded).toBe(true);
+    expect(requirements[3].notes).toBe('Demo pre-seeded upload');
+    expect(demoDocuments).toHaveLength(0);
+  });
+
+  it('creates demo files and performs duplicate title checks for crew and equipment targets', () => {
+    const existingCrewDoc: MasterDocument = {
+      id: 'DOC-CREW-EXISTING',
+      title: 'STCW Basic Safety Training',
+      entityType: 'Crew Certificate',
+      targetObjectType: 'person',
+      targetObjectId: 'CREW-101',
+      targetObjectName: 'Capt. James Cook',
+      certificateNo: 'BST-2026',
+      issuingAuthority: 'AMSA',
+      expiryDate: '2028-01-01',
+      ocrConfidence: 96,
+      complianceState: 'Valid',
+      currentVersion: 'v1.5',
+      versions: [
+        {
+          versionLabel: 'v1.5',
+          uploadedAt: '2026-10-01T00:00:00.000Z',
+          uploadedBy: 'Crew Provider',
+          fileSizeBytes: 420000,
+          fileName: 'stcw.pdf',
+          changeSummary: 'Initial',
+        },
+      ],
+      validationRules: { charterBufferPassed: true, assetMatch100Percent: true, iacsAuthorityValid: true, overallValid: true },
+      verificationStatus: 'Pending',
+    };
+
+    const crewReqs: AssuranceRequirement[] = [
+      { id: 'c-1', category: 'People', title: 'DOC', isMandatory: true, isFulfilled: false, ocrConfidence: 0, verifierStatus: 'Pending' },
+      { id: 'c-2', category: 'People', title: 'NDA', isMandatory: true, isFulfilled: false, ocrConfidence: 0, verifierStatus: 'Pending' },
+      { id: 'c-3', category: 'People', title: 'MSA', isMandatory: true, isFulfilled: false, ocrConfidence: 0, verifierStatus: 'Pending' },
+      { id: 'c-4', category: 'People', title: 'STCW Basic Safety Training', isMandatory: true, isFulfilled: false, ocrConfidence: 0, verifierStatus: 'Pending' },
+      { id: 'c-5', category: 'People', title: 'Seafarer Medical Fitness Certificate (ENG1)', isMandatory: true, isFulfilled: false, ocrConfidence: 0, verifierStatus: 'Pending' },
+    ];
+
+    const { requirements: updatedCrewReqs, demoDocuments: crewDemoDocs } = attachDemoDocumentsToRequirements(crewReqs, {
+      setId: 'AS-CREW-DEMO',
+      respondingParty: 'Crew Provider',
+      targetObject: { type: 'person', id: 'CREW-101', name: 'Capt. James Cook' },
+      existingDocuments: [existingCrewDoc],
+    });
+
+    expect(updatedCrewReqs[3].documentId).toBe('DOC-CREW-EXISTING');
+    expect(updatedCrewReqs[3].documentVersion).toBe('v1.5');
+    expect(updatedCrewReqs[4].documentId).toBe('DOC-DEMO-AS-CREW-DEMO-5');
+    expect(crewDemoDocs).toHaveLength(1);
+    expect(crewDemoDocs[0].entityType).toBe('Crew Certificate');
+    expect(crewDemoDocs[0].targetObjectType).toBe('person');
+    expect(crewDemoDocs[0].targetObjectId).toBe('CREW-101');
+
+    const eqReqs: AssuranceRequirement[] = [
+      { id: 'e-1', category: 'Plant', title: 'DOC', isMandatory: true, isFulfilled: false, ocrConfidence: 0, verifierStatus: 'Pending' },
+      { id: 'e-2', category: 'Plant', title: 'NDA', isMandatory: true, isFulfilled: false, ocrConfidence: 0, verifierStatus: 'Pending' },
+      { id: 'e-3', category: 'Plant', title: 'MSA', isMandatory: true, isFulfilled: false, ocrConfidence: 0, verifierStatus: 'Pending' },
+      { id: 'e-4', category: 'Plant', title: 'Offshore Pedestal Crane Annual Inspection', isMandatory: true, isFulfilled: false, ocrConfidence: 0, verifierStatus: 'Pending' },
+    ];
+
+    const { requirements: updatedEqReqs, demoDocuments: eqDemoDocs } = attachDemoDocumentsToRequirements(eqReqs, {
+      setId: 'AS-EQ-DEMO',
+      respondingParty: 'Equipment Provider',
+      targetObject: { type: 'equipment', id: 'EQ-CRANE-01', name: 'Heavy Lift Crane #1' },
+    });
+
+    expect(updatedEqReqs[3].documentId).toBe('DOC-DEMO-AS-EQ-DEMO-4');
+    expect(eqDemoDocs).toHaveLength(1);
+    expect(eqDemoDocs[0].entityType).toBe('Equipment Certificate');
+    expect(eqDemoDocs[0].targetObjectType).toBe('equipment');
+    expect(eqDemoDocs[0].targetObjectId).toBe('EQ-CRANE-01');
   });
 
   it('auto-verifies only pre-seeded rows when Verification begins, leaving live uploads Pending', () => {

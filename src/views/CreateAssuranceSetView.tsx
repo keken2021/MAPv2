@@ -55,7 +55,6 @@ import {
   getStakeholderRoleOrganization,
   PENDING_ASSIGNMENT,
 } from '../utils/userRoleHelpers';
-import { findDuplicateObjectDocumentTitle } from '../utils/documentObjectHelpers';
 import {
   isDuplicateCampaignTitle,
   generateUniqueAssuranceSetId,
@@ -89,9 +88,6 @@ import {
   getAssuranceObjectScope,
   placeTasksInSections,
 } from '../utils/assuranceTemplates';
-import {
-  autoAttachDocumentsToRequirements,
-} from '../utils/documentMatchingHelpers';
 import {
   findOverlappingAssuranceSets,
   formatOverlapError,
@@ -131,7 +127,7 @@ import {
 import { MasterDocument } from '../types/document';
 import { Plus, ChevronDown, ShieldCheck, FileCheck, ExternalLink, Globe, Building2, Ship, Users, Wrench, Activity, Sparkles, CheckCircle2, Trash2, AlertCircle, Pencil, Check, X, FolderPlus, Layers } from 'lucide-react';
 import { calculateAssuranceSetReadiness } from '../utils/readinessHelpers';
-import { isDemoOpenUploadSlot, isDemoPreseedTemplate } from '../utils/oilCoDemoPreseed';
+import { attachDemoDocumentsToRequirements } from '../utils/oilCoDemoPreseed';
 import { SearchableSelect, SearchableSelectItem } from '../components/common/SearchableSelect';
 import { Wizard, WizardStep } from '../components/wizards/Wizard';
 import { PartyRoleErrors } from '../components/wizards/PartyRoleErrors';
@@ -1967,9 +1963,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       });
     });
 
-    /* demo only: AS-04 and AS-05 leave the first 3 template docs awaiting upload; the rest start Submitted (not Verified) */
-    const demoDocuments: MasterDocument[] = [];
-
     activeSubtypes.forEach((subtype) => {
       const standardList = SUBTYPE_STANDARD_DOCS[subtype];
       standardList.forEach((doc) => {
@@ -1998,62 +1991,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
       const customList = specializedDocs.filter((d) => d.subtype === subtype && d.isEnabled);
       customList.forEach((spec) => {
-        const templateSpecs = customList.filter((d) => d.templateId && d.templateId === spec.templateId);
-        const templatePosition = templateSpecs.indexOf(spec);
-        const isPreseeded =
-          isDemoPreseedTemplate(spec.templateId) &&
-          !isDemoOpenUploadSlot(templatePosition);
-        const demoDocId = `DOC-DEMO-${uniqueSetId}-${templatePosition + 1}`;
-        let attachedDocId = demoDocId;
-        let attachedVersion = 'v1.0';
-
-        if (isPreseeded) {
-          const targetType = vesselId ? 'vessel' : undefined;
-          const targetId = vesselId || undefined;
-          const duplicate =
-            targetType && targetId
-              ? findDuplicateObjectDocumentTitle(
-                  [...documents, ...demoDocuments],
-                  { type: targetType, id: targetId, name: selectedVessel?.name },
-                  spec.title,
-                  { vessels, crew, equipment, assuranceObjects: storeAssuranceObjects },
-                )
-              : null;
-
-          if (duplicate) {
-            attachedDocId = duplicate.id;
-            attachedVersion = duplicate.document?.currentVersion || 'v1.0';
-          } else {
-            const now = new Date().toISOString();
-            demoDocuments.push({
-              id: demoDocId,
-              title: spec.title,
-              entityType: 'Vessel Certificate',
-              vesselId: vesselId || '',
-              targetObjectType: vesselId ? 'vessel' : undefined,
-              targetObjectId: vesselId || undefined,
-              targetObjectName: selectedVessel?.name,
-              certificateNo: `DEMO-${templatePosition + 1}`,
-              issuingAuthority: respondingParty,
-              expiryDate: new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10),
-              ocrConfidence: 96,
-              complianceState: 'Valid',
-              currentVersion: 'v1.0',
-              versions: [
-                {
-                  versionLabel: 'v1.0',
-                  uploadedAt: now,
-                  uploadedBy: respondingParty,
-                  fileSizeBytes: 420000,
-                  fileName: `${spec.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.pdf`,
-                  changeSummary: 'Demo document, already submitted',
-                },
-              ],
-              validationRules: { charterBufferPassed: true, assetMatch100Percent: true, iacsAuthorityValid: true, overallValid: true },
-              verificationStatus: 'Pending',
-            });
-          }
-        }
         finalRequirements.push({
           id: generateUniqueRequirementId(uniqueSetId, reqIndex++),
           category: spec.category,
@@ -2074,23 +2011,28 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           requirementGroupId: spec.id,
           assignedVerifier: reqAssignedVerifier,
           verifierId: undefined,
-          ...(isPreseeded
-            ? {
-              documentId: attachedDocId,
-              documentVersion: attachedVersion,
-              isFulfilled: false,
-              ocrConfidence: 96,
-              verifierStatus: 'Pending' as const,
-              demoPreseeded: true,
-              notes: 'Demo pre-seeded upload',
-            }
-            : {}),
         });
       });
     });
 
     const placedTasks = placeTasksInSections(finalRequirements);
     finalRequirements.splice(0, finalRequirements.length, ...placedTasks.requirements);
+
+    const { requirements: preseededRequirements, demoDocuments } =
+      attachDemoDocumentsToRequirements(finalRequirements, {
+        setId: uniqueSetId,
+        respondingParty,
+        vesselId,
+        selectedVesselName: selectedVessel?.name,
+        selectedCrewId,
+        selectedCrewName: selectedCrew?.fullName,
+        selectedEquipmentId,
+        selectedEquipmentName: selectedEquipment?.name,
+        selectedAssuranceObjects,
+        existingDocuments: documents,
+        lookupContext: { vessels, crew, equipment, assuranceObjects: storeAssuranceObjects },
+      });
+    finalRequirements.splice(0, finalRequirements.length, ...preseededRequirements);
 
     const sectionTitleMap: Record<string, string> = {
       'sec-general': toSentenceCase(getSectionTitle('general', 'General documents')),
@@ -2147,28 +2089,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
     const targetSetId = editingDraftId || generateUniqueAssuranceSetId(assuranceSets);
 
-    const effectiveRequirements = autoAttachDocumentsToRequirements(finalRequirements, {
-      documents,
-      vessel: selectedVesselForScope,
-      vessels,
-      crew,
-      selectedCrewId,
-      selectedCrewIds,
-      equipment,
-      selectedEquipmentId,
-      selectedVesselId: vesselId,
-      targetSubtype: assuranceType,
-      /* A16: vault auto-attach only reuses Vendor-owned library evidence */
-      reuseSet: {
-        clientOrg: ownerOrg,
-        charterer: effectiveCharterer,
-        serviceProviderOrg: effectiveVendorOrg,
-        respondingParty:
-          Object.keys(orgPartyRoles).find((org) => orgPartyRoles[org] === 'Responding party') ||
-          requestContext?.respondingParty ||
-          effectiveVendorOrg,
-      },
-    });
+    const effectiveRequirements = finalRequirements;
 
     const invalidTask = finalRequirements.find(
       (r) => r.targetDate && validateTaskTargetDate(r.targetDate, complianceDeadline)
@@ -2391,6 +2312,28 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       serviceProviderOrg ||
       'Service Provider';
 
+    /* Include general documents (DOC, NDA, MSA) assigned to organizations */
+    generalDocs.filter((d) => d.isEnabled).forEach((doc) => {
+      finalRequirements.push({
+        id: generateUniqueRequirementId(targetSetId, reqIndex++),
+        category: doc.category as AssuranceRequirementCategory,
+        title: doc.title,
+        description: doc.description,
+        isMandatory: doc.isMandatory,
+        sectionId: 'sec-general',
+        isFulfilled: false,
+        ocrConfidence: 0,
+        verifierStatus: 'Pending',
+        assignedSubmitter: respondingParty,
+        responsibleParty: respondingParty,
+        responsibleParties: [respondingParty],
+        requirementGroupId: doc.id,
+        assignedVerifier: reqAssignedVerifier,
+        verifierId: defaultVerifier?.id,
+        targetDate: complianceDeadline,
+      });
+    });
+
     activeSubtypes.forEach((subtype) => {
       const standardList = SUBTYPE_STANDARD_DOCS[subtype];
       standardList.forEach((doc) => {
@@ -2427,6 +2370,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           subtype: savedRequirementSubtype(spec),
           isMandatory: spec.isMandatory,
           isSpecialized: true,
+          isOtherDocument: spec.isOtherDocument ?? false,
+          sectionId: spec.sectionId || `sec-${subtype.toLowerCase()}`,
           targetDate: spec.targetDate || complianceDeadline,
           isFulfilled: false,
           ocrConfidence: 0,
@@ -2444,33 +2389,28 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     const placedTasks = placeTasksInSections(finalRequirements);
     finalRequirements.splice(0, finalRequirements.length, ...placedTasks.requirements);
 
+    const { requirements: preseededRequirements, demoDocuments } =
+      attachDemoDocumentsToRequirements(finalRequirements, {
+        setId: targetSetId,
+        respondingParty,
+        vesselId,
+        selectedVesselName: selectedVessel?.name,
+        selectedCrewId,
+        selectedCrewName: selectedCrew?.fullName,
+        selectedEquipmentId,
+        selectedEquipmentName: selectedEquipment?.name,
+        selectedAssuranceObjects,
+        existingDocuments: documents,
+        lookupContext: { vessels, crew, equipment, assuranceObjects: storeAssuranceObjects },
+      });
+    finalRequirements.splice(0, finalRequirements.length, ...preseededRequirements);
+
     const ownerOrg = charterer.trim() || clientOrg;
     const effectiveCharterer = ownerOrg;
     /* a request keeps the creating organization as initiator while the client is the project client */
     const initiatorOrg = requestContext ? defaultCharterer : ownerOrg;
 
-    const effectiveRequirements = autoAttachDocumentsToRequirements(finalRequirements, {
-      documents,
-      vessel: selectedVesselForScope,
-      vessels,
-      crew,
-      selectedCrewId,
-      selectedCrewIds,
-      equipment,
-      selectedEquipmentId,
-      selectedVesselId: vesselId,
-      targetSubtype: assuranceType,
-      /* A16: vault auto-attach only reuses Vendor-owned library evidence */
-      reuseSet: {
-        clientOrg: ownerOrg,
-        charterer: effectiveCharterer,
-        serviceProviderOrg: effectiveVendorOrg,
-        respondingParty:
-          Object.keys(orgPartyRoles).find((org) => orgPartyRoles[org] === 'Responding party') ||
-          requestContext?.respondingParty ||
-          effectiveVendorOrg,
-      },
-    });
+    const effectiveRequirements = finalRequirements;
 
     const invalidTask = finalRequirements.find(
       (r) => r.targetDate && validateTaskTargetDate(r.targetDate, complianceDeadline)
@@ -2624,6 +2564,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     if (editingDraftId) {
       updateAssuranceSet(draftSet);
     } else {
+      demoDocuments.forEach((doc) => addDocument(doc));
       addAssuranceSet(draftSet);
     }
     setShowCancelPrompt(false);
