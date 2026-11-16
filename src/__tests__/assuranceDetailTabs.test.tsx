@@ -1226,9 +1226,9 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
 
     const verifierRow = screen.getByTestId('toggle-req-REQ-PERSONA-01').closest('tr');
     expect(verifierRow).not.toBeNull();
-    // Verifier row has Version and PDF review and no Upload
+    // Verifier row has Version and View document and no Upload
     expect(within(verifierRow!).getByText('v3.2')).toBeInTheDocument();
-    expect(within(verifierRow!).getByTitle(/pdf review/i)).toBeInTheDocument();
+    expect(within(verifierRow!).getByTitle(/view document/i)).toBeInTheDocument();
     expect(within(verifierRow!).queryByTitle(/upload/i)).toBeNull();
 
     unmountVerifier();

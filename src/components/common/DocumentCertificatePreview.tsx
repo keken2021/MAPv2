@@ -56,6 +56,9 @@ export const DocumentCertificatePreview: React.FC<DocumentCertificatePreviewProp
   const handleZoomOut = () => setInternalScale((prev) => Math.max(Number((prev - 0.1).toFixed(2)), 0.5));
   const handlePrint = () => exportDocumentAsPdf(document);
 
+  const isFilenameTitle = Boolean(document.title && /\.[a-z0-9]{2,5}$/i.test(document.title));
+  const certificateTitle = document.title && !isFilenameTitle ? document.title : layout.title;
+
   const content = (
     <div
       className="bg-white text-dark shadow position-relative mx-auto transition-all"
@@ -101,7 +104,7 @@ export const DocumentCertificatePreview: React.FC<DocumentCertificatePreviewProp
           lineHeight: 1.2,
         }}
       >
-        {document.title || layout.title}
+        {certificateTitle}
       </h2>
 
       {/* Subtitle */}
@@ -113,7 +116,7 @@ export const DocumentCertificatePreview: React.FC<DocumentCertificatePreviewProp
           lineHeight: 1.2,
         }}
       >
-        {document.title && document.title !== layout.title
+        {certificateTitle !== layout.title
           ? `${layout.title} · ${layout.subtitle}`
           : layout.subtitle}
       </div>
