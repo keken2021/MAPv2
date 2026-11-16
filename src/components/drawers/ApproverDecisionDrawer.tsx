@@ -241,7 +241,11 @@ export const ApproverDecisionDrawer: React.FC<ApproverDecisionDrawerProps> = ({
             <div className="map-drawer-stack">
               <div className="map-drawer-inset d-flex align-items-center gap-2 text-secondary small">
                 <FileText size={16} />
-                <span>No document attached to this requirement yet.</span>
+                <span>
+                  {requirement.documentId || requirement.linkedDocumentId
+                    ? 'The attached document could not be found.'
+                    : 'No document attached to this requirement yet.'}
+                </span>
               </div>
               {verificationCard}
               {decisionCard}
