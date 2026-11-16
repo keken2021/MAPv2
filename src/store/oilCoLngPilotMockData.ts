@@ -490,7 +490,7 @@ const ss01Rows: EvidenceRow[] = [
     targetObjectId: OIL_CO_AURORA_ID,
     notes: "Client updated requirement mid-set to require OCIMF SIRE 2.0 inspection format.",
     reuploadReason:
-      "Certificate expires on 2027-03-01, before the charter ends (2027-05-14). Reupload a new version that covers the full contract period.",
+      "Certificate expires on 2027-03-01, before the charter ends (2027-12-31). Reupload a new version that covers the full contract period.",
     decisionTime: "2026-11-14T08:00:00.000Z",
   },
 ];
@@ -1158,8 +1158,8 @@ export const OIL_CO_PILOT_VESSELS: Vessel[] = [
         clientOrganization: OIL_CO_ORG,
         charterTitle: "LNG Transport Charter",
         assuranceSetId: OIL_CO_SS01_ID,
-        charterStart: "2026-11-15",
-        charterEnd: "2027-05-14",
+        charterStart: "2026-12-20",
+        charterEnd: "2027-12-31",
         outcome: "In Progress",
         notes: "Oil Company charter of LNGC Northwind Aurora.",
       },
@@ -1292,9 +1292,9 @@ export const OIL_CO_PILOT_ASSURANCE_SETS: AssuranceSet[] = [
       seededObject(SEEDED_ACTIVITY_OBJECTS, "OBJ-PROC-HELI-01"),
       seededObject(SEEDED_ACTIVITY_OBJECTS, "OBJ-METH-ROUTE-01"),
     ],
-    startDate: "2026-11-15",
-    endDate: "2027-05-14",
-    deadline: "2026-11-15",
+    startDate: "2026-12-20",
+    endDate: "2027-12-31",
+    deadline: "2027-10-15",
     revisedCompletionDate: "2026-11-22",
     datePermissionGrants: [
       {
@@ -1715,7 +1715,7 @@ export const OIL_CO_PILOT_NOTIFICATIONS: AppNotification[] = [
     type: "document_correction",
     subject: "Fix expiry on SIRE 2.0 report — LNG Transport Charter",
     message:
-      "XY Marine returned REQ-SS01-20: expiry 2027-03-01 does not cover the charter to 2027-05-14. Edit or reupload with a later expiry, then verification, inspection and approval can finish the set.",
+      "XY Marine returned REQ-SS01-20: expiry 2027-03-01 does not cover the charter to 2027-12-31. Edit or reupload with a later expiry, then verification, inspection and approval can finish the set.",
     recipientUserId: "USR-102",
     senderUserId: "USR-229",
     senderName: XY_VERIFIER,

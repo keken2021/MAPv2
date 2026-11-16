@@ -61,6 +61,7 @@ export const VerifierWorkspaceView: React.FC = () => {
     activeSessionUserId,
     currentEntityId,
     setCurrentHashView,
+    verifyDemoPreseededUploads,
   } = useMapStore();
   const sessionUser = useMemo(
     () =>
@@ -71,6 +72,15 @@ export const VerifierWorkspaceView: React.FC = () => {
       ),
     [activePersona, users, activeDemoOrganization, activeSessionUserId],
   );
+  /* demo: pre-seeded uploads turn Verified only when the assigned verifier opens the queue, not while the submitter is still working */
+  useEffect(() => {
+    if (activePersona !== 'Verifier') return;
+    assuranceSets.forEach((set) => {
+      if (isAssuranceSetAssignedToPersona(set, activePersona, activeDemoOrganization, sessionUser)) {
+        verifyDemoPreseededUploads(set.id);
+      }
+    });
+  }, [activePersona, activeDemoOrganization, sessionUser, assuranceSets, verifyDemoPreseededUploads]);
   const [selectedDoc, setSelectedDoc] = useState<MasterDocument | null>(null);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
 

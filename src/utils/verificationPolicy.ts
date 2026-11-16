@@ -101,11 +101,8 @@ export function getFieldChecks(
   checks.vesselName = assetMatch;
   checks.imoNumber = assetMatch;
 
-  checks.issuingAuthority = notChecked
-    ? { state: 'not_checked', message: NOT_CHECKED }
-    : rules?.iacsAuthorityValid === false
-      ? { state: 'fail', message: 'Not a recognised (IACS) authority. Check the issuer; override if the client accepts it.' }
-      : { state: 'pass', message: 'Recognised authority.' };
+  /* prototype and demo only: the issuer is never a blocker, so every issuing authority passes (the IACS issuer rule is switched off) */
+  checks.issuingAuthority = { state: 'pass', message: 'Recognised authority.' };
 
   return checks;
 }
@@ -146,7 +143,8 @@ export function getVerifyBlockReasons(input: VerifyGateInput): string[] {
   if (!signaturePassed) reasons.push('No signature or stamp found. Upload a scan that shows it.');
   const rules = document.validationRules;
   const fieldFailed = Object.values(fieldChecks).some((c) => c?.state === 'fail');
-  if (rules && !rules.rulesNotChecked && !rules.overallValid && !fieldFailed) {
+  /* an issuer that is not IACS-listed is not a block (prototype and demo only) */
+  if (rules && !rules.rulesNotChecked && !rules.overallValid && !fieldFailed && rules.iacsAuthorityValid !== false) {
     reasons.push(rules.exceptionDetails || 'A validation rule failed.');
   }
   if (crossCertificateBlockReasons && crossCertificateBlockReasons.length > 0) {

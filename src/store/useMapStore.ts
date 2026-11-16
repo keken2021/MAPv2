@@ -566,6 +566,8 @@ export interface MapStoreState {
     /* the report facts, when the requirement asks for an inspection report */
     inspectionReport?: InspectionReportEvidence,
   ) => void;
+  /* demo: marks pre-seeded uploads Verified once a verifier is on the set; the submitter never sees them as done */
+  verifyDemoPreseededUploads: (setId?: string) => void;
   addDocumentVersion: (
     docId: string,
     newVersionLabel: string,
@@ -4909,47 +4911,45 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       logStageTransitionAudit(get, updatedSet, previousSet.stage, updatedSet.stage);
     }
 
-    /* demo: when submission completes and Verification begins, auto-verify pre-seeded uploads so only live uploads remain for the verifier */
-    if (
-      previousSet &&
-      updatedSet &&
-      previousSet.stage !== "Verification" &&
-      updatedSet.stage === "Verification" &&
-      updatedSet.requirements.some(
-        (req) => req.demoPreseeded && req.verifierStatus === "Pending" && Boolean(req.documentId),
-      )
-    ) {
-      set((state) => {
-        const target = state.assuranceSets.find((s) => s.id === setId);
-        if (!target) return state;
-        const { set: nextSet, documents: nextDocuments } = autoVerifyDemoPreseededRequirements(
-          target,
-          state.documents,
-        );
-        const { updatedProjects: syncedProjects, updatedAssuranceSets: syncedSets } =
-          syncAllAffectedProjectRollups(state.projects, state.assuranceSets.map((s) => (s.id === setId ? nextSet : s)), [
-            setId,
-          ]);
-        return {
-          documents: nextDocuments,
-          assuranceSets: syncedSets,
-          projects: syncedProjects,
-        };
-      });
-      get().logAuditEvent({
-        action: "Demo: auto-verified pre-seeded uploads",
-        targetAsset: `${setId}`,
-        justificationNotes:
-          "Pre-seeded demo uploads marked Verified on entering Verification so the verifier only reviews the live uploads.",
-      });
-    }
-
     /* a submitted document goes straight to the set's verifier, when one is appointed */
     notifySubmittedForReview(get, setId, requirementId, preparedDoc.id);
 
     /* the upload answers the renewals of the document it replaces; the new document is then checked in turn */
     closeDocumentRenewalNotifications(set, replacedDocumentId, setId);
     get().raiseDocumentRenewalNotifications([setId]);
+  },
+  verifyDemoPreseededUploads: (setId) => {
+    const ids = get()
+      .assuranceSets.filter(
+        (s) =>
+          (!setId || s.id === setId) &&
+          s.stage === "Verification" &&
+          s.requirements.some((req) => req.demoPreseeded && req.verifierStatus === "Pending" && Boolean(req.documentId)),
+      )
+      .map((s) => s.id);
+    if (ids.length === 0) return;
+    set((state) => {
+      let nextDocs = state.documents;
+      let nextSets = state.assuranceSets;
+      ids.forEach((id) => {
+        const target = nextSets.find((s) => s.id === id);
+        if (!target) return;
+        const result = autoVerifyDemoPreseededRequirements(target, nextDocs);
+        nextDocs = result.documents;
+        nextSets = nextSets.map((s) => (s.id === id ? result.set : s));
+      });
+      const { updatedProjects: syncedProjects, updatedAssuranceSets: syncedSets } =
+        syncAllAffectedProjectRollups(state.projects, nextSets, ids);
+      return { documents: nextDocs, assuranceSets: syncedSets, projects: syncedProjects };
+    });
+    ids.forEach((id) =>
+      get().logAuditEvent({
+        action: "Demo: auto-verified pre-seeded uploads",
+        targetAsset: id,
+        justificationNotes:
+          "Pre-seeded demo uploads marked Verified when the verifier opened the set, so the verifier only reviews the live uploads.",
+      }),
+    );
   },
   addDocumentVersion: (
     docId,

@@ -1,7 +1,7 @@
 /* Oil Co demo helpers for assurance set template walkthroughs. */
 
 import { AssuranceRequirement, AssuranceSet } from '../types/assurance';
-import { DocumentEntityType, MasterDocument } from '../types/document';
+import { DocumentEntityType, MasterDocument, VesselCertAttributes } from '../types/document';
 import {
   DocumentObjectLookupContext,
   DocumentTargetObject,
@@ -52,6 +52,11 @@ function resolveTargetObject(
   return undefined;
 }
 
+/* the IMO number of a vessel object: its identifier reads "IMO: 9694414" or just the number */
+function parseImoFromIdentifier(identifier?: string): string {
+  return (identifier || '').replace(/^IMO:?\s*/i, '').trim();
+}
+
 /* constructs a single demo MasterDocument for an attached requirement slot */
 export function buildDemoMasterDocument(
   req: AssuranceRequirement,
@@ -59,6 +64,7 @@ export function buildDemoMasterDocument(
   setId: string,
   respondingParty: string,
   target?: Pick<DocumentTargetObject, 'type' | 'id'> & { name?: string },
+  vesselInfo?: { name?: string; imoNumber?: string },
 ): MasterDocument {
   const now = new Date().toISOString();
   const demoDocId = `DOC-DEMO-${setId}-${index + 1}`;
@@ -66,6 +72,34 @@ export function buildDemoMasterDocument(
   const entityType: DocumentEntityType = target?.type
     ? getEntityTypeForObjectType(target.type)
     : 'Vessel Certificate';
+  const expiryDate = new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10);
+  const issueDate = new Date(Date.now() - 365 * 86400000).toISOString().slice(0, 10);
+  /* a vessel document carries the vessel name, IMO and every extracted field, so the review drawer has no mandatory field missing */
+  const vesselAttributes: VesselCertAttributes | undefined =
+    target?.type === 'vessel'
+      ? {
+          title: req.title,
+          certificateNumber: `DEMO-${index + 1}`,
+          certType: req.title,
+          issuingBody: respondingParty,
+          issueDate,
+          expiryDate,
+          vesselName: vesselInfo?.name || target.name || '',
+          imoNumber: vesselInfo?.imoNumber || '',
+          flagState: 'Australia',
+          assetMatchFlag: true,
+          lastSurveyDate: issueDate,
+          ocrConfidence: 96,
+          status: 'Valid',
+          uniqueTrackingNumber: `DEMO-UTN-${setId}-${index + 1}`,
+          issuingState: 'Australia',
+          recognisedOrganisation: respondingParty,
+          placeOfIssue: 'Fremantle, WA',
+          surveyCompletionDate: issueDate,
+          anniversaryDate: expiryDate,
+          companyImoNumber: '5234871',
+        }
+      : undefined;
 
   return {
     id: demoDocId,
@@ -77,10 +111,11 @@ export function buildDemoMasterDocument(
     targetObjectName: target?.name,
     certificateNo: `DEMO-${index + 1}`,
     issuingAuthority: respondingParty,
-    expiryDate: new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10),
+    expiryDate,
     ocrConfidence: 96,
     complianceState: 'Valid',
     currentVersion: 'v1.0',
+    ...(vesselAttributes ? { vesselAttributes } : {}),
     versions: [
       {
         versionLabel: 'v1.0',
@@ -137,6 +172,7 @@ export function rebuildMissingDemoDocuments(
           name: set.assuranceObjects[0].name,
         }
       : undefined;
+  const targetImo = parseImoFromIdentifier(set.assuranceObjects?.[0]?.identifier);
 
   const restored: MasterDocument[] = [];
   set.requirements.forEach((req, index) => {
@@ -146,7 +182,10 @@ export function rebuildMissingDemoDocuments(
     if (existingIds.has(req.documentId)) {
       return;
     }
-    const doc = buildDemoMasterDocument(req, index, set.id, respondingParty, target);
+    const doc = buildDemoMasterDocument(req, index, set.id, respondingParty, target, {
+      name: target?.name,
+      imoNumber: targetImo,
+    });
     doc.id = req.documentId;
     if (req.verifierStatus === 'Verified') {
       doc.verificationStatus = 'Verified';
@@ -166,6 +205,8 @@ export function attachDemoDocumentsToRequirements(
   const demoDocuments: MasterDocument[] = [];
   const respondingParty = options.respondingParty || 'Service Provider';
   const target = resolveTargetObject(options);
+  const targetVessel =
+    target?.type === 'vessel' ? options.lookupContext?.vessels?.find((v) => v.id === target.id) : undefined;
 
   const updatedRequirements = requirements.map((req, index) => {
     if (index < DEMO_OPEN_UPLOAD_COUNT) {
@@ -192,7 +233,10 @@ export function attachDemoDocumentsToRequirements(
     let attachedVersion = duplicate?.document?.currentVersion || 'v1.0';
 
     if (!attachedDocId) {
-      const demoDoc = buildDemoMasterDocument(req, index, options.setId, respondingParty, target);
+      const demoDoc = buildDemoMasterDocument(req, index, options.setId, respondingParty, target, {
+        name: targetVessel?.name || target?.name,
+        imoNumber: targetVessel?.imoNumber,
+      });
       demoDocuments.push(demoDoc);
       attachedDocId = demoDoc.id;
       attachedVersion = 'v1.0';

@@ -587,6 +587,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
     editAssuranceTask,
     removeAssuranceTask,
     addDocument,
+    verifyDemoPreseededUploads,
   } = useMapStore();
   const [stakeholderError, setStakeholderError] = useState<string | null>(null);
   const [isAddToProjectOpen, setIsAddToProjectOpen] = useState(false);
@@ -1319,6 +1320,10 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   const isCAdminPersona = activePersona === 'C Admin';
   const isSubmitter = activePersona === 'Submitter';
   const isVerifier = activePersona === 'Verifier';
+  /* demo: pre-seeded uploads turn Verified only when a verifier opens the set, not while the submitter is still working */
+  useEffect(() => {
+    if (isVerifier && assuranceSet?.id) verifyDemoPreseededUploads(assuranceSet.id);
+  }, [isVerifier, assuranceSet?.id, assuranceSet?.stage, verifyDemoPreseededUploads]);
   const isApproverOrInspector = activePersona === 'Approver' || activePersona === 'Inspector';
   const isAdminViewer = activePersona === 'Administrator' || activePersona === 'C Admin';
   const reqTableColSpan = isSubmitter ? 3 : 4;
