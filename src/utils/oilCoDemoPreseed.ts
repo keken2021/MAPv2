@@ -9,6 +9,7 @@ import {
   getEntityTypeForObjectType,
 } from './documentObjectHelpers';
 import { recalculateSetReadiness } from './projectHelpers';
+import { getSetAssignedSubmitter } from './setStakeholders';
 
 /** first N requirements stay awaiting upload; the rest start as Submitted */
 export const DEMO_OPEN_UPLOAD_COUNT = 3;
@@ -113,6 +114,48 @@ export function filterNewDemoDocuments(
   }
   const existingIds = new Set((existing || []).map((d) => d.id));
   return docs.filter((doc) => !existingIds.has(doc.id));
+}
+
+/**
+ * Rebuilds missing demo documents for requirements marked as demoPreseeded whose documentId is absent from the documents store.
+ * Leaves non-demoPreseeded requirements untouched.
+ */
+export function rebuildMissingDemoDocuments(
+  set?: AssuranceSet | null,
+  documents: MasterDocument[] = [],
+): MasterDocument[] {
+  if (!set || !set.requirements || set.requirements.length === 0) {
+    return [];
+  }
+  const existingIds = new Set((documents || []).map((d) => d.id));
+  const respondingParty = getSetAssignedSubmitter(set) || 'Service Provider';
+  const target =
+    set.assuranceObjects && set.assuranceObjects.length > 0
+      ? {
+          type: set.assuranceObjects[0].type,
+          id: set.assuranceObjects[0].id,
+          name: set.assuranceObjects[0].name,
+        }
+      : undefined;
+
+  const restored: MasterDocument[] = [];
+  set.requirements.forEach((req, index) => {
+    if (!req.demoPreseeded || !req.documentId) {
+      return;
+    }
+    if (existingIds.has(req.documentId)) {
+      return;
+    }
+    const doc = buildDemoMasterDocument(req, index, set.id, respondingParty, target);
+    doc.id = req.documentId;
+    if (req.verifierStatus === 'Verified') {
+      doc.verificationStatus = 'Verified';
+    }
+    existingIds.add(doc.id);
+    restored.push(doc);
+  });
+
+  return restored;
 }
 
 /* attaches demo documents to all requirements beyond the first 3 */

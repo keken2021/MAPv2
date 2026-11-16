@@ -10,6 +10,7 @@ import {
   attachDemoDocumentsToRequirements,
   autoVerifyDemoPreseededRequirements,
   filterNewDemoDocuments,
+  rebuildMissingDemoDocuments,
 } from '../utils/oilCoDemoPreseed';
 import { derivePipelineStage } from '../utils/readinessHelpers';
 
@@ -473,6 +474,106 @@ describe('oil Co AS-04 / AS-05 demo preseed', () => {
 
       const result = filterNewDemoDocuments([doc1, doc2], existing);
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('rebuildMissingDemoDocuments', () => {
+    const makeSet = (requirements: AssuranceRequirement[]): AssuranceSet => ({
+      id: 'AS-REPAIR-01',
+      title: 'Repair Test Set',
+      visibility: 'organization',
+      assuranceType: 'Vessel',
+      scopeType: 'Vessel',
+      stage: 'Approval',
+      readinessScore: 80,
+      mandatoryInspectionRequired: false,
+      inspectionCompleted: false,
+      parties: [
+        { organization: 'Client Org', role: 'Requesting party' },
+        { organization: 'Service Provider', role: 'Responding party' },
+      ],
+      assuranceObjects: [
+        { id: 'VES-01', type: 'vessel', name: 'Test Vessel', ownerOrganization: 'Service Provider' },
+      ],
+      requirements,
+      createdBy: { userId: 'USR-01', name: 'User 1', persona: 'Administrator' },
+    });
+
+    it('(a) a demoPreseeded requirement with a missing document yields one document whose id equals req.documentId and title equals req.title', () => {
+      const req: AssuranceRequirement = {
+        id: 'REQ-01',
+        category: 'Statutory Certificate',
+        title: 'Safety Equipment Certificate',
+        isMandatory: true,
+        isFulfilled: true,
+        verifierStatus: 'Verified',
+        documentId: 'DOC-DEMO-AS-REPAIR-01-4',
+        demoPreseeded: true,
+        ocrConfidence: 96,
+      };
+      const set = makeSet([req]);
+      const documents: MasterDocument[] = [];
+
+      const restored = rebuildMissingDemoDocuments(set, documents);
+      expect(restored).toHaveLength(1);
+      expect(restored[0].id).toBe(req.documentId);
+      expect(restored[0].title).toBe(req.title);
+      expect(restored[0].verificationStatus).toBe('Verified');
+    });
+
+    it('(b) a requirement with a document already in the list yields none', () => {
+      const req: AssuranceRequirement = {
+        id: 'REQ-01',
+        category: 'Statutory Certificate',
+        title: 'Safety Equipment Certificate',
+        isMandatory: true,
+        isFulfilled: true,
+        verifierStatus: 'Verified',
+        documentId: 'DOC-DEMO-AS-REPAIR-01-4',
+        demoPreseeded: true,
+        ocrConfidence: 96,
+      };
+      const set = makeSet([req]);
+      const existingDoc: MasterDocument = {
+        id: 'DOC-DEMO-AS-REPAIR-01-4',
+        title: req.title,
+        entityType: 'Vessel Certificate',
+        certificateNo: 'DEMO-4',
+        issuingAuthority: 'Service Provider',
+        expiryDate: '2027-01-01',
+        ocrConfidence: 96,
+        complianceState: 'Valid',
+        currentVersion: 'v1.0',
+        versions: [],
+        validationRules: {
+          charterBufferPassed: true,
+          assetMatch100Percent: true,
+          iacsAuthorityValid: true,
+          overallValid: true,
+        },
+        verificationStatus: 'Verified',
+      };
+
+      const restored = rebuildMissingDemoDocuments(set, [existingDoc]);
+      expect(restored).toEqual([]);
+    });
+
+    it('(c) a non-demoPreseeded requirement with a missing documentId yields none', () => {
+      const req: AssuranceRequirement = {
+        id: 'REQ-VAULT-01',
+        category: 'Statutory Certificate',
+        title: 'Vault Missing Certificate',
+        isMandatory: true,
+        isFulfilled: false,
+        verifierStatus: 'Pending',
+        documentId: 'DOC-REAL-VAULT-999',
+        demoPreseeded: undefined,
+        ocrConfidence: 0,
+      };
+      const set = makeSet([req]);
+
+      const restored = rebuildMissingDemoDocuments(set, []);
+      expect(restored).toEqual([]);
     });
   });
 });

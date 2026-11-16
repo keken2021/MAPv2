@@ -1,12 +1,9 @@
-/* 
-  file summary: assurance set command center deep-dive view presenting stage pipeline stepper and requirements register in light theme.
-  responsibilities: manages requirement verification statuses, displays pipeline stage progress, and enforces C Admin read-only rules.
-  role in system: deep-dive view rendered when an assurance set row is selected.
-*/
+/* Assurance set command center deep-dive view presenting stage pipeline stepper and requirements register. */
 
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, ChevronRight, Users, UserMinus, RotateCcw, FolderOpen, FileCheck, FileText, Lock, RefreshCw, Upload, Pencil, Calendar, Key, ShieldCheck, Plus, Trash2, Eye, Search } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
+import { rebuildMissingDemoDocuments } from '../utils/oilCoDemoPreseed';
 import { PipelineStepper } from '../components/common/PipelineStepper';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
 import { DetailHeader } from '../components/common/DetailHeader';
@@ -589,6 +586,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
     addAssuranceTask,
     editAssuranceTask,
     removeAssuranceTask,
+    addDocument,
   } = useMapStore();
   const [stakeholderError, setStakeholderError] = useState<string | null>(null);
   const [isAddToProjectOpen, setIsAddToProjectOpen] = useState(false);
@@ -743,6 +741,12 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
 
   const cleanSetId = setId ? setId.split('?')[0].split('/')[0] : '';
   const assuranceSet = assuranceSets.find((s) => s.id === cleanSetId || s.id === setId);
+
+  useEffect(() => {
+    if (assuranceSet) {
+      rebuildMissingDemoDocuments(assuranceSet, documents).forEach(addDocument);
+    }
+  }, [assuranceSet?.id, documents.length, addDocument]);
 
   const initialPreselect = peekAssuranceDetailPreselect(cleanSetId);
   const [activeTab, setActiveTab] = useState<AssuranceDetailTab>(
